@@ -1,0 +1,43 @@
+build
+nsqd/nsqd
+nsqlookupd/nsqlookupd
+nsqreader/nsqreader
+nsqstatsd/nsqstatsd
+nsqadmin/nsqadmin
+examples/bench_reader/bench_reader
+examples/bench_writer/bench_writer
+examples/nsq_to_file/nsq_to_file
+examples/nsq_pubsub/nsq_pubsub
+examples/nsq_to_http/nsq_to_http
+examples/nsq_tail/nsq_tail
+examples/nsq_stat/nsq_stat
+dist
+
+*.dat
+
+# Go.gitignore
+
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+
+# Folders
+_obj
+_test
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+*.exe
+
+profile
