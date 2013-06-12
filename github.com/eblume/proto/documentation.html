@@ -1,0 +1,296 @@
+<!--
+	Copyright 2009 The Go Authors. All rights reserved.
+	Use of this source code is governed by a BSD-style
+	license that can be found in the LICENSE file.
+-->
+<!--
+	Note: Static (i.e., not template-generated) href and id
+	attributes start with "pkg-" to make it impossible for
+	them to conflict with generated attributes (some of which
+	correspond to Go identifiers).
+-->
+
+
+
+	<pre><span class="comment">// proto gives Go operations like Map, Reduce, Filter, De/Multiplex, etc.</span>
+<span class="comment">// without sacrificing idiomatic harmony or speed.</span>
+<span class="comment">//</span>
+<span class="comment">// The `Proto` type is a stand-in approximation for dynamic typing. Due to</span>
+<span class="comment">// Go&#39;s powerful casting and type inference idioms, we can approximate the</span>
+<span class="comment">// flexibility of dynamic typing even though Go is a statically typed language.</span>
+<span class="comment">// Doing so sacrifices some of the benefits of static typing AND some of the</span>
+<span class="comment">// benefits of dynamic typing, but this sacrifice is fundamentally required by</span>
+<span class="comment">// Go until such time as a true &#39;Generic&#39; type is implemented.</span>
+<span class="comment">//</span>
+<span class="comment">// In order to use a Proto-typed variable (from here on out, simply a &#39;Proto&#39;),</span>
+<span class="comment">// you will generally have to cast it to a type that you will know to use based</span>
+<span class="comment">// on the semantics of your program.</span>
+<span class="comment">//</span>
+<span class="comment">// This package (specifically, the other files in this package) provide</span>
+<span class="comment">// operations on Proto variables as well as some that make Proto variables out</span>
+<span class="comment">// of &#39;traditionally typed&#39; variables. Many of the operations will require the</span>
+<span class="comment">// use of higher-order functions which you will need to provide, and those</span>
+<span class="comment">// functions commonly will need you to manually &#34;unbox&#34; (cast-from-Proto) the</span>
+<span class="comment">// variable to perform useful operations.</span>
+<span class="comment">//</span>
+<span class="comment">// Examples of the use of this package can be found in the &#34;*_test.go&#34; files,</span>
+<span class="comment">// which contain testing code. A good example of a higher-order function which</span>
+<span class="comment">// will commonly need manual-unboxing is the `Filter` function, found in</span>
+<span class="comment">// &#34;filter.go&#34;. `Filter` takes as its first argument a filter-function which</span>
+<span class="comment">// will almost certainly require you to un-box the Proto channel values that it</span>
+<span class="comment">// receives to perform the filtering action.</span>
+<span class="comment">//</span>
+<span class="comment">// Finally, a word on the entire point of this package: while it is named after</span>
+<span class="comment">// the Proto type that pervades it and guides its syntax, the true nature of</span>
+<span class="comment">// the `proto` package lies in cascading channels, rather than in dynamic</span>
+<span class="comment">// typing. In fact this package might be more appropriately named after</span>
+<span class="comment">// channels. Maybe `canal` would have been a better name. I wanted to bring</span>
+<span class="comment">// the syntax and familiar patterns of functional programming idioms to the</span>
+<span class="comment">// power and scalability of Go&#39;s goroutines and channels, and found that the</span>
+<span class="comment">// syntax made this task very simple.</span>
+<span class="comment">//</span>
+<span class="comment">// You may find, as I did, that the majority of the code in this package is very</span>
+<span class="comment">// &#39;obvious&#39;. At first I was concerned by this - much of the code is very</span>
+<span class="comment">// trivial - but now I feel pleased by the re-usability and natural</span>
+<span class="comment">// &#39;correctness&#39; of `proto`. Look at this package not as some monumental</span>
+<span class="comment">// time-saving framework, but rather as a light scaffold for a useful and</span>
+<span class="comment">// idiomatic style of programming within the existing constructs of Go.</span>
+<span class="comment">//</span>
+<span class="comment">// Ultimately, though, you&#39;re going to be typing the word Proto an awful lot,</span>
+<span class="comment">// and thus the type became the eponym.</span>
+package proto
+
+<span class="comment">// Given a slice of Proto&#39;s, send them on a newly created channel and then</span>
+<span class="comment">// close that channel. If the slice is empty, this does the correct thing - it</span>
+<span class="comment">// creates the channel, and then closes it promptly. As expected, this function</span>
+<span class="comment">// does not block beyond the setup time.</span>
+func Send(vals []Proto) (send chan Proto) {
+    send = make(chan Proto, len(vals))
+    go func() {
+        defer close(send)
+        for i := range vals {
+            send &lt;- vals[i]
+        }
+    }()
+    return
+}
+
+<span class="comment">// The inverse of `Send`. Given a channel of Proto&#39;s, gathers them in to a</span>
+<span class="comment">// newly created slice, and then returns that slice. This function DOES BLOCK.</span>
+<span class="comment">// If the channel never receives any values, the returned slice will be empty,</span>
+<span class="comment">// with length 0, and capacity 1.</span>
+func Gather(recv chan Proto) (result []Proto) {
+    result = make([]Proto, 0, 1)
+    for val := range recv {
+        result = append(result, val)
+    }
+    return
+}
+
+<span class="comment">// Sends all items from channel `a` to channel `b`, and then closes `b`. Does</span>
+<span class="comment">// not close `a`. Does not block. This function is useful, eg, when trying to</span>
+<span class="comment">// create a loop of procedures that return channels - take the output channel</span>
+<span class="comment">// of the last element in the chain, create a channel for the input to the first</span>
+<span class="comment">// element in the chain, and link them using Splice.</span>
+func Splice(a chan Proto, b chan Proto) {
+    go func() {
+        defer close(b)
+        for val := range a {
+            b &lt;- val
+        }
+    }()
+}
+
+<span class="comment">// Filter function type definition. A FilterFn is given a single Proto and must</span>
+<span class="comment">// decide whether to return `true` or `false`, meaning &#34;filter&#34; or &#34;don&#39;t</span>
+<span class="comment">// filter&#34; respectively. The implementer will probably need to unbox the Proto</span>
+<span class="comment">// argument to a more useful type manually.</span>
+type FilterFn func(Proto) bool
+
+<span class="comment">// Filter the channel with the given function. `fn` must return true or false</span>
+<span class="comment">// for each individual element the channel may receive. If true, the element</span>
+<span class="comment">// will be sent on the return channel. As usual, this function does not block</span>
+<span class="comment">// beyond the time taken to set up the returned channel.</span>
+func Filter(fn FilterFn, recv chan Proto) (send chan Proto) {
+    send = make(chan Proto)
+    go func() {
+        defer close(send)
+        for val := range recv {
+            if fn(val) {
+                send &lt;- val
+            }
+        }
+    }()
+    return
+}
+
+<span class="comment">// Exactly like `Filter`, but every filter application gets its own goroutine.</span>
+<span class="comment">// Order is NOT preserved. As a rule of thumb, `PFilter` is only preferable</span>
+<span class="comment">// over `Filter` if `fn` is very expensive or if the consumer of the result</span>
+<span class="comment">// channel is very slow and buffering would be preferred (thus keeping up</span>
+<span class="comment">// consumption rates of `recv`).</span>
+func PFilter(fn FilterFn, recv chan Proto) (send chan Proto) {
+    send = make(chan Proto)
+    go func() {
+        defer close(send)
+        var group sync.WaitGroup
+        defer group.Wait()
+        for val := range recv {
+            group.Add(1)
+            go func(value Proto) {
+                defer group.Done()
+                if fn(value) {
+                    send &lt;- value
+                }
+            }(val)
+        }
+    }()
+    return
+}
+
+<span class="comment">// Mapping function type definition.</span>
+type MapFn func(Proto) Proto
+
+<span class="comment">// Apply `fn` to each value on `recv`, and send the results on the return</span>
+<span class="comment">// channel. Order is preserved. Though `Map` does not block, it is not parallel</span>
+<span class="comment">// - for a parallel version, see `PMap`.</span>
+func Map(fn MapFn, recv chan Proto) (send chan Proto) {
+    send = make(chan Proto)
+    go func() {
+        defer close(send)
+        for val := range recv {
+            send &lt;- fn(val)
+        }
+    }()
+    return
+}
+
+<span class="comment">// Parallel version of `Map`. Order is NOT preserved.</span>
+func PMap(fn MapFn, recv chan Proto) (send chan Proto) {
+    send = make(chan Proto)
+    go func() {
+        defer close(send)
+        var group sync.WaitGroup
+        defer group.Wait()
+        for val := range recv {
+            group.Add(1)
+            go func(value Proto) {
+                defer group.Done()
+                send &lt;- fn(value)
+            }(val)
+        }
+    }()
+    return
+}
+
+<span class="comment">// Combine multiple input channels in to one.</span>
+func Multiplex(inputs ...chan Proto) (send chan Proto) {
+    send = make(chan Proto)
+    go func() {
+        defer close(send)
+        var group sync.WaitGroup
+        defer group.Wait()
+        for i := range inputs {
+            group.Add(1)
+            go func(input chan Proto) {
+                defer group.Done()
+                for val := range input {
+                    send &lt;- val
+                }
+            }(inputs[i])
+        }
+    }()
+    return
+}
+
+<span class="comment">// Separate an input channel in to two output channels by applying a filter</span>
+<span class="comment">// function (see `Filter`). The first output channel will get the values that</span>
+<span class="comment">// passed the filter, the second will get those that did not.</span>
+func Demultiplex(fn FilterFn, recv chan Proto) (passed chan Proto,
+    failed chan Proto) {
+    passed = make(chan Proto)
+    failed = make(chan Proto)
+    go func() {
+        defer close(passed)
+        defer close(failed)
+        for val := range recv {
+            if fn(val) {
+                passed &lt;- val
+            } else {
+                failed &lt;- val
+            }
+        }
+    }()
+    return
+}
+
+<span class="comment">// The Proto type. (Get it?)</span>
+type Proto interface{}
+
+<span class="comment">// Reducing function type definition.</span>
+type ReduceFn func(Proto, Proto) Proto
+
+<span class="comment">// Reduce the `recv` channel by repeatedly applying `fn` on pairs of values</span>
+<span class="comment">// until only one value remains. The first invocation of `fn` will receive</span>
+<span class="comment">// the first two values from `recv`, all subsequent invocations will receive</span>
+<span class="comment">// progressive elements from `recv` *in order* - that is, `fn` may or may not</span>
+<span class="comment">// be associative. If `recv` receives only one value, `fn` will not be called</span>
+<span class="comment">// and the first and only value will be sent as the result. If `recv` receives</span>
+<span class="comment">// no values, `nil` will be sent (as a Proto type) as the result. Regardless,</span>
+<span class="comment">// `recv` will always receive one value and then be closed.</span>
+func Reduce(fn ReduceFn, recv chan Proto) (send chan Proto) {
+    send = make(chan Proto, 1)
+    go func() {
+        defer close(send)
+        var accum Proto = nil
+        for val := range recv {
+            if accum == nil {
+                accum = val
+            } else {
+                accum = fn(accum, val)
+            }
+        }
+        send &lt;- accum
+    }()
+    return
+}
+
+<span class="comment">// Trigger function type deceleration.</span>
+type TriggerFn func() Proto
+
+<span class="comment">// Call `fn` `count` times, passing the result on to the returned channel.</span>
+func Trigger(fn TriggerFn, count int) (send chan Proto) {
+    send = make(chan Proto)
+    go func() {
+        defer close(send)
+        for i := 0; i &lt; count; i++ {
+            send &lt;- fn()
+        }
+    }()
+    return
+}
+
+<span class="comment">// Exactly like `Trigger`, but each trigger happens in parallel. Order is NOT</span>
+<span class="comment">// preserved.</span>
+func PTrigger(fn TriggerFn, count int) (send chan Proto) {
+    send = make(chan Proto)
+    go func() {
+        defer close(send)
+        var group sync.WaitGroup
+        defer group.Wait()
+        for i := 0; i &lt; count; i++ {
+            group.Add(1)
+            go func() {
+                defer group.Done()
+                send &lt;- fn()
+            }()
+        }
+    }()
+    return
+}
+</pre>
+
+
+
+
+
