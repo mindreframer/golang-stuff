@@ -1,0 +1,21 @@
+language: go
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install mercurial bzr -qq
+install:
+  - mkdir -p $GOPATH/src/github.com/globocom/gandalf
+  - mv * $GOPATH/src/github.com/globocom/gandalf
+  - pushd $GOPATH/src/github.com/globocom/gandalf
+  - make get
+  - popd
+script:
+  - pushd $GOPATH/src/github.com/globocom/gandalf
+  - make test
+  - popd
+services: mongodb
+notifications:
+  irc:
+    channels:
+      - "irc.freenode.net#tsuru"
+    on_success: change
+    on_failure: always
