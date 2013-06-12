@@ -12,7 +12,7 @@ https://github.com/BurntSushi/ty.git
 https://github.com/cdarwin/go-koans.git
 https://github.com/ciju/gotunnel.git
 https://github.com/crowdmob/goamz.git
-https://github.com/darkhelmet/go-thestdlib.git
+https://github.com/mindreframer/go-thestdlib.git
 https://github.com/davecheney/autobench.git
 https://github.com/davepederson/genetic-go.git
 https://github.com/dotcloud/docker.git
