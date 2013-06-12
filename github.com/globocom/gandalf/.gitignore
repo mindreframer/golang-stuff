@@ -1,0 +1,5 @@
+*.sw[a-z]
+*.pyc
+webserver/webserver
+docs/build
+dist-*
