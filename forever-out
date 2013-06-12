@@ -1,0 +1,10 @@
+#!/bin/sh
+
+while true; do
+  for ((i=0; i<10; i++)); do
+    echo $(cat /dev/urandom | tr -cd '[:alnum:]' | head -c 30)
+    echo $(cat /dev/urandom | tr -cd '[:alnum:]' | head -c 30) >&2
+  done
+  sleep 5
+done
+
