@@ -1,0 +1,31 @@
+# This is the official list of people who have contributed code to
+# tsuru.
+# The AUTHORS file lists the copyright holders; this file lists people.
+# For example, Globo.com employees are listed here but not in AUTHORS,
+# because Globo.com holds the copyright.
+#
+# You can update this list using the following command:
+#
+#   % git shortlog -se | awk '{print $2 " " $3 " " $4}'
+#
+# Please keep this file sorted, and group users with multiple emails.
+
+Alberto Leal <albertonb@gmail.com>
+Andrews Medina <andrewsmedina@gmail.com>
+Bruno Torres <brunolct@live.com>
+Daniel Banck <daniel@dbanck.de>
+Danilo Bardusco <bardusco@gmail.com> <danilo@bardusco.com>
+Evandro Flores <eof@eof.com.br>
+Flavia Missi <flaviamissi@gmail.com>
+Francisco Souza <f@souza.cc> <fss@corp.globo.com>
+Gary Burd <gary@beagledreams.com>
+Glaucia Peres <gauperes@gmail.com>
+Isaiah Peng <issaria@gmail.com>
+Magno Torres <magno@corp.globo.com>
+Marco Sinhoreli <msinhore@gmail.com>
+Mayza Oliveira <mayza.deoliveira@gmail.com>
+Michael <hfeeki@gmail.com>
+Raninho <Raninho@Raninho.com.br>
+Sergey Koulikov <sergeykoulikov2011@gmail.com>
+Steve Phillips <elimisteve@gmail.com>
+Tarsis Azevedo <tarsis.azevedo@gmail.com>

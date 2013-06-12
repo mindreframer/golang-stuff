@@ -1,0 +1,3 @@
+#!/bin/bash -le
+
+python hooks/pre-receive.py
