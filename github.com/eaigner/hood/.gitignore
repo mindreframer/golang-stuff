@@ -1,0 +1,6 @@
+# osx noise
+.DS_Store
+profile
+example/example
+cmd/templates.go
+db/
