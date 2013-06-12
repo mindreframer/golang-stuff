@@ -1,0 +1,23 @@
+{
+  "FormatVersion": "0.6",
+  "Settings": {
+    "Arch": "386,amd64",
+    "ArtifactsDest": "target",
+    "Os": "darwin,linux,windows",
+    "PackageVersion": "0.6.0",
+    "PrereleaseInfo": "snapshot",
+    "Verbosity": "v",
+    "Resources": {
+      "Include": "INSTALL*",
+      "Exclude": "*.go"
+    },
+    "TaskSettings": {
+      "archive": {
+        "os": {
+          "linux": "TarGz",
+          "darwin": "TarGz"
+        }
+      }
+    }
+  }
+}
