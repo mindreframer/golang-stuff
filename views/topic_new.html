@@ -1,0 +1,26 @@
+<form action="" method="post">
+	<div>
+		<h2>话题标题:</h2>
+		<input type="text" name="title" value="">
+	</div>
+	<div>
+		<h2>选择节点:</h2>
+		<div class="controls">
+              <select id="selectError" name="nodeid">
+              {{if .nodes}}
+              	{{range .nodes}}
+              		<option value="{{.Id}}">{{.Title}}</option>
+              	{{end}}
+              {{else}}
+              		<option value="0">尚无节点</option>
+              {{end}}
+              </select>
+              <span class="help-inline">（选择本话题归属的上级节点，必选）</span>
+        </div>
+	</div>
+	<div>
+		<h2>话题内容：</h2>
+		<textarea class="ckeditor" name="content" colspan="3" rowspan="10"></textarea>
+	</div>
+	<input type="submit" class="btn" value="提交">
+</form>

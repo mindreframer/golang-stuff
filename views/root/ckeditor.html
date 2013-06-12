@@ -1,0 +1,155 @@
+<script type="text/javascript">
+
+                  function InsertHTML(v) {
+                    // Get the editor instance that we want to interact with.
+                    var editor = CKEDITOR.instances.ckeditor;
+                    //var value = document.getElementById( 'result' ).value;
+                    var value = v;
+
+                    // Check the active editing mode.
+                    if ( editor.mode == 'wysiwyg' )
+                    {
+                      // Insert HTML code.
+                      // http://docs.ckeditor.com/#!/api/CKEDITOR.editor-method-insertHtml
+                      editor.insertHtml( value );
+                    }
+                    else
+                      alert( '你必须在 WYSIWYG 模式才能在上传之后插入预览内容!' );
+                  }
+
+                  $(function() {
+                    $('#file_upload').uploadify({
+                      'fileObjName':'uploadfile',
+                          'debug' :false,
+                          'auto':true,
+                          'buttonText': "选择上传文件",
+                          'removeCompleted':false,
+                          'cancelImg': '/static/js/uploadify/uploadify-cancel.png',
+                          'swf'      : '/static/js/uploadify/uploadify.swf?var='+ (new Date()).getTime(),
+                          'uploader' : '/root-uploader?var=' + (new Date()).getTime(),
+                          'fileTypeDesc':'支持的格式：',
+                  
+                          'fileTypeExts':'*.jpg;*.jpge;*.gif;*.png',
+
+                          'overrideEvents' : ['onDialogClose'],
+                
+                          'onSelect' : function(file) {
+                                   
+                          },
+                          'onSelectError':function(file, errorCode, errorMsg){
+                              switch(errorCode) {
+                                  case -100:
+                                      alert("上传的文件数量已经超出系统限制的"+$('#file_upload').uploadify('settings','queueSizeLimit')+"个文件！");
+                                      break;
+                                  case -110:
+                                      alert("文件 ["+file.name+"] 大小超出系统限制的"+$('#file_upload').uploadify('settings','fileSizeLimit')+"大小！");
+                                      break;
+                                  case -120:
+                                      alert("文件 ["+file.name+"] 大小异常！");
+                                      break;
+                                  case -130:
+                                      alert("文件 ["+file.name+"] 类型不正确！");
+                                      break;
+                              }
+                          },
+                          'onFallback':function(){
+                              alert("您未安装FLASH控件，无法上传图片！请安装FLASH控件后再试。");
+                          },
+                          'onUploadSuccess': function(file, data, response) {
+                             // InsertHTML("<img src=\"" + data + "\" />");
+                              if (data.indexOf('Error') > -1) { 
+                                //alert(data);
+                                $("#eMessage").append("<div class=\"notification error png_bg\"><div>" + data + "</div></div>");
+                              } 
+                              else { 
+                              //$("#previewImage").attr("src", data.substr(2)).hide().fadeIn(2000); 
+                                InsertHTML(data);
+                              } 
+                            }
+                    });
+                  });
+</script>
+<p>
+              <label>内容：</label>
+              <textarea class="ckeditor" id="ckeditor" cols="79" rows="15" name="content">{{.topic.Content}}</textarea>
+</p>
+              <div id="eMessage"></div>
+<p>
+              <div id="eButtons" style="display: none">
+                <input onclick="SetContents();" type="button" value="填充招聘表格">
+                <input onclick="SetContents2();" type="button" value="填充联系表格">
+                <textarea cols="100" id="htmlArea" rows="3" style="display: none">
+                  <div class="row-fluid bcc">
+                    <div class="span2 bct">
+                      <div>职位：</div>
+                    </div>
+                    <div class="span4">人资专员</div>
+                    <div class="span2 bct">
+                      职位：
+                    </div>
+                    <div class="span4">人资专员</div>
+                  </div>
+                  <div class="row-fluid bcc">
+                    <div class="span2 bct">
+                      起始：
+                    </div>
+                    <div class="span4">2012年5月1日</div>
+                    <div class="span2 bct">
+                      截止：
+                    </div>
+                    <div class="span4">2013年5月1日</div>
+                  </div>
+                  <div class="row-fluid bcc">
+                    <div class="span2 bct">
+                      职责：
+                    </div>
+                    <div class="span8">
+                      <p>1、负责公司人力资源规划管理和人员配置；</p>
+                      <p>2、负责人力资源分析和职位评估；</p>
+                      <p>3、负责公司绩效考核、薪酬与福利、人力资源开发与培训、人事制度管理</p>
+                    </div>
+                  </div>
+                </textarea>
+                <textarea cols="100" id="htmlArea2" rows="3" style="display: none">
+                  <div class="row-fluid">
+                    <div class="span3">
+                      <h5>广州</h5>
+                    </div>
+                    <div class="span9"></div>
+                  </div>
+                  <div class="row-fluid">
+                    <div class="span3">
+                      地址/ADD:
+                    </div>
+                    <div class="span9"><p>广州市越秀区环市东路371-375号北塔2401、2406室,</p>
+                      <p>Room2401、2406，NorthTower，No.371-375,Huanshi East Road,Yuexiu District,Guangzhou.</p></div>
+                  </div>
+                  <div class="row-fluid">
+                    <div class="span3">
+                      电话/TEL:
+                    </div>
+                    <div class="span9">020-22371526</div>
+                  </div>
+                  <div class="row-fluid">
+                    <div class="span3">
+                      传真/FAX:
+                    </div>
+                    <div class="span9">020-22371527</div>
+                  </div>
+                  <div class="row-fluid">
+                    <div class="span3">
+                      电邮/EMAIL:
+                    </div>
+                    <div class="span9">interla888@163.com</div>
+                  </div>
+                </textarea>
+              </div>
+</p>
+            <div class="line"></div>
+<p>
+  <label>图片上传：</label>
+  <div id="queue"></div>
+  <input id="file_upload" name="file_upload" type="file" multiple="true">
+  <script src="/static/js/uploadify/jquery.uploadify.min.js" type="text/javascript"></script>
+  <link rel="stylesheet" type="text/css" href="/static/js/uploadify/uploadify.css">
+</p>

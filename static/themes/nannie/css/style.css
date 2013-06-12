@@ -1,0 +1,547 @@
+/*
+Theme Name: Nannie
+Theme URI: http://responsivewebinc.com
+Description: Responsive Minimal Bootstrap WordPress Theme.
+Version: 1.0
+Author: Ashok
+Author URI: http://responsivewebinc.com
+License: WrapBootstrap License
+License URI: https://wrapbootstrap.com/terms
+Tags: blue, white, multi-column
+Text Domain: Nannie
+*/
+
+
+body{
+background:#fff;
+font-family: 'Droid Sans', Arial, Helvetica, sans-serif;
+font-size:13px;
+line-height:24px;
+font-weight:400;
+color:#555;
+}
+
+h1,h2,h3,h4,h5,h6{
+margin:0px;
+padding:0px;
+font-weight:400;
+}
+
+h1{
+font-size:30px;
+line-height:45px;
+font-weight:700;
+}
+
+h2{
+font-size:21px;
+line-height:30px;
+}
+
+h3{
+font-size:22px;
+line-height:30px;
+}
+
+h4{
+font-size:18px;
+line-height:27px;
+}
+
+h5,h6{
+font-size:16px;
+line-height:24px;
+}
+
+ul{
+list-style-type:none;
+margin-left:0px;
+}
+
+.color{
+color:#f65314;
+}
+
+a, a:visited{
+color:#1570a6;
+}
+
+a:hover{
+color:#177bb6;
+text-decoration:none;
+}
+
+a:hover,a:active,a:focus {
+outline: 0;
+}
+
+.form-horizontal{
+margin:20px 0px 10px 0px;
+}
+
+.form-horizontal input[type="text"],.form-horizontal input[type="password"], .form-horizontal textarea{
+font-size:12px;
+}
+
+.form-horizontal input[type="submit"], .form-horizontal button{
+font-size:12px;
+}
+
+.form-horizontal .control-label {
+width: 80px;
+font-size:12px;
+}
+
+.form-horizontal .controls {
+margin-left: 100px;
+}
+
+.form-horizontal .controls:first-child {
+*padding-left: 100px;
+}
+
+.form-horizontal .form-actions {
+padding-left: 100px;
+}
+
+.form-actions {
+padding: 10px 20px 11px;
+background:transparent;
+border-top:0px;
+}
+
+:focus {outline:none;}
+
+::-moz-focus-inner {border:0;}
+
+
+/* Image alignment*/
+
+.alignleft, img.alignleft {
+margin-right: 8px;
+margin-top:5px;
+display: inline;
+float: left;
+}
+
+.alignright, img.alignright {
+margin-left: 8px;
+margin-top:5px;
+display: inline;
+float: right;
+}
+   
+.aligncenter, img.aligncenter {
+margin-right: auto;
+margin-left: auto;
+display: block;
+clear: both;
+}
+
+/* Header */
+
+header{
+padding:5px 0px 5px 0px;
+}
+
+header .logo{
+margin:10px 0px;
+}
+
+header .logo a, header .logo a:visited, header .logo a:hover{
+color:#555;
+text-decoration:none;
+}
+
+header .lmeta{
+color:#777;
+}
+
+header .social{
+margin-top:20px;
+}
+
+/* Social */
+
+.social{
+font-size:16px;
+}
+
+.social i{
+height:25px;
+width:25px;
+line-height:25px;
+border-radius:2px;
+margin:0px 5px 0px 0px;
+color:#fff;
+-webkit-transition:background 1s ease;
+-moz-transition:background 1s ease;
+-o-transition:background 1s ease;
+transition:background 1s ease;
+text-align:center;
+}
+
+i.facebook{
+background:#3c5b9b;
+}
+
+i.twitter{
+background:#2daae1;
+}
+
+i.google-plus{
+background:#f63e28;
+}
+
+i.pinterest{
+background:#cb2027;
+}
+
+i.linkedin{
+background:#0173b2;
+}
+
+.social i:hover{
+background:#000;
+-webkit-transition:background 1s ease;
+-moz-transition:background 1s ease;
+-o-transition:background 1s ease;
+transition:background 1s ease;
+}
+
+.social a,.social a:visited,.social a:hover{
+color:#fff;
+text-decoration:none;
+}
+
+/* Navigation */
+
+.navbar{
+text-transform:lowercase;
+}
+
+.navbar-inner > .container{
+width:940px;
+}
+
+.navbar-inner{
+border-radius:0px;
+background: #fff !important; 
+background-image: none;
+background-repeat: no-repeat;
+filter: none !important;
+border-top:1px solid #fafafa !important;
+border-bottom:3px solid #f3f3f3 !important;
+border-left:0px !important;
+border-right:0px !important;
+box-shadow:none;
+}
+
+.navbar .btn{
+background:#eee !important;
+margin:0px;
+padding:10px;
+color:#777 !important;
+text-shadow:none !important;
+border:none;
+border-radius:0px;
+}
+
+.navbar .btn:hover{
+background:#fafafa !important;
+color:#555;
+}
+
+.navbar .caret{
+border-top-color:#ccc !important;
+border-bottom-color:#ccc !important;
+}
+
+.navbar .nav > li > a{
+background: #fff; 
+padding:12px 15px 12px;
+color:#777 !important;
+text-shadow:none !important;
+font-size:13px !important;
+}
+
+.navbar .nav > li > a:hover{
+background:#eee !important;
+color:#555 !important;
+}
+
+.navbar .nav > li > a.current {
+background:#eee !important;
+color:#555 !important;
+}
+
+.navbar .nav .active > a,
+.navbar .nav .active > a:hover,
+.navbar .nav .active > a:focus {
+color: #777;
+box-shadow:none;
+background: #fff !important;
+}
+
+.dropdown-toggle{
+background: #fff !important;
+}
+
+.nav-collapse a{
+font-weight:normal !important;
+text-shadow:none !important;
+border-radius:0px !important;
+}
+
+.dropdown-menu{
+background:#fff !important;
+border-radius:0px !important;
+box-shadow:none !important;
+padding:0px 0px;
+margin:0px;
+border:1px solid #eee;
+border-top:0px;
+}
+
+.dropdown-menu a{
+background:#fafafa !important;
+padding:8px !important;
+color:#555 !important;
+text-shadow:none !important;
+font-size:13px !important;
+}
+
+.dropdown-menu a:hover,.dropdown-menu a:focus{
+filter:none !important;
+background:#fff !important;
+color:#777 !important;
+border-radius:0px !important;
+}
+
+.dropdown-menu::after, .dropdown-menu::before{
+border:none !important;
+}
+
+/* Posts */
+
+.content h3{
+color:#888;
+border-bottom:1px solid #eee;
+margin-bottom:8px;
+font-size:18px;
+text-transform:lowercase;
+}
+
+.content h3 span{
+border-left:3px solid #f65314;
+padding-left:7px;
+padding-bottom:5px;
+}
+
+.entry{
+margin-top:20px;
+padding-bottom:20px;
+margin-bottom:30px;
+border-bottom:1px solid #eee;
+}
+
+.entry p{
+margin:5px 0px;
+}
+
+.entry h2 a, .entry h2 a:visited{
+color:#115e8b;
+}
+
+.entry h2 a:hover{
+color:#1570a6;
+}
+
+.entry .thumb{
+float:left;
+width:130px;
+margin-top:8px;
+margin-right:8px;
+}
+
+.entry .meta{
+color:#888;
+font-size:12px;
+line-height:23px;
+margin:2px;
+border-bottom: 1px solid #fafafa;
+margin-top:1em;
+margin-bottom: 2em;
+}
+
+.entry .meta a, .entry .meta a:visited{
+color:#666;
+}
+
+.entry .meta a:hover{
+color:#555;
+}
+
+.content .comment-box{
+margin:5px 0px;
+padding:10px;
+background:#fafafa;
+border:1px solid #eee;
+}
+
+.content .cmeta{
+font-size:12px;
+}
+
+.comments{margin-top:3em;}
+.comments li ul{
+margin-left:15px;
+}
+
+/* Sidebar */
+
+.widget li{
+padding:2px 0px;
+border-bottom:1px dotted #ddd;
+margin:2px 0px;
+}
+
+.widget{
+border-bottom:1px solid #fafafa;
+margin-bottom:10px;
+}
+
+/* Pagination */
+
+.pagination {
+clear:both;
+padding:6px 0;
+line-height:17px;
+font-size:13px;
+}
+ 
+.pagination span, .pagination a {
+display:block;
+float:left;
+margin: 2px 2px 2px 0;
+padding:5px 8px;
+text-decoration:none;
+width:auto;
+color:#666;
+background: #fff;
+border:1px solid #eee;
+font-weight:normal;
+}
+ 
+.pagination a:hover{
+color:#fff;
+background: #115e8b;
+}
+ 
+.pagination .current{
+padding:5px 8px;
+color:#fff;
+background: #115e8b;
+}
+
+/* Footer */
+#cke_content{
+   margin-bottom:2em;
+}
+
+footer{
+margin-top:25px;
+background:#f8f8f8;
+color:#555;
+padding:20px 0px 0px 0px;
+border-top:2px solid #eee;
+}
+
+footer a, footer a:visited{
+color:#777;
+}
+
+footer a:hover{
+color:#555;
+}
+
+footer .fwidget h4{
+margin-bottom:5px;
+}
+
+footer .fwidget li{
+padding:2px 0px;
+border-bottom:1px dotted #ddd;
+margin:2px 0px;
+}
+
+footer .copy{
+padding-top:10px;
+margin-top:10px;
+border-top:1px solid #ddd;
+}
+
+/* Responsive */
+
+@media (max-width: 480px){
+   .dropdown-menu a{
+   background:#fff !important;
+   border-bottom:none !important;
+   }   
+}
+
+@media (max-width: 767px){
+   header .logo{
+   text-align:center;
+   }
+   header .social{
+   text-align:center;
+   margin-top:5px;
+   margin-bottom:10px;
+   }
+   .navbar,footer{
+   margin-left:-20px;
+   margin-right:-20px;
+   }
+   .navbar .nav{
+   border:0px !important;
+   }
+   .navbar .nav > li > a{
+   border:0px !important;
+   }
+   .dropdown-menu a{
+   background:#fff !important;
+   border-bottom:none !important;
+   }   
+   footer{
+   margin-top:20px;
+   padding-left:20px;
+   padding-right:20px;
+   }
+   footer .fwidget{
+   margin-bottom:20px;
+   }
+   .sidebar{
+   margin-top:20px;
+   }
+   header .logo img{
+   max-width:200px;
+   margin:0 auto;
+   }   
+}
+
+@media (min-width: 768px) and (max-width: 979px){
+   .navbar .nav{
+   border:0px !important;
+   }
+   .navbar .nav > li > a{
+   border:0px !important;
+   }
+   .dropdown-menu a{
+   border-bottom:none !important;
+   } 
+}
+
+@media (max-width: 979px){
+
+}

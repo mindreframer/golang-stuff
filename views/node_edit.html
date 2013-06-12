@@ -1,0 +1,28 @@
+<form action="" method="post">
+	<div>
+		<h2>节点标题:</h2>
+		<input type="text" name="title" value="{{.inode.Title}}">
+	</div>
+	<div>
+		<h2>选择分类:</h2>
+		<div class="controls">
+              <select id="selectError" name="categoryid">
+		{{if .categorys}}
+				<option value="{{.icategory.Id}}" selected>{{.icategory.Title}} [默认]</option>
+            {{range .categorys}}
+				<option value="{{.Id}}">{{.Title}}</option>
+            {{end}}
+        {{else}}
+				<option value="0" selected>尚无分类</option>
+        {{end}}
+              		
+              </select>
+              <span class="help-inline">（选择本节点归属的上级分类，必选）</span>
+        </div>
+	</div>
+	<div>
+		<h2>节点简介：</h2>
+		<textarea class="ckeditor" name="content" colspan="3" rowspan="10">{{.inode.Content}}</textarea>
+	</div>
+	<input type="submit" class="btn" value="提交">
+</form>

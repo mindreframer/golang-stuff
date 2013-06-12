@@ -1,0 +1,350 @@
+/* LayerSlider Styles */
+
+
+
+.ls-container {
+	visibility: hidden;
+	position: relative;
+}
+
+.ls-inner {
+	position: relative;
+	background-position: center center;
+}
+
+.ls-inner,
+.ls-layer {
+	width: 100%;
+	height: 100%;
+}
+
+.ls-layer {
+	position: absolute;
+	display: none;
+	background-position: center center;
+	overflow: hidden;
+}
+
+.ls-layer * {
+	margin: 0px;
+	line-height: normal;
+}
+
+.ls-active,
+.ls-animating {
+	display: block !important;
+}
+
+.ls-layer > * {
+	position: absolute;
+	left: 0px;
+	top: 0px;
+}
+
+.ls-layer .ls-bg {
+	left: 50%;
+	top: 50%;
+}
+
+.ls-yourlogo {
+	position: absolute;
+	z-index: 99;
+}
+
+
+
+/* Navigation */
+
+.ls-bottom-nav-wrapper {
+	height: 0px;
+}
+
+.ls-bottom-nav-wrapper,
+.ls-below-thumbnails {
+	z-index: 2;
+	height: 0px;
+	position: relative;
+	text-align: center;
+	margin: 0px auto;
+}
+
+.ls-below-thumbnails {
+	display: none;
+	z-index: 6;
+}
+
+.ls-bottom-nav-wrapper a,
+.ls-nav-prev,
+.ls-nav-next {
+	outline: none;
+}
+
+.ls-bottom-slidebuttons {
+	position: relative;
+	z-index: 1000;
+}
+
+.ls-bottom-slidebuttons,
+.ls-nav-start,
+.ls-nav-stop,
+.ls-nav-sides {
+	position: relative;	
+}
+
+
+
+/* Embedded videos */
+
+.ls-vpcontainer {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	left: 0px;
+	top: 0px;
+}
+
+.ls-videopreview {
+	width : 100%;
+	height : 100%;
+	position : absolute;
+	left : 0px;
+	top : 0px;
+	cursor : pointer;
+}
+
+.ls-playvideo {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	cursor: pointer;
+}
+
+
+
+/* Thumbnails */
+
+.ls-tn {
+	display: none !important;
+}
+
+.ls-thumbnail-hover {
+	display: none;
+	position: absolute;
+	left: 0px;
+}
+
+.ls-thumbnail-hover-inner {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	display: none;
+}
+
+.ls-thumbnail-hover-bg {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	left: 0px;
+	top: 0px;
+}
+
+.ls-thumbnail-hover-img {
+	position: absolute;
+	overflow: hidden;
+}
+
+.ls-thumbnail-hover img {
+	max-width: none !important;
+	position: absolute;
+	display: inline-block;
+	left: 50%;
+	top: 0px;
+}
+
+.ls-thumbnail-hover span {
+	left: 50%;
+	top: 100%;
+	width: 0px;
+	height: 0px;
+	display: block;
+	position: absolute;
+	border-left-color: transparent !important;
+	border-right-color: transparent !important;
+	border-bottom-color: transparent !important;
+}
+
+.ls-thumbnail-wrapper {
+	position: relative;
+	width: 100%;
+	margin: 0 auto;
+	z-index: 4;
+}
+
+.ls-thumbnail {
+	position: relative;
+	margin: 0 auto;
+}
+
+.ls-thumbnail-inner,
+.ls-thumbnail-slide-container {
+	width: 100%;	
+}
+
+.ls-thumbnail-slide-container {
+	overflow: hidden !important;
+	position: relative;
+}
+
+.ls-thumbnail-slide {
+	text-align: center;
+	white-space: nowrap;
+	float: left;
+	position: relative;
+}
+
+.ls-thumbnail-slide a {
+	overflow: hidden;
+	display: inline-block;
+	width: 0px;
+	height: 0px;
+	position: relative;
+}
+
+.ls-thumbnail-slide img {
+	max-width: none !important;
+	max-height: 100% !important;
+	height: 100%;
+}
+
+.ls-shadow {
+	display: none;
+	position: absolute;
+	z-index: 1;
+	top: 100%;
+	width: 100%;
+	left: 0px;
+}
+
+.ls-shadow img {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	left: 0px;
+	top: 0px;
+}
+
+
+
+/* WP plugin fullWidth */
+
+.ls-wp-fullwidth-container {
+	width: 100%;
+	position: relative;
+}
+
+.ls-wp-fullwidth-helper {
+	position: absolute;
+}
+
+
+
+/* Trying to remove all the default global styles of WordPress :) */
+
+.ls-container img,
+.entry-content .ls-container img,
+.comment-content .ls-container img,
+.widget .ls-container img {
+	border-radius: 0px;
+	box-shadow: none;
+	max-width: none !important;
+	transition: none !important;
+	-o-transition: none !important;
+	-ms-transition: none !important;
+	-moz-transition: none !important;
+	-webkit-transition: none !important;
+}
+
+.entry-content .ls-container *,
+.comment-content .ls-container *,
+.widget .ls-container * {
+	line-height: normal;
+	padding: 0px;
+	outline: none;
+	border: 0px;
+}
+
+.entry-content .ls-yourlogo,
+.entry-content .ls-inner *,
+.comment-content .ls-inner *,
+.widget .ls-inner * {
+	margin: 0px;
+}
+
+.entry-content .ls-tn,
+.comment-content .ls-tn,
+.widget .ls-tn {
+	display: none;
+}
+
+/* Style of LayerSlider Debug Console */
+
+.ls-debug-console * {
+	margin: 0px !important;
+	padding: 0px !important;
+	border: 0px !important;
+	color: white !important;
+	text-shadow: none !important;
+	font-family: "HelveticaNeue-Light", "Helvetica Neue Light", Helvetica, Arial, serif !important;
+	line-height: normal !important;
+	-webkit-font-smoothing: antialiased !important;
+	text-align: left !important;
+}
+
+.ls-debug-console h1 {
+	padding-top: 10px !important;
+	font-size: 17px !important;
+	font-weight: bold !important;
+}
+
+.ls-debug-console h1:first-child {
+	padding-top: 0px !important;
+}
+
+.ls-debug-console ul {
+	padding-top: 10px !important;
+	list-style: none !important;
+}
+
+.ls-debug-console li {
+	margin-left: 10px !important;
+	font-size: 13px !important;
+	position: relative !important;
+	font-weight: normal !important;
+}
+
+.ls-debug-console li ul {
+	display: none;
+	position: absolute !important;
+	width: 260px;
+	left: -10px;
+	bottom: 100% !important;
+	padding: 10px 10px 10px 0px !important;
+	background: white !important;
+	border-radius: 10px !important;
+	box-shadow: 0px 0px 20px black !important;
+}
+
+.ls-debug-console li:hover ul {
+	display: block;
+}
+
+.ls-debug-console li ul * {
+	color: black !important;
+}
+
+.ls-debug-console a {
+	text-decoration: none !important;
+	border-bottom: 1px dotted white !important;
+}

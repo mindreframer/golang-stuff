@@ -1,0 +1,36 @@
+      <ul id="main-nav">
+        <!-- Accordion Menu -->
+        <!--<li>
+          <a href="/root" class="nav-top-item no-submenu {{if compare .catpage "default"}}current{{end}}">
+        
+         仪表面板</a-->  <!-- Add the class "no-submenu" to menu items with no sub menu -->
+        <!--/li-->
+        <li> <a href="###" class="nav-top-item {{if compare .catpage "about"}}current{{end}}"><!-- Add the class "current" to current menu item -->
+          分類管理</a>
+          <ul>
+            <!-- Add class "current" to sub menu items also -->
+            <li><a href="/root-about-new-node" {{if compare .asidepage "root_about_new_node"}} class="current" {{end}}>创建分类</a></li>
+            <li><a href="/root-about-node-list" {{if compare .asidepage "root_about_node"}} class="current" {{end}}>分類列表</a></li>
+          </ul>
+        </li>
+        <li> <a href="###" class="nav-top-item {{if compare .catpage "team"}}current{{end}}">節點管理</a>
+          <ul>
+            <li><a href="/root-team" {{if compare .asidepage "root_team"}} class="current" {{end}}>創建節點</a></li>
+            <li><a href="/root-team-list" {{if compare .asidepage "root_team_list"}} class="current" {{end}}>節點列表</a></li>
+          </ul>
+        </li>
+        <li> <a href="###" class="nav-top-item {{if compare .catpage "case"}}current{{end}}">話題管理</a>
+          <ul>
+            <li><a href="/root-case" {{if compare .asidepage "root_case"}} class="current" {{end}}>發表話題</a></li>
+            <li><a href="/root-case-topic-list" {{if compare .asidepage "root-case-topic-list"}} class="current" {{end}}>內容列表</a></li>
+          </ul>
+        </li>
+
+        <li> <a href="###" class="nav-top-item {{if compare .catpage "setting"}}current{{end}}"> 设置 </a>
+          <ul>
+            <li><a href="/root-setting" {{if compare .asidepage "root_setting"}} class="current" {{end}}>常规设置</a></li>
+            <li><a href="/root-setting-password" {{if compare .asidepage "root_setting_password"}} class="current" {{end}}>密码修改</a></li>
+            <li><a href="/root-setting-setroot" {{if compare .asidepage "root_setting_setroot"}} class="current" {{end}}>设置管理员</a></li>
+          </ul>
+        </li>
+      </ul>

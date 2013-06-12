@@ -1,0 +1,113 @@
+{{template "head.html" .}}
+<body>
+<div id="body-wrapper">
+  <!-- Wrapper for the radial gradient background -->
+  <div id="sidebar">
+    <div id="sidebar-wrapper">
+      <!-- Sidebar with logo and menu -->
+      <h2 id="sidebar-title">
+        <a href="/root">{{.title_en}} rooter</a>
+      </h2>
+
+      <!-- Sidebar Profile links -->
+      <div id="profile-links">
+        <div>你好, <a href="#" title="Edit your profile">{{.Username}}</a>,</div>
+        <div><a href="/" title="View the Site" target="_blank">浏览网站</a> | <a href="/root-logout" title="Sign Out">退出</a></div>
+      </div>
+
+      {{template "navbar.html" .}}
+      <!-- End #main-nav -->
+    </div>
+  </div>
+  <!-- End #sidebar -->
+  <div id="main-content">
+    <!-- Main Content Section with everything -->
+    <noscript>
+    <!-- Show a notification if the user has disabled javascript -->
+    <div class="notification error png_bg">
+      <div>
+        <h2>Javascript 被禁用或不被你的浏览器支持. </h2>
+        <p>请你更新升级一下浏览器好不？</p>
+        <p>请不要再使用如此古老的浏览器了，简直妨碍地球转！</p>
+      </div>
+    </div>
+    </noscript>
+    <!-- Page Head -->
+    <h2>发布新闻动态</h2>
+    <div class="clear"></div>
+    <!-- End .clear -->
+    <div class="content-box">
+      <!-- Start Content Box -->
+      <div class="content-box-header">
+        <h3>
+          {{if compare .asidepage "root_crafts"}}添加工艺{{end}}
+          {{if compare .asidepage "root_crafts_list"}}工艺列表{{end}}
+          {{if compare .asidepage "root_crafts_edit"}}编辑工艺{{end}}
+        </h3>
+        <div class="clear"></div>
+      </div>
+      <!-- End .content-box-header -->
+      <div class="content-box-content">
+        {{if .MsgErr}}
+          <div class="notification information png_bg">
+            <a href="#" class="close"><img src="/static/themes/root/img/icons/cross_grey_small.png" title="Close this notification" alt="close"></a>
+            <div>{{.MsgErr}}</div>
+          </div>
+        {{end}}
+          <form enctype="multipart/form-data" action="" method="post">
+            <fieldset>
+            <p>
+              <label>新闻标题：</label>
+              <input class="text-input large-input" type="text" id="large-input" name="title" value="{{.team.Title}}"/>
+            </p>
+            <p>
+              <label>选择本新闻动态的上级分类：</label>
+              <select name="nodeid" class="small-input">
+              {{if .nodes}}
+                {{if .inode}}
+                  <option value="{{.inode.Id}}" selected>{{.inode.Title}} [默认]</option>
+                {{end}}
+                {{range .nodes}}
+                  <option value="{{.Id}}">{{.Title}}</option>
+                {{end}}
+              {{else}}
+                  <option value="0">尚无节点</option>
+              {{end}}
+              </select>
+              <span class="help-inline">（选择本新闻动态归属的上级分类，必选）</span>
+              <span><a href="/root-information-new-node">新建新闻动态分类</a></span>
+            </p>
+            {{template "ckeditor.html" .}}
+            <p>
+              <div class="line"></div>
+              <label>新闻封面：</label>
+              {{if .team.Location}}
+              <div class="notification attention png_bg">
+                <div>
+                <span>当前形象照：</span><a class="vbox" href="{{.team.Location}}">预览“{{.team.Name}}”的形象照片</a>
+                  <strong>如果你选择新形象照上传，旧形象照将被系统自动删除更新。</strong>
+                </div>
+              </div>
+              {{end}}
+              <input type="file" name="image" accept="image/gif,image/jpeg,image/png"/>
+              <div class="line"></div>
+            </p>
+            <p>
+              <input class="button" type="submit" value="提交修改" />
+            </p>
+            </fieldset>
+            <div class="clear"></div>
+            <!-- End .clear -->
+          </form>
+      </div>
+      <!-- End .content-box-content -->
+    </div>
+    <!-- End .content-box -->
+    
+    {{template "footer.html" .}}
+    <!-- End #footer -->
+  </div>
+  <!-- End #main-content -->
+</div>
+</body>
+</html>

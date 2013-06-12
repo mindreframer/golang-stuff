@@ -1,0 +1,41 @@
+{{template "head.html" .}}
+<body id="login">
+<div id="login-wrapper" class="png_bg">
+  <div id="login-top"><h2><a href="/root">{{.title_en}} Rooter</a></h2></div>
+  <!-- End #logn-top -->
+  <div id="login-content">
+    <form action="" method="post">
+      <div class="notification information png_bg">
+        <div>{{.title_en}}管理后台,请注意账号安全！</div>
+      </div>
+  {{if .BrowserMsgErr}}
+      <div class="notification information png_bg">
+        <div>{{.BrowserMsgErr}}</div>
+      </div>
+  {{else}}
+      <p>
+        <label>管理账号</label>
+        <input class="text-input" type="text" name="username" />
+      </p>
+      <div class="clear"></div>
+      <p>
+        <label>管理密码</label>
+        <input class="text-input" type="password" name="password" />
+      </p>
+      <div class="clear"></div>
+      <!--p id="remember-password">
+        <input type="checkbox" />
+        Remember me </p-->
+      <div class="clear"></div>
+      <p>
+        <input class="button" type="submit" value="登录" />
+      </p>
+  {{end}}
+
+    </form>
+  </div>
+  <!-- End #login-content -->
+</div>
+<!-- End #login-wrapper -->
+</body>
+</html>
