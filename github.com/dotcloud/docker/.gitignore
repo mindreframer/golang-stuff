@@ -1,0 +1,17 @@
+.vagrant*
+bin
+docker/docker
+.*.swp
+a.out
+*.orig
+build_src
+command-line-arguments.test
+.flymake*
+docker.test
+auth/auth.test
+.idea
+.DS_Store
+docs/_build
+docs/_static
+docs/_templates
+.gopath/
