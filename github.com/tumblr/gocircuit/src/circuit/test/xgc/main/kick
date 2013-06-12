@@ -1,0 +1,5 @@
+#!/bin/sh
+echo localhost | 4clear && \
+4crossbuild -v && echo localhost | 4deploy && \
+echo "--------------------------------" && go build && ./main \
+&& 4ls /... | grep 'xgc/R'

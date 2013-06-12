@@ -1,0 +1,131 @@
+<html>
+	<head>
+		<title>Go'Circuit: Paradigm for developing and sustaining Big Data apps</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<table id="front"><tr>
+			<td id="menu">
+				<h3>Manuals</h3>
+				<dl>
+					<h4>Meet and greet</h4>
+					<dt><a href="build.html">Download, build and install</a></dt>
+					<dt><a href="big.html">Big picture: problems and solutions</a></dt>
+
+					<h4>Developing apps</h4>
+					<dt><a href="lang.html">Programming guide</a></dt>
+					<dt><a href="anchor.html">Anchor file system</a></dt>
+					<dt><a href="spawn.html">Underlying spawning mechanism</a></dt>
+
+					<h4>Sustaining apps</h4>
+					<dt><a href="cross.html">Build, cross-build and deploy an application</a></dt>
+					<dt><a href="debug.html">Debug and profile, dead or alive</a></dt>
+
+					<h4>References</h4>
+					<dt><a href="api.html">Modules, APIs and command-line toolkit</a></dt>
+					<dt><a href="config.html">App configuration: build, deploy, spawn</a></dt>
+
+				</dl>
+
+				<h3>Tutorials</h3>
+				<dl>
+					<dt><a href="hello.html">Hello, world!</a> A complete end-to-end tutorial</dt>
+					<dt><a href="sumr.html">Sumr</a> Scalable real-time persistent key-value store</dt>
+					<dt><a href="trend.html">Trending blogs</a> Real-time multi-stage map-reduce</dt>
+					<dt><a href="legacy.html">Circuitizing legacy apps</a></dt>
+				</dl>
+
+				<h3>Source</h3>
+				<dl>
+				<dt><a href="http://github.com/tumblr/gocircuit">Code repository</a></dt>
+				<dt><a href="license.html">License agreement</a></dt>
+				<!-- dt><a href="http://code.google.com/p/gocircuit/issues/list">Issue tracker</a></dt -->
+			</dl>
+
+				<h3>Community</h3>
+				<!-- dt><a href="http://blog.gocircuit.org">Circuit Blog</a></dt -->
+
+				<h4>Mailing lists</h4>
+				<dl>
+				<dt><a href="https://groups.google.com/forum/#!forum/gocircuit-user">user</a>—Discussions on using the circuit</dt>
+				<dt><a href="https://groups.google.com/forum/#!forum/gocircuit-dev">developer</a>—Discussions on the circuit internal architecture</dt>
+				</dt>
+
+				<!-- dt><a href="?">+gocircuit</a> on Google Plus,
+				<a href="https://twitter.com/gocircuit">@gocircuit</a> on Twitter</dt -->
+			</dl>
+
+				<h3>Resources</h3>
+				<dl>
+				<dt><a href="http://golang.org">The Go Language Project</a></dt>
+				<dt><a href="http://www.meetup.com/golangny/">Go Language New York Meetup</a></dt>
+			</dl>
+		</td>
+
+				<td class="moto">
+					<h2>Paradigm for developing and sustaining Big Data apps</h2>
+					<p>The circuit reduces the human development and sustenance costs of complex massively-scaled
+						systems nearly to the level of their single-process counterparts. It is a combination of
+						proven ideas from the Erlang ecosystem of distributed embedded devices and Go's ecosystem of Internet application development.
+
+					<p>The circuit extends the reach of <a href="http://golang.org">Go</a>'s linguistic
+					environment to multi-host/multi-process applications.
+					In simple terms, the Go Circuit was born from the desire to be able to
+					write:
+					</p>
+<pre>
+feedback := make(chan int)
+circuit.Spawn("host25.datacenter.net", func() {
+	feedback <- 1
+})
+<-feedback
+println("Roundtrip complete.")
+</pre>
+					<p class="first">The <code>Spawn</code> operator will start its argument
+					function on a desired remote host in a new goroutine, while making it possible to communicate
+					between the parent and child goroutines using the same Go code that you would use to communicate between traditional goroutines. Above, the channel <code>feedback</code> is transparently “stretched” between the parent goroutine, executing locally, and the child goroutine, executing remotely and hosting the anonymous function execution.
+					</p>
+
+					<p>Using the circuit one is able to write complex distributed applications — involving multiple types of collaborating processes — within a single <em>circuit program</em>.
+					The <em>circuit language</em> used therein is syntactically identical to Go while also:
+					<ul>
+						<li>Providing facilities for spawning goroutines on remote hardware, and
+						<li>Treating local and remote goroutines in the same manner, both syntactically and semantically.
+					</ul>
+
+					<p>As a result, distributed application code becomes orders of magnitude shorter, as compared to using traditional alternatives. For isntance, we have been able to write large real-world cloud applications — e.g. streaming multi-stage MapReduce pipelines —
+					in as many as 200 lines of code <em>from the ground up</em>.
+					</p>
+
+					<p>
+					For lifecycle maintenance, the circuit provides a powerful toolkit that can introspect into,
+					control and modify various dynamic aspects of a live circuit application.
+					Robust networking protocols allow for complex runtime maneuvers like, for instance,
+					surgically replacing components
+					of running cloud applications with binaries from different versions of the source tree, without
+					causing service interruption.
+					</p>
+
+					<p>The transparent source of the circuit runtime makes it easy to instrument circuit
+						deployments with custom logic that has full visibility of cross-runtime information flow dynamics. Out of the box the circuit comes with a set of
+						tools for debugging and profiling in-production applications with minimal impact on uptime.
+
+			</td>
+
+
+	</tr></table>
+
+		</div>
+		<div id="footer">
+			The content of this page is licensed under the
+			Creative Commons Attribution 3.0 License,
+			and code is licensed under an <a href=license.html>Apache license</a>.
+			Made at <a href="http://tumblr.com">Tumblr</a>.
+		</div>
+
+	</body>
+</html>

@@ -1,0 +1,172 @@
+<html>
+	<head>
+		<title>Go'Circuit: Download, build and install</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>Download, build and install</h1>
+
+			<div class="moto">
+				The Circuit comprises a library of Go packages and a set of command-line programs.
+			    Installing the circuit on your development machine
+				amounts to compiling the included command-line utilities. This is covered here.
+			</div>
+
+<h3>Overview</h3>
+
+<ol>
+	<li><a href="#go">Build the Go compiler</a></li>
+	<li><a href="#lib">Fetch third-party libraries</a></li>
+	<li><a href="#down">Download the Circuit sources</a></li>
+	<li><a href="#z">Build Apache Zookeeper</a></li>
+	<li><a href="#cir">Build the Circuit Toolkit</a></li>
+
+
+</ol>
+
+
+<h3 id="go">Build the Go compiler</h3>
+
+<p>The first thing you would need to do is install the Go compiler <em>from source</em> (as opposed to using a pre-packaged binary). There are a couple of reasons why we prefer installation from source. First, if you are planning on deploying production circuit applications, it is imperative to know how to change the Go toolchain version underlying your binaries. Second, the circuit uses a new feature of Go—namely, linking with static libraries—which is currently not available in the pre-built binaries for Go, but it is available in the default branch of the Go Project (and will be a part of the upcoming Go 1.1 release).
+
+<p>If you prefer to stick with a fixed changeset of the Go compiler sources, instead of checking out the most recent “tip”, make sure
+	you are using a changeset no earlier than <code>95b55f174b5d</code>.
+
+<p>For your convenience, we include a self-contained recipe how to build Go from the source:
+<ol>
+	<li>Clone the Go source tree:
+<pre>
+% cd ~
+% hg clone -u tip https://code.google.com/p/go
+</pre>
+This will fetch the Go repo and place it into <code>~/go</code>. You can use any location of your choice—just make sure this is reflected accordingly in the next step.
+	</li>
+
+<li>Set the environment variable <code>GOROOT</code> to point to the local clone of the Go repo:
+<pre>
+% export GOROOT=$HOME/go
+</pre>
+<li>Build and install the Go compiler:
+<pre>
+% cd $GOROOT/src
+% ./all.bash
+</pre>
+<li>The previous step will install all resulting binaries in <code>$GOROOT/bin</code>. You should put this directory in your path:
+<pre>
+% export PATH=$GOROOT/bin:$PATH
+</pre>
+</ol>
+
+<h3 id="lib">Fetch third-party libraries</h3>
+
+<p>The circuit uses a modified vesion of the <code><a href="http://launchpad.net/gozk">launchpad.net/gozk</a></code> library for accessing Apache Zookeeper from Go.
+The modified library <code><a href="http://github.com/petar/gozk">github.com/petar/gozk</a></code>—which merely changes some compilation directives—can be 
+installed locally using:
+<pre>
+% go get github.com/petar/gozk
+</pre>
+
+<h3 id="down">Download the circuit sources</h3>
+
+<ol>
+				<li>
+			Let <code>$GOCIRCUIT</code> be the location where you would like to place the circuit project.</p>
+
+<pre>
+	% git clone https://github.com/tumblr/gocircuit $GOCIRCUIT
+</pre></li>
+
+			<li>Add the circuit project to your <code>GOPATH</code> environment variable
+<pre>
+	% export GOPATH=$GOPATH:$GOCIRCUIT
+</pre>
+</ol>
+
+<h3 id="z">Build Apache Zookeeper</h3>
+
+<p>The circuit uses Apache Zookeeper, and so compiling the circuit requires access to the C include and library files of
+	the Zookeeper driver. However these files are produced, we assign the environment variable <code>ZKINCLUDE</code> the path
+	to the directory containing the include files, and the variable <code>ZKLIB</code> the path to the directory containing the library files. There are three ways to install the Zookeeper C driver.
+
+<h4>If you are using a 64-bit OS X</h4>
+<p>For convenience, the circuit distribution includes a compiled Zookeeper C driver for 64-bit OS X platforms. To use it, just set
+<pre>
+% export ZKINCLUDE=$GOCIRCUIT/misc/starter-kit-osx/zookeeper/include
+% export ZKLIB=$GOCIRCUIT/misc/starter-kit-osx/zookeeper/lib
+</pre>
+
+<h4>If you are using a 64-bit Linux</h4>
+<p>A compiled Zookeeper C driver for 64-bit Linux platforms is also included in the circuit distribution. To use it, set
+<pre>
+% export ZKINCLUDE=$GOCIRCUIT/misc/starter-kit-linux/zookeeper/include
+% export ZKLIB=$GOCIRCUIT/misc/starter-kit-linux/zookeeper/lib
+</pre>
+
+<h4>Otherwise</h4>
+
+Download and build the Zookeeper C driver from source, following these instructions:
+<ol>
+	<li>Download the Zookeeper sources:
+<pre>
+% cd /tmp
+% wget http://www.gtlib.gatech.edu/pub/apache/zookeeper/zookeeper-3.4.5/zookeeper-3.4.5.tar.gz
+% tar xzf zookeeper-3.4.5.tar.gz
+</pre>
+	</li>
+
+<li>Build and install Zookeeper, where <code>$PREFIX</code> here is the location where you would like to place the installation,</li>
+<pre>
+% cd zookeeper-3.4.5/src/c
+% ./configure --prefix=$PREFIX
+% make && make install
+</pre>
+
+<li>Set environment variables:
+<pre>
+% export ZKINCLUDE=$PREFIX/include/zookeeper
+% export ZKLIB=$PREFIX/lib
+</pre>
+</li>
+</ol>
+
+			<h3 id="cir">Build the circuit toolkit</h3>
+			<ol>
+
+			<li>Inform the <code>cgo</code> compiler how to find the Zookeeper include files and to statically link in the Zookeeper library:
+<pre>
+% export CGO_CFLAGS="-I$ZKINCLUDE"
+% export CGO_LDFLAGS="$ZKLIB/libzookeeper_mt.a"
+</pre>
+			</li>
+
+			<li>Build and install all circuit command-line tools:
+<pre>
+% cd $GOCIRCUIT/src/circuit/cmd
+% go install ./...
+</pre>
+			<p>This step will instruct the Go compiler to build and install all circuit commands in <code>$GOCIRCUIT/bin</code>.
+			Add this directory to your <code>$PATH</code>
+<pre>
+% export PATH=$PATH:$GOCIRCUIT/bin
+</pre>
+
+			</li>
+		</ol>
+		<p>Place all environment variables created during all previous steps into your startup scripts.
+		<p>You are done!
+
+
+		</div>
+
+		<div id="footer">
+			The content of this page is licensed under the
+			Creative Commons Attribution 3.0 License,
+			and code is licensed under an <a href=license.html>Apache license</a>.
+			Made at <a href="http://tumblr.com">Tumblr</a>.
+		</div>
+	</body>
+</html>

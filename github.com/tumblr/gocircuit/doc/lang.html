@@ -1,0 +1,642 @@
+<html>
+	<head>
+		<title>Go'Circuit: Programming guide</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>Programming guide</h1>
+
+<div class="toc">
+	<h3>Table of contents</h3>
+	<dl>
+		<dt><a href="#intro">Introduction</a></dt>
+		<dd><a href="#related">Related things</a></dd>
+		<dd><a href="#env">Programming environment</a></dd>
+		<dd><a href="#future">The future</a></dd>
+
+		<dt><a href="#basics">Basics</a></dt>		
+		<dd><a href="#activate-runtime">Activate the circuit runtime</a></dd>
+		<dd><a href="#import-packages">Import API packages</a></dd>
+
+		<dt><a href="#spawn">Spawn</a></dt>		
+		<dd><a href="#worker-functions">Worker functions</a></dd>
+		<dd><a href="#spawn-semantics">Spawn semantics</a></dd>
+		<dd><a href="#daemonize">Daemonizing worker functions</a></dd>
+
+		<dt><a href="#comm">Communicating across workers</a></dt>
+		<dd><a href="#values">Values</a></dd>
+		<dd><a href="#interfaces">Cross-interfaces</a></dd>
+		<dd><a href="#xmake">Making cross-interfaces</a></dd>
+		<dd><a href="#xuse">Using cross-interfaces</a></dd>
+		<dd><a href="#recursive">Recursive cross-values*</a></dd>
+
+		<dt><a href="#xgc">Cross-runtime garbage collection*</a></dt>
+		<dd><a href="#perm">Permanent cross-references</a></dd>
+		<dd><a href="#persist">Persisting cross-interfaces</a></dd>
+
+		<dt><a href="#services">Cross-services</a></dt>
+		<dd><a href="#builtin">Built-in services</a></dd>
+
+		<dt><a href="#errors">Handling errors</a></dt>
+		<dt><a href="#link">Runtime linking and version compatibility*</a></dt>
+	</dl>
+	<p>*Sections marked with a star are advanced and can be skipped on first reading.
+
+</div>
+
+			<div class="clear"></div>
+
+<h3 id="intro">Introduction</h3>
+<div class="twocol">
+<p>The circuit can be described as a distributed operating system that sits on top of the traditional <abbr>OS</abbr> on multiple machines in a datacenter deployment. It provides a clean and uniform abstraction for treating an entire hardware cluster as a single, monolithic compute resource. To do so, it provides:
+
+<ul>
+	<li>A simple but flexible substrate for service registry and discovery, embodied by a virtual file system (See <a href="anchor.html">Anchor file system</a>) of all live processes, as well as
+
+	<li>A general-purpose networking metaphore that relieves application developers from concerns with networking peculiarities, while at the same time giving low-level engineers and operations personnel full freedom in designing network failure recovery algorithms, indepenently of application-level logic.
+</ul>
+
+<p>The circuit has two interfaces: one for application developers and low-level engineers, and one for system administrators and operations managers.
+
+<p>The first interface is embodied in a full integration with the <a href="http://golang.org">Go programming language</a>, whereby it is possible to write distributed multi-process applications in a single programming environment, dubbed a <em>circuit program</em>. <em>This is the topic of the manual at hand.</em> (Nothing precludes adding integration with other languages, as the circuit rests on a small and very simple networking protocol.)
+
+<p>The second interface is embodied in a collection of command-line utilities that enable deep, on-the-fly introspection and control over running processes. This interface can be likened to the command shell in traditional operating systems. It is documented in <a href="cli.html">Command-line toolkit</a>.
+
+<p>Virtually every aspect of the circuit's internal mechanics and protocols — i.e. the logic behind linguistic facilities exposed to application developers — is easily customizable and instrumentable. For example, it takes minimal effort to tie in services like <a href="http://research.google.com/pubs/pub36356.html">Google's Dapper</a>, for distributed call tracing, or to enable inter-connected globally-idempotent data processing applications.
+
+<h4 id="related">Related things</h4>
+
+<p>If one were to position a circuit system in a traditional datacenter stack — consisting of a (1) hardware provisioning layer, (2) service deploy, execute and monitor layer, and (3) application services layer — it would belong right on top of (1), obviating the need for (2). And while a circuit deployment could benefit from a complementary watchdog like <code>monit</code>, typically found in (2), implementing equivalent tools inside the circuit is considerably easier and less error-prone.
+A basic monitoring system, which can be flexibly customized to the needs of specific applications, as well as a basic alerting/notification system is included in the circuit distribution.
+
+<h4 id="env">Programming environment</h4>
+
+<p>Before we dive into specifics, I'd like to say a word about how the circuit is integrated into the Go programming environment of the application- or low-level systems engineer. The current version of the circuit is no more than a Go package library. Once imported in your source, your executables will automatically be started with a circuit runtime in their background and therefore they will automatically be part of a globally-monitored and instrumented system. In fact, just importing the main circuit package (this is explained in the next section) is sufficient to turn any legacy Go application into a circuit-managed application, albeit one that doesn't take advantage of the full spectrum of circuit benefits.
+
+<p>Accessing the powerful programming tools of the circuit is currently achieved by importing and using any of a set of specialized circuit packages. We have gone to great lengths to ensure that using circuit functionality flows as smoothly as possible with the traditional Go semantics and that the circuit has a minimal API. 
+We have nearly achieved this goal by heavy usage of the flexible and performant reflection mechanism of Go. There a very few places where a nominal amount of boilerplate is necessary. <em>Most importantly, though, the engineer need never leave the Go programming environment to build, or even maintain, complex distributed applications.</em>
+
+<p>Even the minimal boilerplate required by the circuit programmer pales in size in comparison to the amount of code usually written to achieve similar goals using traditional language stacks. The circuit provides savings across the board — starting from protocol definitions (not needed inside the circuit) and going all the way to the oodles of scripts usually written to maintain an end-to-end cloud application.
+
+<h4 id="future">The future</h4>
+
+<p>That said, we are in the process of implementing a Circuit Compiler which will perform a source-to-source transform of the “circuit language” to native Go. The <em>Circuit Language</em> is precisely equal to the Go Language with the addition of a new “spawn” operator, which behaves identically to the <code>go</code> operator but with the added ability to fork new goroutines on desired remote machines. This is somewhat similar to the way things are done in 
+<a href="http://www.erlang.org/">Erlang</a>. We hope that the notorious success of Erlang, in its domain of application, and the growing popularity of Go, in the Internet/datacenter systems domain, is a promising sign for the usefulness of the circuit design.
+</div>
+
+<h3 id="basics">Basics</h3>
+<div class="twocol">
+<h4 id="activate-runtime">Activate the circuit runtime</h4>
+
+<p>Importing the package <code>circuit/load</code> has the side-effect of
+starting the Circuit Runtime as soon as your program executes and before
+your code starts running. This package exposes no public resources, and therefore 
+it should always be imported unnamed:
+<pre>
+import _ "circuit/load"
+</pre>
+<p>Importing this package at multiple places is OK, but not necessary. Typically,
+and in good style, only the main program package should make this import, thereby
+saying “this program is a circuit (application)”.
+
+<h4 id="import-packages">Import API packages</h4>
+
+<p>Throughout its execution, your code has access to various facilities provided
+by the Circuit Runtime. These facilities are exposed by the package <code>circuit/use/circuit</code>, like so
+<pre>
+import "circuit/use/circuit"
+</pre>
+<p>There are a few other <code>circuit/use/…</code> packages, which provide additional
+access to various components of the Circuit Runtime, like network, etc. They are discussed elsewhere.
+</div>
+
+<h3 id="spawn">Spawn</h3>
+
+<p>The main operation provided by the Circuit Runtime is spawning a function
+on a remote (or local) host, in a new “worker” <abbr>OS</abbr>-process — in other words, in a new 
+Go runtime.
+Spawning is performed by the library function <code>circuit.Spawn</code>, that is
+declared as follows:
+<pre>
+Spawn(host circuit.Host, anchor []string, f circuit.Func, in ...interface{}) (out []interface{}, addr circuit.Addr, err error)
+</pre>
+<p><code>Spawn</code> executes the function <code>f</code> inside a new goroutine,
+residing inside a new <abbr>OS</abbr>-process, called a <em>worker</em>, on the desired <code>host</code> machine.
+<ol>
+	<li><code>host</code> indicates the physical machine where <code>f</code> is to be executed.
+	The type <code>circuit.Host</code> is an abstract interface, intended to accommodate different notions
+	of a “host” that can house worker processes. One implementation of <code>circuit.Host</code>, which we mention later, represents hosts by their <abbr>TCP</abbr> addresses.
+
+	<li><code>anchor</code> specifies a list of directories in the <a href="anchor.html">anchor file system</a>, under which the new worker will register. Briefly, the anchor file system is akin to Linux' <code>procfs</code>, except that in our case it keeps track of all live workers across machines involved in a circuit application. Furthermore, unlike <code>procfs</code>, the spawner can choose multiple paths under which the new worker will be registered. This enables complex dynamic service discovering patterns, while avoiding the semantically-fragile notion of symbolic (or other) links.
+
+	<li><code>f</code> identifies a Go language function which is to be executed on the remote worker. We call it a <em>worker function</em>. The way in which worker functions are specified linguistically — i.e. what is the nature of the values of type <code>circuit.Func</code> — is explained in section <a href="#worker-functions">Worker functions</a>.
+
+	<li><code>in</code> is a list of arguments to be passed on to <code>f</code>, which the user must ensure are of the correct types. All type errors will be
+	caught at runtime, and often as soon as the program is executed (as opposed to when the worker functions are spawned). 
+</ol>
+
+<p><code>Spawn</code> blocks while <code>f</code> is being executed on the remote worker. When the worker function completes, <code>Spawn</code> returns the following values:
+<ol>
+	<li>The return values of <code>f</code> are placed in <code>out</code>.
+	Their count and types will be exactly as the signature of the worker function
+	specifies.
+
+	<li>The circuit address of the newly spawned worker is stored in <code>addr</code>. This is an opaque value that can be used in conjunction with <a href="#services">various circuit <abbr>API</abbr> calls</a> to introspect into, control or otherwise utilize the worker process while it is alive, and to inspect its remains <i>post mortem</i> using the <a href="cli.html">circuit command-line toolkit</a>.
+
+	<li>If any error occurs during execution, it is returned as <code>err</code>, in which case the first two return values are undefined.
+</ol>
+		
+<h4 id="worker-functions">Worker functions</h4>
+
+<p>Functions that are intended to be executed remotely using the <code>Spawn</code> command are called <em>worker functions</em>. To define a worker function, one must create a public type with a singleton public method, containing the worker function logic. 
+
+(This redundant boilerplate convention is needed at the moment, since the current implementation of the circuit avoids having a dedicated circuit compiler in favor of using the Go reflection machinery. The need for boilerplate will be removed in an upcoming Circuit Compiler.)
+
+<p>There are no restrictions on the signature of the singleton method. The rules regarding how
+Go values are serialized and sent to remote worker processes are discussed in detail in chapter <a href="#values">Values</a>.
+Perhaps the most exciting part is that, via the arguments and returns values of a worker function, 
+we can not only send and receive any concrete Go type, but also send and receive “interfaces” — a way of exchanging <abbr>API</abbr>s, if you will. 
+This powerful feature allows us to leverage the full power of Go's concurrency semantics in synchronizing with functions executing on remote processes. These notions are detailed in section <a href="#interfaces">Interfaces</a>.
+
+
+<p>Once implemented, the worker function container type must be registered with the runtime type system of the circuit by calling <code>circuit.RegisterFunc</code> during program initialization. Take this worker function definition as an example:
+
+<pre>
+import "circuit/use/circuit"
+
+type MyWorkerFunc struct{}
+
+func (MyWorkerFunc) SingletonMethod(greeting string) (response string) {
+	return "Hello " + greeting
+}
+
+func init() {
+	circuit.RegisterFunc(MyWorkerFunc{})
+}
+</pre>
+
+<p>It is in good style to include the call to <code>circuit.RegisterFunc</code> in a dedicated <code>init</code> function, defined at the source site of the type definition. This rule is enabled by Go's ability to have multiple <code>init</code> definitions in the same file and package. Henceforth, the worker function container type might be refered to as the <em>worker function type</em> or simple as the <em>worker function</em>.
+
+			<h4 id="spawn-semantics">Spawn semantics</h4>
+
+<p>The spawning mechanism provides flexible ways to execute both short- and long-lived worker functions,
+while providing clear semantics regarding the lifespan of the worker processes hosting them. We explain these here.
+
+<p>When <code>Spawn</code> is invoked,
+
+<blockquote><dl>
+	<dt>(1) A new
+worker process is started on the desired host and a connection is established between
+the parent and child circuit runtimes. 
+<dt>(2) The worker (an <abbr>OS</abbr>-process) proceeds to:
+	<dd>(2a) Execute the desired worker function, 
+	<dd>(2b) Send its return values back to the parent process, and 
+	<dd>(2c) Die immediately after.
+<dt>(3) The calling process receives the return values (or detects failure) and returns (unblocks)
+	from the call to <code>Spawn</code>.
+</dl></blockquote>
+
+</p>
+
+<p>Most notably, (2c), the worker process dies as soon as the worker function completes. This simple semantic is ideal for running short-lived jobs remotely. In order to run long-lived jobs without blocking the caller, one might wrap the blocking call to <code>Spawn</code> in a goroutine:
+
+<pre>
+done := make(chan int)
+go func() {
+	circuit.Spawn("host25.datacenter.net", nil, LongLivedFunc, …)
+	done <- 1
+}()
+…
+<-done // Wait for remote long-lived job to complete
+</pre>
+
+<p> This technique can do the job, but it is frequently too clunky. One rarely spawns a long running process, willing to forget about it until its death. A more common pattern — we find — is to spawn a long-running process which confirms successful startup to its spawner, and often communicates back some sort of dynamic operational parameters, before it is let to proceed into its long-running logic.
+
+<p>In order to facilitate this pattern, the spawning mechanism allows for an exception to rule (2c) which, while not strictly necessary, could simplify implementation in such cases quite a bit. Circumventing rule (2c) is embodied in the machanism of “daemonizing” worker functions, described in the next section.
+
+<h4 id="daemonize">Daemonizing worker functions</h4>
+
+<p>Consider the following worker function definition:
+
+<pre>
+import "circuit/use/circuit"
+
+type StartServer struct{}
+
+func (StartServer) Main() (hostport string, err error) {
+	server, err := StartLocalWebServer()   // Bind a web server
+	if err != nil {
+		return "", err
+	}
+	go func() {                            // Start accepting requests in new goroutine
+		for { server.AcceptNext() }
+	}()
+	return server.HostPort(), nil          // Communicate the URL of the server to the caller
+}
+
+func init() {
+	circuit.RegisterFunc(StartServer{})
+}
+</pre>
+
+<p>This is a natural programming pattern: The worker function starts a network server in a separate thread of execution, so that it can return to the caller with a description of how to find the new server. As written above, this worker function wouldn't behave as desired. As soon as execution reaches the return statement at the end, the return values will be communicated to the caller and the hosting worker process will be killed, as per line (2c) from the spawn semantics. This will kill the web server running in the anonymous goroutine, thereby defeating our goal to install a long-running web server.
+
+<p>To remedy this, we need to substitute the <code>go</code> statement with the following:
+
+<pre>
+	…
+	circuit.Daemonize(func() {
+		for { server.AcceptNext() }
+	})
+	…
+</pre>
+
+<p><code>circuit.Daemonize(f func()) </code> is a circuit <abbr>API</abbr> call, which can only be called from within the execution of a worker function. Like a <code>go</code> statement, it has the effect of forking the function <code>f</code> into a new goroutine. In addition, it instructs the circuit runtime that the hosting worker process should not be killed, as per semantic (2c), until both (i) the calling worker function returns and (ii) the argument function <code>f</code> returns. 
+
+<h3 id="comm">Communicating across workers</h3>
+<div class="twocol">
+
+<p>There are two situations, collectively called <em>cross calls</em> or <em>cross invocations</em>, in which data is being transported out of a worker process, across the network and into another worker process: When spawning worker functions and when invoking methods of objects that live on remote workers. We have already discussed the former in section <a href="#spawn">Spawn</a>. The latter will be covered in section <a href="#xptr">Cross-interfaces</a>. 
+Here we are going to see how the declared types of functional arguments and return values determine the manner in which Go values are sent across workers.
+
+<p>When performing cross calls, typed data is implicitly being serialized and transported over a network, both when sending 
+the functional arguments and when receiving the return values. It is important to remember that sent data 
+(which from programming point of view comprises Go typed values) arrives in a different runtime environment where, 
+for example, pointers from the original environment do not make sense. To prevent programming mistakes of this nature,
+the circuit provides two ways of sending data to other workers, which are discussed in the following sections.
+
+<p>To aid ourselves in this discussion, we'll benefit from two terms. Often it is more convenient to talk about the “sender” and “receiver”
+of data. So let's see how they relate to the caller and the callee in the functional (i.e. linguistic) context. Data travels across
+workers (and across the network) only during cross-calls. The calling worker is the <em>sender</em> of the functional arguments and the
+<em>receiver</em> of the return values. Whereas the worker being called is the <em>receiver</em> of the functional arguments and the
+<em>sender</em> of the return values.
+
+<h4 id="values">Values</h4>
+
+<p>If a functional argument or return value is declared of a <em>concrete (non-interface) type</em>, then whenever this function is cross-called the supplied Go value will be transported across the network <em>by value</em>. In other words, it will be flattened recursively, serialized and consecuently reconstructed in the same form at the receiving worker's Go runtime environment.
+
+<p>Let's look at an example method declaration:
+
+<pre>
+func (MyReceiver) MyMethod(a *MyStruct, b int, c map[int]string, d ...string) (bool, []byte) {
+	…
+}
+</pre>
+
+<p>All arguments as well as the return values are of concrete types (non-interfaces). If <code>MyMethod</code> is cross-called, all arguments and return values will be transported by value. Most notably:
+<ul>
+<li>Any changes to values at the receiver will not be reflected at the sender. This is in line with standard Go semantics, except when dealing with slices or maps: In traditional Go, changes to the contents of a slice or a map will be reflected at the caller, since slices and maps are effectively pointer values. This is not the case in circuit cross-calls. 
+
+<p>(Using slices and maps with the intention to change their contents at the receiver is not a common pattern. Because of this and in the interest of having a simple rule &ndash; <em>concrete types are sent by value</em> &ndash; we have elected this behavior for slices and maps. If one is interested in providing a remote worker with write-access to a local data structure, one can achieve this using <a href="#interfaces">interfaces</a>.)
+
+<li>Channel and function values cannot be used as arguments or return values of functions that will be cross-called. They will raise a panic. Note that it is possible to achieve the same effect as sending channel values by sending interfaces. This much more general facility is described in section <a href="#interfaces">Interfaces</a>.
+</ul>
+
+<p>Values are transported using Go's <a href="http://golang.org/pkg/encoding/gob/"><code>gob</code> package</a>. Consecuently, values that are sent during cross-calls must be <code>gob</code>-encodable, otherwise a panic will be fired.
+
+<p>(If you are a <code>gob</code> expert, don't confuse the semantics of <code>gob</code>’s 
+<code>Encode</code> and <code>Decode</code> methods with those of cross-call functional arguments 
+and return values: <em><code>nil</code> values are properly transported by the circuit</em>. 
+If a function <code>f</code> takes a pointer argument (like <code>*T</code>, for example) and you pass in a <code>nil</code> 
+value when cross-calling <code>f</code>, the receiver will correctly pass the <code>nil</code> value for the 
+corresponding argument. In contrast, a <code>nil</code> value passed to <code>gob.Encode</code>, for example, will produce an error or panic. The same applies to slices and maps.)
+
+<h4 id="interfaces">Cross-interfaces</h4>
+
+<p>One of the key features that makes Go so flexible is the notion of interfaces. Passing an interface is like passing a functionality (or an <abbr>API</abbr>). In fact, it is easy to see that passing interfaces subsumes passing functional or channel types. Indeed, one can emulate passing a function by passing an interface whose singleton method implements the desired function. Or, instead of passing a channel, one can pass an interface with appropriately defined send, receive and close methods, for example,
+
+<pre>
+type ChanInt interface {
+	Send(value int)
+	Receive() (value int, success bool)
+	Close()
+}
+</pre>
+
+<p>Passing interfaces is a powerful tool. E.g. one can use it to “pass open files” across different goroutines. One of the key accomplishments of the circuit's programming environment is the ability to pass interfaces in cross-calls without sacrificing any of the flexibility one is accustomed to within the Go programming environment. So let us see what this means and how it is done.
+
+<p>In Go an interface is a value which refers to another <em>underlying</em> value, and also specifies a list of callable methods of the underlying value. In fact, at a semantic level, one might say that a non-nil interface value is simply a list of callable functions with a underlying common state.
+
+<p>The Circuit augments the Go language with an additional type, dubbed a
+<em>cross-interface</em>, that has the same semantic interpretation as a normal
+interface, with the difference that it can refer to an underlying object that
+lives in a process other than the currently executing one. Within the
+programming environment, we use the type <code>circuit.X</code> to hold
+cross-interface values.  So, for example, a function that requires a
+cross-interface argument and returns one, would be declared like so
+<pre>
+func (MyReceiver) MyMethod(a string, b circuit.X) (circuit.X, bool) {
+	…
+}
+</pre>
+
+<p>The type <code>circuit.X</code> is a Go interface type. It provides methods
+for interacting with the underlying object, discussed later. Semantically, one
+can think of <code>circuit.X</code> as “the <code>interface{}</code> of
+cross-interfaces” — the broadest cross-interface type, having no required
+methods. (It is currently not possible to define cross-interface types that
+require specific methods. This feature will be introduced with the upcoming
+Circuit Compiler.)
+
+<p>We have now seen how to declare a function that uses cross-interfaces.  The
+next section explains how to send (pass arguments or return values)
+cross-interface values, as well as how to use them on the receiving end.
+
+<h4 id="xmake">Making cross-interfaces</h4>
+
+<p>Any Go type that has public methods, and such that all arguments and return
+values involved are <code>gob</code>-serializable or are interfaces, can be
+used as the underlying object of a cross-interface.  The function
+<code>circuit.Ref</code> is used to create a new cross-interface with a given
+underlying native Go value.  Usually native values are converted to
+cross-interfaces right before they are passed as arguments to cross-calls or
+returned as functional results.
+
+<p>Suppose we need to implemented a file system type, whose singleton method 
+opens a local file and returns an object representing the open file. 
+A typical Go implementation would like something like this:
+
+<pre>
+func (fs *FileSystem) Open(name string) (*File, error) {
+    …
+    return file, nil
+}
+</pre>
+
+<p>Now suppose we would like to be able to cross-call <code>Open</code>. If the
+implementation is left as is, the returned value <code>*File</code> will be
+flattened and serialized back to the caller. This is not what we want.
+Instead, we need to create a cross-interface to the local <code>file</code>
+object and return the former to the remote caller. The implementation requires
+a tiny change:
+
+<pre>
+func (fs *FileSystem) Open(name string) (circuit.X, error) {
+    …
+    return circuit.Ref(file), nil
+}
+</pre>
+
+<h4 id="xuse">Using cross-interfaces</h4>
+
+<p>The native Go value <code>circuit.X</code> — which represents a
+cross-interface — provides a <code>Call</code> method for invoking the methods of the object
+underlying the cross-interface, wherever (remotely) it might be located.
+The signature of <code>Call</code> is as follows:
+<pre>
+Call(proc string, in ...interface{}) []interface{}
+</pre>
+<p>The first argument <code>proc</code> holds the string name of the method (of
+the underlying object) you desire to invoke. Following are any number of arguments
+that will be passed on as arguments. It is your responsibility to make sure the
+types of the arguments supplied matches (or is assignable to) the types of the
+arguments expected. If you fail to do so, your mistake will be caught at runtime
+and reported with a panic.
+
+<p><code>Call</code> blocks until the function completes and transports the return values
+over the network back to the invocation site, or an external (network, machine, etc.) failure condition occurs.
+
+<p>You will notice that <code>Call</code> does not return an error value. If an
+error condition occurs, it is returned in the form of a <code>panic</code>.  It
+is up to you to <code>recover</code> from it, if it makes sense in your
+application. If a panic is thrown, there is no guarantee as to whether the invoked
+method was called at the destination worker.
+The principles behind our choice to handle errors in cross-calls via panics is explained
+in more detail in <a href="#errors">Handling errors</a>.
+
+<p>On success, the values returned by the method invocation are placed inside the returned
+slice of Go interfaces. Their types will exactly match those in the method definition, so you
+can cast them confidently unless they could be <code>nil</code> within the normal logic of your application.
+
+<h4 id="recursive">Recursive cross-values*</h4>
+
+<p>Thus far in this chapter (on <a href="#comm">Communicating across workers</a>) we have seen that
+the circuit environment supports two types of functional arguments (and return values): concrete
+types and cross-interfaces. In fact, the circuit supports a “hybrid” as well. Consider this type definition:
+<pre>
+type Hybrid struct{
+	ValueField     []int
+	CrossInterface circuit.X
+}
+</pre>
+<p>When a value of type <code>Hybrid</code> (or <code>*Hybrid</code>) is passed as
+a functional argument, The <code>struct</code> itself will be sent (and
+received) by value, while the <code>CrossInterface</code> field will be handled
+as a cross-interface and the receiver will be able to use it as such (and call
+its methods).
+
+<p>This logic applies <em>recursively</em> also for slice and array element types, as well as for
+	map value types (map key types cannot be cross-interfaces). Here's another example
+	to re-enforce this:
+<pre>
+type SliceElm struct {
+	XInterface        circuit.X
+	SliceOfXInterface []circuit.X
+	OtherStuff        string
+}
+
+type TopLevel []*SliceElm
+</pre>
+</div>
+
+<h3 id="xgc">Cross-runtime garbage collection*</h3>
+
+<p>At this point of the present document, the careful mind should be asking:
+	<blockquote>
+		What happens to the underlying objects that are solely referenced by cross-interfaces
+		at remote workers that have died?
+	</blockquote>
+
+<p>The short answer is: The right thing happens. The objects underlying cross-interfaces behave exactly the same way other
+	(native) Go objects behave — they are garbage-collected when no more references to them remain. 
+	The circuit tracks all workers holding a reference to a particular underlying object. It sends regular heartbeats 
+	(in an efficient manner, piggybacking on other useful network calls) and makes note of dead workers. Live workers,
+	on the other hand, are responsible for reporting back if the cross-interface values are garbage-collected locally.
+
+<p>In some advanced cases (discussed in <a href="#link">Runtime linking and version compatibility*</a>) it is benefitial
+	to “anchor” an object underlying a cross-interface forever. In other words, we don't want that object garbage-collected
+	throughout the life of the worker that is hosting it. For this purpose, the circuit supports a variation on
+	cross-interfaces described next.
+
+<h4 id="perm">Permanent cross-interfaces</h4>
+
+<p>A <em>permanent cross-interface</em> is a cross-interface that, when created for an underlying object, marks the object as permanent, ensuring it will never be garbage-collected at its hosting worker and that outstanding <em>permanent cross-interfaces</em> held at other workers will always be able to find it. In particular, permanent cross-interfaces can be serialized to disk and revived later.
+
+<p>Permanent cross-interfaces are held inside values of the <code>circuit.XPerm</code> interface, which is narrower than and compatible with the <code>circuit.X</code> interface. In other words, a <code>circuit.X</code> variable can hold a <code>circuit.XPerm</code> value, but not the other way around. The function <code>circuit.PermRef</code>, applied to a Go object, returns a permanent cross-intrface pointing to that object. In all other respects, <code>circuit.XPerm</code> behaves similarly to <code>circuit.X</code>.
+
+<h4 id="persist">Persisting cross-interfaces</h4>
+
+<p>Since the objects that underly permanent cross-interfaces are always valid — during the life of their hosting worker — they can be persisted by one worker and re-used later by another (as long as the underlying object is still alive). Persistence is enabled by two functions — <code>circuit.Export</code> and <code>circuit.Import</code>.
+
+<p>The former is declared as
+<pre>
+Export(payload ...interface{}) (exported interface{})
+</pre>
+<p>It accepts a list of type-unrestricted arguments and returns a (Go-exportable) native Go object that can be serialized by any Go encoding package of your choosing, like <code>encoding/json</code>, <code>encoding/gob</code> and so forth. The same rules apply to the arguments passed to <code>Export</code> that apply to those passed in function cross-calls. The single exception is that non-permanent cross-interfaces, <code>circuit.X</code>, cannot be present in any of <code>Export</code>'s arguments or within them at any recursive level.
+
+<p>The inverse of <code>Export</code> is declared as
+<pre>
+Import(exported interface{}) (payload []interface{}, stackTrace string, err error)
+</pre>
+<p>Its interface is self-explanatory except perhaps for the second return value. The <code>stackTrace</code> return value, resulting from a successful <code>nil</code>-error invocation to <code>Import</code>, holds the stack trace of the worker that called <code>Export</code> to persist the <code>payload</code>, at the time of the call.
+
+<h3 id="services">Cross-services</h3>
+
+<p>Permanent and non-permanent cross-interfaces alone are a sufficient abstraction for building complex distributed applications with temporally complex behavior. For example, using techniques (described later in <a href="#link">Runtime linking and version compatibility*</a>), one can implement systems that can be upgraded incrementally and with no downtime, eventually replacing all running workers from one generation of the system to the next. In such applications, permanent cross-interfaces can be used to persist the system-dependent state of a worker across a restart/update cycle, for example. (In fact, one could even achieve the same result by avoiding persistence and permanent cross-interfaces altogether, by utilizing only non-permanent cross-interfaces.)
+
+<p>Using cross-interfaces for communicating “pointers” to remote objects from one worker to another is not only powerful, but it also enables very precise information flow control (for debugging, profiling, tracing, security, etc.) due to the integration with the programming language itself (Go in this case). In contrast, traditional mechanisms based on global URLs, as in <code>zookeeper3.datacenter.net:2081</code>, conceal both:
+	<ul>
+		<li>The path via which a client obtains a server URL, as well as
+		<li>The possibly changing identity/generation of the server software underlying the URL.
+	</ul>
+
+<p>Nevertheless, we find it practical to support a circuit mechanism that allows for using traditional service semantics. We describe this mechanism next. First, it is worth noting that nothing prevents a circuit worker from listening on a <abbr>POSIX</abbr> network port via the standard <code>net</code> package and, indeed, we often do this in practice. This technique is typically used to interface between circuit applications and external technologies.
+
+<p>The circuit supports an additional technique for building service semantics. This technique is applicable only for
+circuit-to-circuit communication, which allows it to benefit from type-safety and other features of the circuit programming environment. (In traditional <abbr>IP</abbr>-based services, type checking has to be programmed explicitly by the application developers, in addition to a long line of other boilerplate code that almost always needs manual attention — much unlike anything in the circuit.)
+A circuit worker can <em>listen</em> for requests incoming to a <em>service</em> identified by a <code>string</code> name. To start listening on a service, use <code>circuit.Listen</code>, which is declared as
+<pre>
+Listen(serviceName string, receiver interface{})
+</pre>
+<p>The first parameter to <code>Listen</code> is the service name. The second is an instance of a native Go type, whose public methods are the <abbr>API</abbr> of the service. To connect to a service, use <code>circuit.Dial</code>, which is declared as
+<pre>
+Dial(workerAddr circuit.Addr, serviceName string) (serviceReceiver circuit.X)
+</pre>
+<p>The first argument, <code>workerAddr</code>, specifies the worker we would like to connect to. Worker addresses are obtained as return results of <code>circuit.Spawn</code> or, alternatively, they can be discovered by reflecting on the circuit's <a href="anchor.html">anchor file system</a> that, similarly to Linux' <code>procfs</code>, maintains knowledge of all live workers. The second argument specifies the service name. On success, <code>Dial</code> returns a cross-interface to the receiver object that is listening on that service name.
+
+<p>Failure is communicated to the programmer via a panic, thrown out of <code>Dial</code>, similarly to the way it is done in cross-calls. Since dialing services is usually done in higher-level application code, on occasion it is more convenient (in terms of writing error-handling code) to return dialing errors in the conventional way. For this purpose, we have included the utility function <code>circuit.TryDial</code>, declared
+<pre>
+TryDial(workerAddr circuit.Addr, serviceName string) (serviceReceiver circuit.X, err error)
+</pre>
+<p><code>TryDial</code> behaves identically to <code>Dial</code> except that it never panics. Instead it returns error conditions in <code>err</code>.
+
+<p>&nbsp;
+<hr>
+<div class="twocol">
+<h4 id="builtin">Built-in services</h4>
+
+<p>By default, every circuit worker exposes a built-in service called <code>acid</code>, after the Plan 9 debugger. E.g. you could access it using something like:
+<pre>
+…
+acidXInterface := circuit.Dial(workerAddr, "acid")
+…
+</pre>
+<p>The acid receiver currently provides a few basic health/debugging/profiling facilities. They are documented in the <code>godoc</code> for package <code>circuit/sys/acid</code>. Here we mention some of them:
+<pre>
+Ping()
+</pre>
+<p><code>Ping</code> is the most basic one. A successful call to ping indicates that the destination worker was alive and healthy at some point between the cross-invocation of <code>Ping</code> and the time when it returned.
+
+<pre>
+RuntimeProfile(name string, debug int) ([]byte, error)
+</pre>
+<p><code>RuntimeProfile</code> exposes the runtime profile information provided by the <code>runtime/pprof</code> Go package at the destination work. This facility is immensely helpful. It has enabled us to partially debug in-production applications and discover the origin of some bugs in seconds, which otherwises would have required multiple re-deploys and weeks to find.
+
+<p>For example, “silent hangs” are some of the hardest bugs to find without on-the-fly instrumentation. They don't panic your process with a convenient trace to the bug's expression. Being able to inspect the stack traces of all processes comprising your application in a snappy and convenient manner saves non-trivial amount of time. The circuit distribution includes a few command-line tools (discussed in <a href="cli.html">Command-line toolkit</a>) that utilize the <code>acid</code> service to provide convenient interactive bug chasing.
+
+<pre>
+CPUProfile(duration time.Duration) ([]byte, error)
+</pre>
+
+<p><code>CPUProfile</code> is a proxy to the <abbr>CPU</abbr> profiling mechanism of package <code>runtime/pprof</code>. It starts <abbr>CPU</abbr> profiling for the specified duration and returns the resulting <abbr>CPU</abbr> profile in a format convenient to be fed directly into the <abbr>GNU</abbr> profiler. (Using the <abbr>GNU</abbr> profiler with dumps generated by Go programs is discussed in <a href="??">this article</a>.) The command-line tool <code>4cpu</code> uses <code>CPUProfile</code> to enable remote on-the-fly profiling of in-production services without any permanent effects on their performance.
+
+<p>The <code>acid</code> service provides a growing set of other facilities as well. Its current offerings are found in the <code>godoc</code> for package <code>circuit/sys/acid</code>. Like most aspects of the circuit, it is very easy to extend the built-in interface with functions that fit your needs. You could do this following the <code>acid</code> service code as a starting point.
+</div>
+
+<h3 id="errors">Handling errors</h3>
+<div class="twocol">
+<p>A founding principle in the design of the circuit was to make cross-worker calls nearly identical, in linguistic semantics, to traditional in-process calls. Making them entirely identical is not possible and not desirable.
+
+<p>The key semantic difference between in-process and out-of-process (cross-) calls is that, from the point of view of the calling thread, the in-process callee will <em>always</em> return albeit possibly with a software panic. On the other hand, the invocation of an out-of-process callee can end in one additional way.
+All possible outcomes of an out-of-process call are as follows:
+	<ul>
+		<li>The called function completes its Go execution (with or without a software panic) at the hosting worker and successfully manages to communicate the outcome to the calling worker. Or,
+		<li>At some point of the function call protocol, an external (network or hardware or other) error occurs and precludes successful completion of the invocation protocol.
+	</li>
+</ul>
+<p>The common case is the former. For that reason, we favored the following linguistic/semantic principles for cross-calls.
+<p>Semantically, cross-calls should be identical to traditional Go function calls. A traditional Go call looks like this
+<pre>
+retrn1, retrn2 := Receiver.Method(arg1, arg2)
+</pre>
+<p>A cross-call, under the current implementation of the circuit, looks like this:
+<pre>
+retrns := XInterface.Call("Method", arg1, arg2)
+</pre>
+<p>Syntactically, they differ superficially. Semantically, they are the same. In particular:
+<ul>
+	<li>If a cross-call completes successfully and the called function does not produce a software panic, the invocation site receives return values corresponding exactly to the return values appearing in the function definition, and in that same order. In the current implementation of the circuit, this is achieved by the slice <code>retrns</code> of type <code>[]interface{}</code>.
+
+	<li>If a cross-call completes successfully and the called function produces a software panic,
+	the invocation site produces a panic as well, whose underlying value is reflective of the original
+	panic.
+
+</ul>
+
+<p>For the above two outcomes, traditional and cross-calls behave identically. For the remaining outcomes (available only with cross-calls) of an external error that interferes with the cross-call network protocol, the invocation of <code>Call</code> also panics, however it does so with a panic object that is unique to this condition.
+
+<p>This design offers some natural benefits. We find that typically we structure our code so that monolithic blocks of code, consisting of possibly complicated or recursive functional paths, are responsible for cross-calling into a remote worker. It is then quite convenient to <code>recover</code> from external panic conditions at a single high-level point. This relieves deep, application-specific code from error handling logic pertaining to external circumstances.
+
+<p>This programming pattern has motivated one additional cross-call semantic:
+<ul>
+	<li>If a cross-call, pertaining to an underlying object at a given remote worker, fails due to external circumstances (and returns with the according panic object) then all other cross-interfaces held locally, and pertaining to this or other objects on the same remote worker, will be considered <em>invalid</em> and all subsequent cross-calls to these cross-interfaces will result in a panic.
+	Moreover, that worker is considered <em>dead</em> and it will not be accessible through any other
+	means (like e.g. the cross-service mechanism) in the future (without throwing a panic).
+</ul>
+<p>In other words, once connectivity to a worker residing on a remote host is lost, that worker is considered permanently dead, regardless of the whether this is indeed the case. This makes the programming paradigm of the circuit clear to reason about. 
+
+<p>This semantic does not actually preclude handling network outages gracefully, without restarting worker processes on all involved hosts. We postulate that the correct way to manage network outages is outside of the programming environment and inside the circuit runtime. The circuit kernel does not implement its own physical networking. Instead it requires a transport driver to provide a <code>circuit.Transport</code> interface which exposes facilities for listening on and dialing to opaquely-named endpoints. 
+For example, the current circuit distribution comes with a “default” transport layer, based on persistent <abbr>TCP</abbr> connections. 
+
+<p>We envision that the correct way to handle network outages would conceal the failing (or failing to reconnect) TCP connection from the circuit programming environment by blocking the outstanding read/write calls and thereby delaying a declaration of a failed worker. Two events would unblock outstanding calls:
+	<ul>
+		<li>An eventual network recovery that causes an automatic reconnect, engineered to ensure no application data is lost during the reconnect sequence. Thereby allowing normal circuit application execution to continue.
+		<li>An out-of-band indication, usually by the system administrator, that the netowrk won't be coming back up and therefore the transport driver should unblock all pending read/write calls with panic and declare the involved remote workers dead.
+	</ul>
+</div>
+
+<h3 id="link">Runtime linking and version compatibility*</h3>
+<div class="twocol">
+<p>We have taken great care to ensure that differently-versioned circuit binaries — and sometimes altogether different binaries — are “compatible” in that they can contact each other and invoke each other's cross-callable functions, without violating meaningful semantics of the programming environments that compiled to each binary, even though these environments (i.e. the source code) may not, for the most part, be aware of each other at the time of writing.
+
+<p>But first, let us understand in what situations this concern applies.
+	Take as an example the circuit command-line tool <code>4stk</code>. It (i) finds the worker named in its command-line arguments using the anchor file system, (ii) dials the <code>acid</code> service on that worker, and (iii) fetches the worker's current stack trace by calling the <code>RuntimeProfile</code> function of the <code>acid</code> service.
+	To be able to do this, <code>4stk</code> is built as a circuit application itself. 
+
+<p>Note that the binaries of <code>4stk</code> and your circuit application workers are not built from the same code base. Granted they both utilize the circuit packages, they might be based on different versions of the circuit sources. Nevertheless, we would like to be able to build a tool like <code>4stk</code> once and use it going forward against ours, as well as third-party, circuit applications without having to rebuild it.
+
+<p>To make this possible, the circuit networking protocol utilizes a convention for encoding function identities that is not tied to — and, in fact, is entirely independent of — the particular build of any one binary, while at the same time being very space-efficient. In particular, every cross-callable function is uniquely determined by a 64-bit identifier that depends only on the functional signature. The signature includes the Go method name, as well as the types and the order of its arguments and 
+return values.
+
+<p>This way a legacy <code>4stk</code> binary will still be able to dial into a newer worker and invoke the <code>acid</code> service's <code>RuntimeProfile</code> function as long as the newer runtime has retained that function without changing its signature, while possibly changing its implementation.
+
+<p>From a programming standpoint the concern of connecting to a worker, whose binary might be built from a different code base, can occur in three cases of interaction with a remote worker:
+	<ol>
+		<li>When dialing into a cross-service, using <code>circuit.Dial</code>: This is because the dial destination — which includes a worker address and a service name — can be saved to disk when the destination worker was born, for example, and later revived and used by a newer worker 
+			compiled <i>post factum</i>.
+		<li>When cross-calling the methods of a permanent cross-interface: In this case also, the destination worker
+			could persist a parmenent cross-interface to disk, later to be revived by a newer worker.
+		<li>When cross-calling the methods of a non-permanent cross-interface: This case is a little different. Here if a connection to a differently versioned worker was established once (using one of the above two methods), then one could imagine, say, obtaining a non-permanent cross-interface from that worker with an underlying object on that same worker. Consequently, cross-calling the cross-interface would be interacting with a differently versioned worker.
+	</ol>
+<p>The main importance of this observation is suggesting a good rule for implementing circuit applications that play well in heterogenous environments. Specifically, it suffices to handle version incompatibility errors during interactions of type (1) and (2), leaving invocations of type (3) unchecked for panics. This is because in order to be in position (3), either (1) or (2) must have happened prior.
+</div>
+
+</div>
+
+
+
+
+
+		<div id="footer">
+			The content of this page is licensed under the
+			Creative Commons Attribution 3.0 License,
+			and code is licensed under an <a href=license.html>Apache license</a>.
+			Made at <a href="http://tumblr.com">Tumblr</a>.
+		</div>
+
+	</body>
+</html>

@@ -1,0 +1,280 @@
+<html>
+	<head>
+		<title>Go'Circuit: Build, cross-build and deploy an application</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>Build, cross-build and deploy an application</h1>
+
+			<div class="moto">
+
+		<p>Each circuit application consists of one or more command-line executables, which we call <em>commands</em> for short, and a single worker executable.
+		Commands are administration tools that start, stop or alter the execution of a circuit application.
+		Both target exeutable types can be built as easily as running the standard Go build tool <code>go build</code>.
+		This method is particularly suited for commands, which are usually meant to be executed from the developer's shell.
+		<p>Worker executables, however, typically run on a remote cluster with hardware differing from that of the developer's machine. To build a worker executable for the “cluster hardware”, one would have to log into a cluster machine and perform the build there. Doing so manually prohibits fast build-deploy iterations, especially during development.
+
+		<p>To remedy this, the circuit includes a complementary build system that makes cross-building a breeze. Furthermore, included is an deploy tool which integrates with the cross-build system and is responsible for uploading newly built worker executables to the cluster machines. This toolchain is often more convenient to use even when building circuit
+			applications that are intended to run entirely on the developer's machine.
+
+			</div>
+	<h3>Table of contents</h3>
+	<dl>
+		<dt><a href="#synopsis">Synopsis</a></dt>
+		<dt><a href="#intro">Overview</a></dt>
+		<dt><a href="#build">Build</a></dt>
+		<dt><a href="#cross">Cross-build</a></dt>
+			<dd><a href="#pre">Prepare the build server</a></dd>
+			<dd><a href="#configx">Configure the cross-build</a></dd>
+			<dd><a href="#runx">Run the cross-build</a></dd>
+		<dt><a href="#deploy">Deploy</a></dt>
+			<dd><a href="#bkg">Background</a></dd>
+			<dd><a href="#rund">Run the deploy tool</a></dd>
+			<dd><a href="#result">Results of deploying</a></dd>
+	</dl>
+
+<h3 id="synopsis">Synopsis</h3>
+
+<pre>
+% CIR=app.config 4crossbuild                   # cross-build worker
+% CIR=app.config 4deploy < list_of_hosts       # deploy worker
+% go install app_start_cmd_pkg                 # build launch command
+% app_start_cmd                                # deploy
+</pre>
+
+<h3 id="intro">Overview</h3>
+
+<p>Each circuit application consists of one or more command-line programs—the <em>commands</em>—and a worker program—the <em>worker</em>. Commands are what you invoke on the command-line to launch your circuit application, or to alter its behavior mid-way through its execution in some application specific way. The worker is an executable that is to be pre-installed on all hosts in your cluster. When a spawn of a new worker is performed within a circuit application, the underlying <a href="spawn.html">spawning mechanism</a> locates the worker executable on the target hosts and executes it. 
+
+<p>Building a circuit application entails building the command and worker binaries for the respective target systems where they will be executed. Command executables are almost always executed from the developer's terminal or a similar administrator's terminal (e.g. engineers often use Apple MacBook personal terminals to manage a Linux PC-powered datacenter). They can therefore be built natively on the developer's terminal using a straight up invocation of <code>go build</code>.
+
+<p>Worker executables, on the other hand, are destined for execution in the datacenter, which will often run on different 
+hardware. Currently, worker executables cannot be cross-compiled on the developer's machine due to dependence on C
+drivers for Apache Zookeeper. Cross-building can be accomplished manually by performing a native build on a target host.
+Doing so manually poses a practical impedence to rapid build-deploy cycles. To remedy this, we offer an entirely optional cross-build system that fully automates the common case.
+In our experience, the cross-build system has been so handy that we use it for native builds as well. 
+
+	<p><object data="img/build.svg" type="image/svg+xml" width="800px"> <img src="img/build.png" alt="Illustration of the build–deploy workflow." /></object></p>
+
+<p>In the remainder of this chapter, we describe a common workflow (illustrated above) whereby command executables are built on the (local) developer console, worker executables are cross-built on a remote host, then deployed to the cluster, and eventually the commands are invoked locally to deploy the application.
+
+
+<h3 id="build">Build</h3>
+
+<p>Building a command executable manually is done in a straightforward manner using the <code>go build</code> tool:
+	<ol>
+		<li>Add the <code><a href="https://code.google.com/p/go-wiki/wiki/GOPATH">GOPATH</a></code> directory of your application sources to the <code>GOPATH</code>
+			environment variable. For example,
+<pre>
+% export GOPATH=/projects/myapp:$GOPATH
+</pre>
+would instruct the Go compiler to look for your packages in <code>/projects/myapp/src</code>.
+		</li>
+
+		<li>Make sure you have the <code>CGO_CFLAGS</code> and <code>CGO_LDFLAGS</code> environment variables pointing to the Zookeeper include and library files (see <a href="build.html#cir">the circuit build manual</a> for details) on this machine.
+		</li>
+
+		<li>For each executable that you would like to build, change to the package directory of that executable and simply run <code>go build</code>.</li>
+	</ol>
+
+<p>The manual build method is useful for building the commands of your circuit application as they are usually invoked from the developer's shell. For an example, see the <a href="hello.html">Hello, world!</a> tutorial.
+
+
+
+<h3 id="cross">Cross-build</h3>
+
+<p>In the realm of cross-building we call the developer's environment—where the cross-build is initiated—the <em>build client</em>, and the remote host environment—where the actual build is taking place—the <em>build server</em>.
+At high level, the developer invokes the cross-build tool at the command line and supplies to it the application configuration file. 
+The cross-build tool logs into the build server using the <code>ssh</code> credentials of the developer, executes the build tool against the application configuration and downloads the resulting binaries back to the build client.
+
+
+<h4 id="pre">Prepare the build server</h4>
+
+<p>A few simple provisions need to be made for a host machine to be a build server.
+<ol>
+<li>The following software must be installed on the build server:
+	<ul>
+		<li><a href="http://mercurial.selenic.com/">Mercurial client</a> <code>hg</code>,</li>
+		<li><a href="http://git-scm.com/">Git client</a> <code>git</code>,</li>
+		<li><a href="http://rsync.samba.org/"><code>rsync</code></a>,</li>
+		<li><a href="http://www.openssh.org/">Secure shell <code>ssh</code></a>,</li>
+	</ul>
+<li>The Apache Zookeeper C driver's include and library files must be present on the build server local file system.
+	(Their location is specified to the build system in the configuration file, discussed in the next section.)
+	You can refer to the <a href="build.html#z">instructions for installing Zookeeper</a> during the initial circuit build.
+</li>
+<li>The developer's environment at the build client must be able to connect via <code>ssh</code> into the build server <em>without using a password</em>.
+
+	<p>To do so, generate <code>ssh</code> credentials on the build client using <code>ssh-keygen</code>. Then concatenate the file <code>~/.ssh/id_rsa.pub</code>—at the build client—to the end of <code>~/.ssh/authorized_keys</code>—at the build server. And make sure <code>sshd</code> is accepting connections to the build server.
+	</p>
+</li>
+
+<li>When the cross-build tool executes shell scripts on the build server through <code>ssh</code>, it obtains a much more limited system-mandated shell environment than what one gets with an interactive login. Often this limited environment contains a basic <code>PATH</code> variable that does not capture binary install directories used by higher-level packaging tools. It is hence not uncommon that the tools installed in Step 1 might not be “visible” by default within the restricted shell. 
+
+<p>To address this issue in a non-invasive fashion, the <code>Build</code> section of the application configuration contains a field, called <code>PrefixPath</code>, that allows one to specify a <code>PATH</code> environment variable value that will be prepended to the default <code>PATH</code> value of the restricted build server shell. So, for example,
+
+<pre>
+{
+	…
+	"Build": {
+		…
+		"PrefixPath": "/usr/local/bin:/usr/bin"
+	}
+}
+</pre>
+
+</li>
+</ol>
+
+<h4 id="configx">Configure the cross-build</h4>
+
+<p>The key step in the process is writing the <a href="config.html">application configuration file</a> which describes how to
+	compile the final product. That said, the process is pretty straightforward.
+
+<p>The cross-build process utilizes the <code>Deploy</code> and <code>Build</code> sections of the configuration. These are well documented in the <a href="config.html">configuration reference</a>. Regardless, we review them briefly here for continuity. Consider a running example:
+<pre>
+{
+	…
+	"Deploy": {
+		…
+		"Worker":           "worker_binary_name"
+	},
+	"Build": {
+		"Host":             "build.datacenter.net",
+		"Jail":             "/home/petar/build/myapp",
+		"ZookeeperInclude": "/home/petar/gocircuit/misc/starter-kit-linux/zookeeper/include",
+		"ZookeeperLib":     "/home/petar/gocircuit/misc/starter-kit-linux/zookeeper/lib",
+		"Tool":             "/home/petar/gocircuit/bin/4build",
+		"PrefixPath":       "/usr/local/bin",
+
+		"AppRepo":          "{git}git@github.com:petar/circuit_app_project.git",
+		"AppSrc":           "/GOPATH_relative_to_app_repo",
+
+		"GoRepo":           "{hg}{branch:release}code.google.com/p/go",
+		"RebuildGo":        false,
+
+		"CircuitRepo":      "{git}git@github.com:tumblr/gocircuit.git",
+		"CircuitSrc":       "/",
+
+		"WorkerPkg":        "worker_pkg",
+		"CmdPkgs":          ["cmd/myapp-spawn"],
+		"ShipDir":          "/home/petar/ship/myapp"
+	}
+}
+</pre>
+<p><em>Build server environment:</em></p>
+<ul>
+	<li>Field <code>Host</code> specifies the host name of the build server. You need to have prepared the host to be a build server, as described in the previous section.
+	<li>Field <code>Jail</code> specifies the local directory on the build server that will contain build-related files. This directory is dubbed the <em>build jail</em>.
+	<li>Fields <code>ZookeeperInclude</code> and <code>ZookeeperLib</code> point to the local directories at the build server containing the Zookeeper C driver's include and library files, respectively.
+	<li>Field <code>Tool</code> points to a local copy of the <code>4build</code> executable at the build server.</li>
+	<li>Field <code>PrefixPath</code>, discussed in the previous section, specifies a <code>PATH</code> value that will be prepended to the default <code>PATH</code> during building on the build server.</li>
+</ul>
+<p><em>Application sources:</em></p>
+<ul>
+	<li>The system will automatically fetch the user's application repo into the build jail. For this purpose, the field <code>AppRepo</code> specifies how to obtain the repo. A flexible set of options, that includes <code>hg</code>, <code>git</code> and <code>rsync</code>, is available. The syntactic details there are given in the <a href="config.html">configuration reference</a>.</li>
+	<li>The application repo can have a flexible internal structure. The field <code>AppSrc</code> identifies the subdirectory, relative to the repo's root, that serves as the <code><a href="https://code.google.com/p/go-wiki/wiki/GOPATH">GOPATH</a></code> of the application sources.
+</ul>
+<p><em>Go Compiler sources:</em>
+<ul>
+	<li>The system also automatically fetches and builds the Go compiler. Field <code>GoRepo</code> describes how to fetch the Go compiler repo and has identical semantics as field <code>AppRepo</code>.</li>
+	<li>If field <code>RebuildGo</code> is set to <code>true</code>, each time cross-building is initiated with the same cnofig</li>
+</ul>
+<p><em>Circuit sources:</em>
+<ul>
+	<li>Fields <code>CircuitRepo</code> and <code>CircuitSrc</code> specify how to fetch and use the circuit source repository, using the same semantics as the fields <code>AppRepo</code> and <code>AppSrc</code>.</li>
+</ul>
+<p><em>Output:</em>
+<ul>
+	<li>Field <code>WorkerPkg</code> specifies a program package path that will be compiled as the worker executable.</li>
+	<li>Field <code>CmdPkgs</code> is an optional array of program package names, within the app repo, that will be compiled in addition to the worker executable and shipped back.</li>
+	<li>Field <code>Worker</code>, from the <code>Deploy</code> section, designates the desired name for the final worker executable. Custom worker executable names are a good way of distinguishing processes from different circuit deployments on the same physical host.</li>
+	<li>Field <code>ShipDir</code> specifies a directory on the build client where the result of the cross-build will be delivered at the end.</li>
+</ul>
+
+
+<h4 id="runx">Run the cross-build</h4>
+
+<p>Assuming the application configuration file is called, say, <code>app.config</code>, launching the cross-build is fairly simple:
+<pre>
+% CIR=app.config 4crossbuild
+</pre>
+
+If cross-building terminates successfully, you will find (i) a worker executable, (ii) an internal “helper” executable, as well as (iii)
+	zero or more command executables—all delivered to the local shipping directory. In our example above, this would 
+	be <code>/home/petar/ship/myapp</code>.
+
+<h3 id="deploy">Deploy</h3>
+
+<h4 id="bkg">Background</h4>
+
+<p>The deploy tool, <code>4deploy</code>, integrates with the cross-build tool by sharing the <a href="config.html">application configuration file</a>. What this means in practice is that <code>4deploy</code> can be invoked directly after <code>4crossbuild</code> without any additional configuration steps. The deploy tool will automatically know where to find the built binaries resulting from the cross-build and will proceed to upload and install them to the cluster hosts that you specify.
+
+<p>The <code>Deploy</code> section of your application configuration file serves a double purpose. 
+	It tells the deploy tool where to install the circuit binaries—within the local file system of each cluster host—and it tells the <a href="spawn.html">underlying spawning mechanism</a> where to look for these binaries at runtime. Within the configuration file, the <code>Deploy</code> section might look something like this
+<pre>
+{
+	…
+	"Deploy": {
+		"Dir":    "/deploy/firehose_dev_v2",
+		"Worker": "circuit-firehose_dev_v2"
+	},
+}
+</pre>
+
+<ul>
+	<li>Field <code>Dir</code> determines the <em>deploy directory</em> within the local file-system of every cluster host. This directory will house the application worker executable, among other things.</li>
+	<li>Field <code>Worker</code> determines the name of the worker executable. If you are running multiple circuit applications on the same host, having their workers ue different names makes it easier to distinguish them in a <code>ps ax</code> printout e.g.</li>
+</ul>
+
+<p>The deploy tool also peeks at the <code>Build</code> section of the configuration file, in order to determine the location of the built binaries on the local machine. In particular, this is the directory specified as <code>Build.ShipDir</code>, as in the following example,
+<pre>
+{
+	…
+	"Build": {
+		…
+		"ShipDir": "/Users/petar/ship/firehose_dev_v2",
+	}
+}
+</pre>
+
+<h4 id="rund">Running the deploy tool</h4>
+
+<p>The deploy tool can be invoked after a successful cross-build has completed. Similar to other circuit tools, 
+<ol>
+	<li><code>4deploy</code> expects that the environment variable <code>CIR</code> points to a local file holding the application configuration,
+	<li>It takes no command-line arguments and it expects the list of target hosts to be supplied on its standard input, one host name (no port) per line. And, finally,
+	<li>The user environment where <code>4deploy</code> is being invoked should be able to log into each target host with a password-less <code>ssh</code> session.
+</ol>
+
+<p>Without further ado, a typical invocation of <code>4deploy</code> looks like so
+<pre>
+% 4deploy < cluster_hosts
+</pre>
+Here <code>cluster_hosts</code> is a text file containing host names, one per line. The tool will install to all hosts in parallel, using throttling techniques to prevent contention when the target host cluster is big (to the tune of 100 or more machines). The tool will try to install the software on all hosts. If any of the hosts fails to install, the <code>4deploy</code> invocation will return a non-zero execution error code as well as informative print outs.
+
+
+<h4 id="result">Results of deploying</h4>
+
+<p>The result of running <code>4deploy</code> is quite simple. If we let <code>/deploy</code> be the deploy directory and <code>worker</code> be the name of the worker binary—both specified in the configuration—then the invocation of <code>4deploy</code> results in creating the following directory structure on each target cluster host:
+<pre>
+/deploy/bin                      # directory for circuit binaries
+/deploy/bin/worker               # worker executable
+/deploy/bin/4clear-helper        # internal tool executable
+/deploy/jail                     # empty directory for worker runtime jails
+</pre>
+
+</div>
+
+		<div id="footer">
+			The content of this page is licensed under the
+			Creative Commons Attribution 3.0 License,
+			and code is licensed under an <a href=license.html>Apache license</a>.
+			Made at <a href="http://tumblr.com">Tumblr</a>.
+		</div>
+	</body>
+</html>

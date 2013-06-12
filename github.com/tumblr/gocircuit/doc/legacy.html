@@ -1,0 +1,37 @@
+<html>
+	<head>
+		<title>Go'Circuit: Circuitizing legacy applications</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>Circuitizing legacy applications</h1>
+
+			<div class="moto">
+				A pre-existing, or “legacy”, Go application can be easily run and managed by the circuit with no modification of its internal logic at all.
+			</div>
+
+			<h3 id="intro">Integration in a line</h3>
+
+			<p>For any pre-existing application, simply add 
+				<pre>import _ "circuit/load"</pre>
+				to the main program package and go on to compile it as usual with <code>go build</code>.
+
+			<p>Executing the compiled binary is no different than before the circuit was imported into it, except for the added requirement that the <code>CIR</code> environment points to an <a href="config.html">app configuration file</a> that specifies a <code>Zookeeper</code> section. (The <code>Build</code> and <code>Deploy</code> sections are not needed.)
+
+			<p>You can find a sample application in subdirectory <code>tutorials/legacy</code>. When executed, the program will sleep for a short while, giving you an opportunity to switch terminals and verify its presence using the <code>4ls</code> tool.
+
+		</div>
+
+
+		<div id="footer">
+			The content of this page is licensed under the
+			Creative Commons Attribution 3.0 License,
+			and code is licensed under an <a href=license.html>Apache license</a>.
+			Made at <a href="http://tumblr.com">Tumblr</a>.
+		</div>
+	</body>
+</html>

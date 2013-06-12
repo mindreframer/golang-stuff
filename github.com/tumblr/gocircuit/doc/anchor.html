@@ -1,0 +1,143 @@
+<html>
+	<head>
+		<title>Anchor file system</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>Anchor file system</h1>
+
+			<div class="moto">
+				The <em>anchor file system</em> is a circuit runtime facility for keeping track of live circuit workers in a customizable structured manner that supports simple and expressive semantics during service registry and service discovery. The anchor file system is exposed both to the circuit programming interface as well as to the command-line toolkit.
+			</div>
+	<h3>Table of contents</h3>
+	<dl>
+		<dt><a href="#intro">Introduction</a></dt>
+		<dt><a href="#design">Design principles</a></dt>
+		<dt><a href="#impl">Implementation</a></dt>
+		<dt><a href="#api">Programming interface</a></dt>
+		<dt><a href="#cli">Command-line utilities</a></dt>
+		<dt><a href="#future">The future</a></dt>
+
+	</dl>
+
+			<h3 id="intro">Introduction</h3>
+
+			<p>Cloud applications can grow fairly complex. In principle, one could implement an entire cloud backend — starting with the front-end <abbr>HTTP</abbr> servers, including the data analysis pipelines and going all the way to the persistence layers — within a single circuit environment. There are good reasons to do so. For example, any entirely-in-circuit data processing pipeline can be made end-to-end idempotent with little effort.
+
+			<p>Large systems inevitably require dynamic in-production “attention” — frozen processes need to be restarted, failed hardware replenished, and so on. For such tasks, it is instrumental that one is able to have a clear “map” of processes running within a distributed deployment. For this purpose, traditional industrial infrastructures maintain complex systems of configuration files that identify supposedly live (i.e. deployed) worker processes in conjunction with a usually-separate monitoring system that registers process failures. These systems suffer from a couple of problems:
+			<ul>
+				<li>There is a disconnect between monitor and the deploy systems: Often deployed processes are monitored in two ways. By heartbeats at their network endpoints, and by local process-level monitors, like <code>monit</code>, that are installed as part of the deploy process. In practice, achieving correct synchronization between otherwise independent deploy and monitor systems is
+					tricky and race-conditions abound.
+				<li>Process identities are represented in different and incompatible ways within different systems components, introducing additional complexity in identity resolution logic. For example, a process-level monitor might refer to an application process by its host and <abbr>OS</abbr>-process identifier, <code>pid</code>, while a heartbeat monitor might do so by its host and network service port.
+			</ul>
+
+			<p>The <em>anchor file system</em> addresses both issues in a simple and practical manner.
+
+			<h3 id="design">Design principles</h3>
+
+<p>The anchor file system is a virtual distributed file system that keeps track of running worker processes across an entire circuit deployment. This is akin to Linux' process file system, <code>/procfs</code>, but different in a few significant ways.
+
+<p>Upon <a href="lang.html#spawn">spawning a new worker process</a>, the application logic spawning the new worker must elect zero or more anchor file system directories, under each of which the new worker will register itself by means of an automatically created <em>anchor file</em>. 
+	Each anchor file, corresponding to the same worker, is identical and its name always equals the string representation of the 64-bit <em>worker identifier</em>. Worker identifiers are unique across a circuit deployment. A typical path of an anchor file within the file system looks like this:
+<pre>
+/firehose/clients/spam/R6aca01d945c3b861
+</pre>
+<p>The directory name <code>/firehose/clients/spam/</code> is supplied by application logic upon spawning, whereas the file name <code>R6aca01d945c3b861</code> is assigned automatically by the circuit runtime.
+
+<p>The desired directories do not have to exist on the file system <em>a priori</em>. In fact, there is no explicit mechanism for creating or removing directories. The circuit runtime automatically creates and deletes directories as needed, while ensuring that every existing directory has at least one descendant file. This behavior plays well with the live nature of anchor files (they disappear on their own when a worker dies, often unexpectedly) and relieves developers from clean-up responsibilities.
+
+<p>The anchor file system is effectively a name resolution system, as its main purpose is to discover the worker identifiers of desired subsystems of a larger circuit deployment. One could make a parallel between <abbr>IP</abbr> addresses and worker identifiers and, respectively, between <abbr>DNS</abbr> and the anchor file system.
+
+<p>The design choice that a worker can be registered under multiple directories is not coincidental. 
+	Vanilla file systems semantics, whereby processes can register under a single path, are not sufficiently 
+	powerful in way of incorporating process correlation information for the pruposes of enabling easier discovery
+	later on. In UNIX file systems, this shortcoming is addressed by the introduction of symbol (and other) links.
+	But practice has shown that file system links suffer from various problems. Creating links is essentially equivalent to trying to predict future file system queries and planting a result for them. This makes them
+	hard to use and the follow-on queries more limited in scope and variability.
+
+<p>(For the more mathematical reader, a vanilla file system is no more than a recursive partition of the set of all files. Partitions, however, are a limited abstraction: They don't accommodate intersecting sets. This is the root issue we are aiming to fix.)
+
+<p>Instead, we take a different route. One should easily be able to see a full equivalence between the anchor file system semantic and the GMail email labelling metaphore. Worker processes correspond to emails, and worker's anchor directories (or <em>anchors</em>, for short) correspond to email labels — recall that GMail allows for recursively structured labels.
+More formally, an anchor directory defines a subset of workers — comprising the workers whose anchor files are found in that directory — that are in some applicatoin-specific way functionaly similar. As a result of the freedom to register a worker in multiple directories, we are then able to query the file system against complex set-membership 
+predicates, that are easily implemented using standard shell-based UNIX tools for file system access and text processing.
+
+<h3 id="impl">Implementation</h3>
+
+<p>The anchor file system is implemented by utilizing an underlying <a href="http://zookeeper.apache.org/">Apache Zookeeper</a> service. This is an obvious choice due to the fact that Zookeeper supports a superset of distributed synchronization primitives, needed by an anchor file system. And also because Zookeeper, as well as its Go driver <a href="https://wiki.ubuntu.com/gozk">gozk</a>, have a proven track record of stability and our experience has confirmed that.
+
+<p>In order to keep the circuit clean and independent of the technology choices in implementing its supporting functionality, as well as to give more transparency to engineers, we have elected that the circuit runtime does not manage the required Zookeeper service itself. Instead, a circuit deployment relies on an externally-managed Zookeeper service.
+
+<p>This simple setup has proven sufficient in all practical settings that we have encountered. That said, we wouldn't
+	presume this holds true for everyone. While the file system is part of the circuit runtime, the latter is 
+	structured in a modular fashion (within the Go programming environment) so as to make implementation substitutions seamless.
+	In particular, the programatic interface required by a file system implementation is defined in package
+	<code>circuit/usr/anchorfs</code>, while its implementation is isolated in a different package <code>circuit/sys/zanchorfs</code>. Inspecting the code makes it clear how to easily swap different implementations in and out.
+
+
+			<h3 id="api">Programming interface</h3>
+			<p>Up-to-date API documentation for the anchor file system is available within the <code>godoc</code>
+				pages for the package <code>circuit/use/anchorfs</code>.
+
+			<h3 id="cli">Command-line utilities</h3>
+
+			<p>Comprehensive and up-to-date reference of all command-line tools is found in the <a href="cli.html">Command-line toolkit</a> manual. Here we introduce the main tool pertaining to file system management.
+
+			<p>The tool, name <code>4ls</code>, is a near equivalent of the traditional UNIX <code>ls</code>. Invoked at the command-line, it merely prints the contents of an anchor directory or all of its descendants recursively. Listing a direcory, might look like
+<pre>
+% 4ls /firehose/clients
+/firehose/clients
+/firehose/clients/R486496d5c0419798
+/firehose/clients/dev
+/firehose/clients/search
+/firehose/clients/spam
+%
+</pre>
+
+<p>Note that a directory can have both sub-files and sub-directories. Listing a directory subtree, might look like
+<pre>
+% 4ls /firehose/clients/...
+/firehose/clients
+/firehose/clients/R486496d5c0419798
+/firehose/clients/dev
+/firehose/clients/dev/R486496d5c0419798
+/firehose/clients/search
+/firehose/clients/search/R6aca01d945c3b861
+/firehose/clients/spam
+/firehose/clients/spam/R6aca01d945c3b861
+/firehose/clients/spam/R486496d5c0419798
+%
+</pre>
+<p>Note that the same worker may appear inside multiple different directories. You will also notice the familiar Go ellipsis notation for indicating recursion.
+By specification (not just by implementation), the anchor file system garbage-collects all empty directories and provides a strict guarantee that you will never encounter a directory having no descendant anchor files.
+
+<p>It might seem surprising that <code>4ls</code> is the only command-line tool for interacting with the anchor file system. However, in conjunction with other command-line tools and using the UNIX shell's redirection mechanisms, it becomes a powerful primitive. Intentionally <code>4ls</code> outputs a simple list of 
+	anchor paths, so that its output can be piped into other commands. Correspondingly, other circuit tools are designed to consume input in that same format. 
+	In a typical use case, for instance, we can use <code>4ls</code> in combination with <code>4kill</code>
+	to take down an entire component of a running circuit. To shut down all internal upstream clients of the Tumblr Firehose service, we would type:
+<pre>
+% 4ls /firehose/clients/... | 4kill
+</pre>
+<p>Whereas, if we'd like to take down just the spam processing pipeline, we would write:
+<pre>
+% 4ls /firehose/clients/spam/... | 4kill
+</pre>
+
+<h3 id="future">The future</h3>
+
+<p>The anchor file system provides visibility and control over live workers in the deployment. It is often handy to have the same convenience in inspecting dead workers <em>post mortem</em> when investigating the causes of failed services. The current circuit system provides a myriad of tools (all discussed in <a href="dbg.html">Debugging and profiling, live and dead</a>) to do so by leveraging the logging facilities built into each worker. Regardless, we are considering a <em>graveyard</em> file system that gives a convenient interface into the life and death events of generations of past workers, as well as the child-parent relationships amongst them.
+
+		</div>
+
+
+		<div id="footer">
+			The content of this page is licensed under the
+			Creative Commons Attribution 3.0 License,
+			and code is licensed under an <a href=license.html>Apache license</a>.
+			Made at <a href="http://tumblr.com">Tumblr</a>.
+		</div>
+	</body>
+</html>

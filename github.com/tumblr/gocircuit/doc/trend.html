@@ -1,0 +1,81 @@
+<html>
+	<head>
+		<title>Trending blogs: Real-time multi-stage map-reduce</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>Trending blogs: Real-time multi-stage map-reduce</h1>
+			
+			<div class="moto">
+				This is another advanced tutorial that is best read after the <a href="hello.html">Hello, world! tutorial</a>.
+				This one builds a simple real-time “trending blogs” application, which demonstrates an in-memory map-reduce-aggregate stream processing filter. 
+				The application consumes events from the Tumblr Firehose stream. If you'd like to use this application with another service like Twitter or Wikipedia, 
+				you would need to substitute the Tumblr Firehose driver with your own.
+			</div>
+
+<h3>Quick start</h3>
+
+<p>The build and deploy sequence for this tutorial is the same as for all others:
+<ul>
+	<li>Go to the circuit subdirectory <code>tutorials/trend</code> for the trending blog project.</li>
+	<li>Modify the <code>app.config</code> <a href="config.html">application configuration file</a> to fit your setup.</li>
+	<li>Cross-build:
+<pre>
+% CIR=app.config 4crossbuild
+</pre>
+<li>Deploy the app binaries to <code>localhost</code>:
+<pre>
+% echo localhost | CIR=app.config 4deploy
+</pre>
+<li>Run the app:
+<pre>
+% ~/.trend/ship/trend-spawn
+</pre>
+</ul>
+
+<h3>Overview</h3>
+<div class="twocol">
+<p>The architecture of the trending blog app is illustrated below. 
+
+<p>The Tumblr Firehose exposes a stream of events that indicate user actions taken on the Tumblr site. We are interested in two kinds of incoming events: <code>CreatePost</code> events that announce newly created blog posts on Tumblr—each such event delivers the ID of the new post, as well as the ID of the blog it belongs to; <code>Like</code> events indicate someone liked an existing post—these events carry the blog and post ID of the post being liked.
+
+<p>We aim to keep a live ranklist of at most 10 blogs, whose posts have received the highest number of “likes” throughout the past one minute. At the end, this top-ten ranklist is exposed to external clients via a <a href="">WebSocket</a> protocol. The intention is that a browser UI would listen to a continuously changing top-ten list and display it to the user live.
+
+
+<h4>Architecture</h4>
+
+<p>The <a href="http://engineering.tumblr.com/post/21276808338/tumblr-firehose">Tumblr Firehose</a>, built around <a href="http://kafka.apache.org/">Apache Kafka</a>, is designed so it can serve multiple independent HTTP clients that share credentials. 
+It automatically partitions the stream of live events roughly evenly across all participating clients dynamically. 
+
+<p>Our app architecture consists of three differently-purposed sets of workers. A set of “mappers” each connects to the Tumblr Firehose and consumes events greedily as they come. The mappers forward each event to one of multiple “reducer” workers, which are each responsible for maintaining the like-count of a subset of the blog ID space. 
+
+<p>Each reducer worker maintains a top-ten list for the blogs it is responsible for. At regular intervals an “aggregator” worker sweeps through all reducers, asking them for their top-ten opinion. It then combines all shard ranklists into a single global top-ten list.
+
+</div>
+
+	<p><object data="img/trend.svg" type="image/svg+xml" width="800px"> <img src="img/trend.png" alt="Illustration of the Hello, world! application logic." /></object></p>
+
+<div class="twocol">
+<h4>Source comments</h4>
+
+<p>The source of the tutorial is found in the circuit subdiretory <code>tutorials/trend</code>.
+
+<p>Mappers, reducers and aggregators are all implemented in package <code>trend/x</code>. The executable command that spawns the service <code>trend-spawn</code> is implemented in package <code>trend/cmd/trend-spawn</code>. The tutorial includes a simple “auto-configuration” logic in package <code>trend/config</code> which demonstrates a simple technique for determining what service configuration to use based on the circuit environment that the executable is being run in.
+
+<p>The source for this tutorial is one of our favorite examples how one can build a non-trivial map-reduce application <em>from the fround up</em>—i.e. without using any auxiliary infrastructure other than the circuit itself—in under 200 lines of code.
+
+</div>
+
+</div>
+<div id="footer">
+	The content of this page is licensed under the
+	Creative Commons Attribution 3.0 License,
+	and code is licensed under an <a href=license.html>Apache license</a>.
+	Made at <a href="http://tumblr.com">Tumblr</a>.
+</div>
+</body>
+</html>
