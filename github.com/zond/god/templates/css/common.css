@@ -1,0 +1,34 @@
+#chord_container {
+  width: 100%;
+  text-align: center;
+  position: absolute;
+  z-index: -10;
+}
+#chord {
+  margin: auto;
+  width: 1200px;
+  height: 800px;
+}
+#nodes_container {
+  float: right;
+  font-family: "Courier";
+}
+#nodes {
+  background-color: rgba(255,255,255,0.9);
+  border: 1px solid black;
+}
+#node_container {
+  display: none;
+  float: left;
+  font-family: "Courier";
+}
+.node {
+  cursor: pointer;
+}
+#code {
+  width: 30em;
+  height: 20em;
+}
+#execute {
+  display: block;
+}
