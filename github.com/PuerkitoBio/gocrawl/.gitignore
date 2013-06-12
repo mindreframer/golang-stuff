@@ -1,0 +1,6 @@
+*.sublime-*
+.DS_Store
+gocrawl.test
+#*.*#
+*.swp
+tags
