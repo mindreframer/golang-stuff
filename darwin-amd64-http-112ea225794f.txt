@@ -1,0 +1,28 @@
+# 2.3 GHz Core i5, 8 GB 1333 MHz DDR3
+# OSX 10.8.3 (Build 12D78)
+# MacBookPro8,1
+benchmark                                   old ns/op    new ns/op    delta
+BenchmarkHeaderWriteSubset                       5407         1746  -67.71%
+BenchmarkReadRequestChrome                      12602         8356  -33.69%
+BenchmarkReadRequestCurl                         5964         4089  -31.44%
+BenchmarkReadRequestApachebench                  6122         4376  -28.52%
+BenchmarkReadRequestSiege                        9044         6259  -30.79%
+BenchmarkReadRequestWrk                          5560         2974  -46.51%
+BenchmarkClientServer                          204877       203507   -0.67%
+BenchmarkClientServerParallel4                 179170       114659  -36.01%
+BenchmarkClientServerParallel64                155502       102422  -34.13%
+BenchmarkServer                                260281       189461  -27.21%
+BenchmarkServerFakeConnNoKeepAlive              42311        18344  -56.64%
+BenchmarkServerFakeConnWithKeepAlive            29823        14814  -50.33%
+BenchmarkServerFakeConnWithKeepAliveLite        28874         9851  -65.88%
+BenchmarkServerHandlerTypeLen                   22345        12158  -45.59%
+BenchmarkServerHandlerNoLen                     20294        11155  -45.03%
+BenchmarkServerHandlerNoType                    21535        12567  -41.64%
+BenchmarkServerHandlerNoHeader                  22017         9873  -55.16%
+
+benchmark                                    old MB/s     new MB/s  speedup
+BenchmarkReadRequestChrome                      48.48        73.12    1.51x
+BenchmarkReadRequestCurl                        13.08        19.07    1.46x
+BenchmarkReadRequestApachebench                 13.39        18.74    1.40x
+BenchmarkReadRequestSiege                       16.69        24.12    1.45x
+BenchmarkReadRequestWrk                          7.19        13.45    1.87x
