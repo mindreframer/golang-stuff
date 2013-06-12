@@ -1,0 +1,108 @@
+/*............................................................
+	Template Name	: Aqueena Template 1.0
+ 	Author 			: Eddy Subratha (eddy.subratha@gmail.com) 	
+	Create			: May 5th, 2012 	
+ .............................................................*/
+
+body {
+	background-color: whitesmoke;
+	padding-top: 50px;
+}
+.page-header {
+	background-color: #e8e8e8;
+	padding: 10px;
+	border: solid 1px #dcdcdc;
+	border-radius: 5px;
+}
+
+/* Tweak navbar brand link to be super sleek
+ -------------------------------------------------- */
+.navbar-fixed-top .brand {
+	font-weight: bold;
+	color: #ffcc00;
+	text-shadow: 0 1px 0 rgba(255,255,255,.1), 0 0 30px rgba(255,255,255,.125);
+	-webkit-transition: all .2s linear;
+	-moz-transition: all .2s linear;
+	transition: all .2s linear;
+}
+.navbar-fixed-top .brand:hover {
+	text-decoration: none;
+}
+
+/* Modal example */
+.modal-example .modal {
+	position: relative;
+	top: auto;
+	right: auto;
+	bottom: auto;
+	left: auto;
+}
+
+.well {
+	box-shadow: none;
+	border: solid 1px #dcdcdc;
+	background-color: #FFFFFF;
+}
+
+.table, .accordion-toggle {
+	background-color: #FFFFFF;
+}
+
+.form-actions {
+	background-color: transparent;
+}
+
+.page-header-top {
+	background-attachment: scroll;
+	background-clip: border-box;
+	background-color: #F5F5F5;
+	background-origin: padding-box;
+	background-position: 0 0;
+	background-repeat: repeat;
+	background-size: auto auto;
+	border-bottom-color: #DDDDDD;
+	border-bottom-style: solid;
+	border-bottom-width: 1px;
+	box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+	margin-bottom: 30px;
+	margin-left: 0;
+	margin-right: 0;
+	margin-top: 0;
+	padding: 10px 20px 20px 0px;
+}
+
+#login {
+	margin-left: auto !important;
+	margin-right: auto !important;
+	width: 425px;
+	color: #ccc;
+	font-size: 11px;
+}
+
+#login h3 {
+	border: solid 1px #000000;
+	padding: 10px 0px 10px 20px;
+	background-color: #2d2d2d;
+	border-top-left-radius: 5px;
+	border-top-right-radius: 5px;
+	color: #fff;
+}
+
+#login form {
+	background-color: #fff;
+	border: solid 1px #d8d8d8;
+	padding: 20px 20px 40px 20px;
+	border-bottom-left-radius: 5px;
+	border-bottom-right-radius: 5px;
+}
+
+#login form input[type=text], #login form input[type=password] {
+	width: 365px;
+	font-size: 20px;
+	padding: 10px;
+}
+
+#login  .control-label {
+	font-size: 14px;
+	color: #999;
+}

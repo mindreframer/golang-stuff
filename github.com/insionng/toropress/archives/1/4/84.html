@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+    <head>  
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <meta name="keywords" content="速动中国,SudoChina,开源技术,开源软件,开源网站,开源源码,开源社区,开源站长社区,golang开源,java开源,perl开源,python开源,ruby开源,php开源,开源项目,开源代码" />
+    <meta name="description" content="速动中国 www.sudochina.com 是目前中国最大的开源站长技术社区。我们借助开源的力量，推广使用开源项目建设网站，为站长提供了一个发现、使用、并交流开源站长技术平台。" />
+    <meta name="author" content="insion"/>
+    
+    <title>速动中国 - 借力开源技术，打造心中网站，分享开源技术及站长软件工具，分享运营经验和站长行业交流！</title>
+    <link href='http://fonts.googleapis.com/css?family=Droid+Sans:400,700' rel='stylesheet' type='text/css'>
+  
+    
+    <link href="/static/themes/nannie/css/bootstrap.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/themes/nannie/css/font-awesome.css">
+          
+    <link href="/static/themes/nannie/css/style.css" rel="stylesheet">
+    <link href="/static/themes/nannie/css/bootstrap-responsive.css" rel="stylesheet">
+
+    
+  
+    
+    <link rel="shortcut icon" href="/static/ico/favicon.ico">
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="/static/ico/apple-touch-icon-114-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="/static/ico/apple-touch-icon-72-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" href="/static/ico/apple-touch-icon-57-precomposed.png">
+
+    <style type="text/css">.recentcomments a{display:inline !important;padding:0 !important;margin:0 !important;}</style>
+   
+    <script type="text/javascript" src="/static/js/jquery-1.8.3.min.js"></script>
+
+    <link rel="stylesheet" href="/static/js/highlight/styles/pojoaque.css">
+    <script type="text/javascript" src="/static/js/highlight/highlight.pack.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+
+    <script src="/static/js/ckeditor/ckeditor.js"></script>
+</head>
+
+<body>
+
+
+<header>
+   <div class="container">
+      <div class="row">
+         <div class="span4">
+            <div class="logo">
+               
+               <a href="/"><h1><span class="color">Sudo</span>China</h1></a>
+               <p class="lmeta">速动中国，借力开源，快速行动！</p>
+            </div>
+         
+      </div>
+   </div>
+  </div>
+</header>
+
+         <div class="navbar">
+            <div class="navbar-inner">
+               <div class="container">
+                  <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+                     <span>菜单</span>
+                  </a>
+                  <div class="nav-collapse collapse">
+                      <ul class="nav">
+                        <ul id="menu-menu" class="nav">
+                        
+                        
+                          
+                          <li class="menu-item"><a href="/">首页</a></li>
+
+                          
+                                  <li class="menu-item"><a href="/category/1">
+                                    代码</a>
+                                  </li>
+                          
+                                  <li class="menu-item"><a href="/category/2">
+                                     笔记</a>
+                                  </li>
+                          
+                                  <li class="menu-item"><a href="/category/3">
+                                    下载</a>
+                                  </li>
+                          
+                                  <li class="menu-item"><a href="/category/4">
+                                    配置</a>
+                                  </li>
+                          
+                        
+                          
+                        </ul>
+                      </ul>
+                  </div>
+               </div>
+            </div>
+         </div>
+
+
+
+<div class="content">
+   <div class="container">
+      <div class="row">
+         <div class="span8">
+          
+<h3 style="display:none;">
+   <span>Post</span>
+</h3>
+<div class="posts">
+
+   <div class="entry" id="post-84">
+      <div class="matter">
+
+         <h2>golang 获取当天起始时间</h2>
+
+         <div class="meta"> <i class="icon-calendar"></i>
+            April 16 , 2013 at 22:55 am - <i class="icon-folder-open"></i>
+            <a href="/user/0/" title="View all posts in " rel="category tag"></a>
+            -
+            <a href="###" title="78个点击">78点击</a>
+            -
+            <i class="icon-comment"></i>
+            <a href="/view/84#respond" title="1 个评论">1 评论</a>
+         </div>
+         <div><pre>
+<code>package main
+
+import (
+	&quot;fmt&quot;
+	&quot;time&quot;
+)
+
+func main() {
+
+	t := time.Now()
+	year, month, day := t.Date()
+	today := time.Date(year, month, day, 0, 0, 0, 0, t.Location())
+	fmt.Println(today)
+}</code></pre>
+</div>
+                <div>
+                  
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/like/topic/84", context: document.body, success: function(){
+               alert("喜欢成功！");
+            }});'>喜欢 &raquo;</a></span>
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/hate/topic/84", context: document.body, success: function(){
+               alert("恶心成功！");
+            }});'>恶心 &raquo;</a></span>
+                </div>
+
+      </div>
+      <div class="clearfix"></div>
+   </div>
+
+
+<div class="navigation">
+
+   <div class="pull-left">
+      &laquo;
+      <a href="/view/83" rel="prev">上篇:[]uint转int64的方法</a>
+   </div>
+
+
+   <div class="pull-right">
+      <a href="/view/85" rel="next">下篇:Go语言中通过结构体匿名字段实现方法的继承和重载</a>
+      &raquo;
+   </div>
+
+<div class="clearfix"></div>
+</div>
+
+<div class="clearfix"></div>
+   <div class="comments well">
+      <h3>
+         <span class="comment-heading">Comments -</span>
+         1 Responses
+      </h3>
+
+ 
+</div>
+
+<div class="clearfix"></div>
+
+<div id="respond" class="respond well">
+
+   <h3>
+      <span>Leave a Reply</span>
+   </h3>
+
+   <div class="cancel-comment-reply">
+      <a rel="nofollow" id="cancel-comment-reply-link" href="#respond" style="display:none;">Cancel Reply</a>
+   </div>
+
+   <div class="clearfix"></div>
+
+   <form action="/new/reply/84" method="post" id="commentform" class="form-horizontal">
+      <div class="control-group">
+         <label class="control-label" for="author">Name</label>
+         <div class="controls">
+            <input type="text" class="input-large" name="author" id="author" value="" required></div>
+      </div>
+
+      <div class="control-group">
+         <label class="control-label" for="email">Email</label>
+         <div class="controls">
+            <input type="text" class="input-large" name="email" id="email" value="" required></div>
+      </div>
+
+      <div class="control-group">
+         <label class="control-label" for="website">Website</label>
+         <div class="controls">
+            <input type="text" class="input-large" name="website" id="website" value="" ></div>
+      </div>
+
+      
+   <div class="control-group">
+      <label class="control-label" for="comment">Comment</label>
+      <div class="controls">
+         <textarea class="input-xlarge" name="comment" id="comment" rows="8" style="width:78%;"></textarea>
+      </div>
+   </div>
+
+   <div class="form-actions">
+      <input name="submit" type="submit" id="comment-submit" tabindex="5" value="评论" class="btn" />
+      <button type="reset" class="btn">清空</button>
+   </div>
+
+   <p>
+      <input type='hidden' name='comment_userid' value='0' id='comment_userid' />
+      <input type='hidden' name='comment_parent' id='comment_parent' value='84' />
+   </p>
+
+   <div class="clear"></div>
+</form>
+
+</div>
+
+
+<div class="clearfix"></div>
+</div>
+
+<script type="text/javascript">
+   $(document).ready(function() {
+
+         function setCookie(name, value) {
+            var Days = 60; 
+            var exp = new Date(); 
+            exp.setTime(exp.getTime() + Days * 24 * 60 * 60 * 1000); 
+            document.cookie = name + "=" + escape(value) + "; path=/; expires=" + exp.toGMTString();
+         };
+
+         function getCookie(name) {
+             
+            var strCookie = document.cookie;
+            
+            var arrCookie = strCookie.split("; ");
+            for ( var i = 0; i < arrCookie.length; i++) {
+               var arr = arrCookie[i].split("=");
+               if (arr[0] == "username") {
+                  return arr[1];
+               }
+            }
+            return "";
+         };
+
+         function delCookie(name) {
+            var exp = new Date(); 
+            exp.setTime(exp.getTime() - 1); 
+            var cval = getCookie(name);
+            if (cval != null)
+               document.cookie = name + "=" + cval + "; path=/; expires="+ exp.toGMTString();
+         };
+
+         var now = new Date();
+         now.setTime(now.getTime() + 1 * 24 * 60 * 60 * 1000);
+         setCookie("gmt",now.toGMTString());
+
+      });
+
+</script>
+         </div>
+
+         <div class="span4">
+            
+               <div class="sidebar">
+<div class="widget">
+  <h3><span>搜索</span></h3><div class="form">
+  <form method="get" id="searchform" action="/search" class="form-search">
+  <input type="text" value="" name="keyword" id="keyword" class="input-medium"/>
+  <input type="submit" id="searchsubmit" value="搜索" class="btn"/>
+  </form>
+  </div>
+</div>
+
+
+<div class="widget">
+  
+  <h3><span>注册登录</span></h3>
+  
+  <ul>
+  
+     <li><a href="/register">注册</a></li>
+     <li><a href="/login">登录</a></li>
+  
+  </ul>
+</div>
+
+
+<div class="widget">
+  <h3><span>最新话题</span></h3>
+  <ul>
+  
+    
+      <li><a href="/view/93" title="qbs orm for golang">qbs orm for golang</a></li>
+    
+      <li><a href="/view/92" title="gowalker /  Go 步行者 在线浏览 Go 项目源码">gowalker /  Go 步行者 在线浏览 Go 项目源码</a></li>
+    
+      <li><a href="/view/91" title="Go实现Daemon模式">Go实现Daemon模式</a></li>
+    
+      <li><a href="/view/90" title="Go 语言中实现优雅的停止程序">Go 语言中实现优雅的停止程序</a></li>
+    
+      <li><a href="/view/89" title="Go语言获取文件sha1值">Go语言获取文件sha1值</a></li>
+    
+      <li><a href="/view/88" title="获取文件相关信息">获取文件相关信息</a></li>
+    
+      <li><a href="/view/87" title="golang分割文件">golang分割文件</a></li>
+    
+      <li><a href="/view/86" title="golang字符串操作处理包strings">golang字符串操作处理包strings</a></li>
+    
+      <li><a href="/view/85" title="Go语言中通过结构体匿名字段实现方法的继承和重载">Go语言中通过结构体匿名字段实现方法的继承和重载</a></li>
+    
+      <li><a href="/view/84" title="golang 获取当天起始时间">golang 获取当天起始时间</a></li>
+    
+  
+  </ul>
+</div>
+
+<div class="widget">
+  <h3><span>最新节点</span></h3>
+  <ul>
+  
+    
+      <li><a href="/node/13" title="html">html</a></li>
+    
+      <li><a href="/node/12" title="css">css</a></li>
+    
+      <li><a href="/node/11" title="python">python</a></li>
+    
+      <li><a href="/node/10" title="gtk系列下载">gtk系列下载</a></li>
+    
+      <li><a href="/node/9" title="Golang第三方库">Golang第三方库</a></li>
+    
+      <li><a href="/node/8" title="nginx配置">nginx配置</a></li>
+    
+      <li><a href="/node/7" title="网站安全">网站安全</a></li>
+    
+      <li><a href="/node/5" title="linux笔记">linux笔记</a></li>
+    
+      <li><a href="/node/4" title="golang">golang</a></li>
+    
+      <li><a href="/node/3" title="站长手记">站长手记</a></li>
+    
+  
+  </ul>
+</div>
+
+<div class="widget">
+  <h3><span>最新评论</span></h3>
+  <ul id="recentcomments">
+  
+      
+      <li class="recentcomments">root on <a href="/view/38#comment-1503">為神馬這麼多SPAM發垃圾到這個話題呢？從現在開始反SPAM，刪光光了</a></li>
+      
+      <li class="recentcomments">root on <a href="/view/2#comment-1502">嗯 謝謝@k4shifz提醒</a></li>
+      
+      <li class="recentcomments">k4shifz on <a href="/view/2#comment-1501">https即可，你这太麻烦</a></li>
+      
+      <li class="recentcomments">Unknown on <a href="/view/92#comment-1500">好东西，必须顶。。。哈哈哈哈哈哈哈哈</a></li>
+      
+      <li class="recentcomments">花樣男 on <a href="/view/91#comment-1499">唔錯唔錯</a></li>
+      
+      <li class="recentcomments">root on <a href="/view/35#comment-21">@heml，目前我只是简单通过调用imagemagick解决缩略图的问题，没有用golang自带的库</a></li>
+      
+      <li class="recentcomments">heml on <a href="/view/35#comment-20">感觉golang还是不成熟。
+window环境IDE不顺手，也不好调试。
+类库也不成熟，用自带的</a></li>
+      
+      <li class="recentcomments">Steve on <a href="/view/1#comment-18">过来看看 不错哦</a></li>
+      
+      <li class="recentcomments">heml on <a href="/view/35#comment-17">拼好图之后选择保存就会保存成一张整</a></li>
+      
+      <li class="recentcomments">heml on <a href="/view/35#comment-16">拼图：用Open选择一个文件夹，会把里面的所有图片拼成一张，游戏中用的是8帧一个动作，所以都是每行8</a></li>
+      
+  
+  </ul>
+</div>
+
+<div class="widget">
+  <h3><span>博客分类</span></h3>
+  <ul>
+    
+      
+        <li class="cat-item"><a href="/category/1">代码</a></li>
+      
+        <li class="cat-item"><a href="/category/2"> 笔记</a></li>
+      
+        <li class="cat-item"><a href="/category/3">下载</a></li>
+      
+        <li class="cat-item"><a href="/category/4">配置</a></li>
+      
+    
+  </ul>
+</div>
+
+             </div>
+         </div>
+      </div>
+   </div>
+</div>
+
+
+
+<footer>
+  <div class="container">
+    <div class="row">
+      
+         <div class="span4">
+                        <div class="fwidget">
+               <h4>About SudoChina</h4>
+               <p>速动中国是借力开源技术打造的站长技术交流平台，在这里我们会分享开源技术及站长软件工具，分享运营经验和站长行业交流！欢迎大家注册，享受分享知识的乐趣，请收藏！</p>
+            </div>
+                     </div>
+         <div class="span4">
+                        <div class="fwidget">
+               <h4>Recent Comments</h4>
+               <ul>
+                
+                  
+                  <li>root on <a href="/view/38#comment-1503">為神馬這麼多SPAM發垃圾到這個話題呢？從現在開始反SPAM，刪光光了</a></li>
+                  
+                  <li>root on <a href="/view/2#comment-1502">嗯 謝謝@k4shifz提醒</a></li>
+                  
+                  <li>k4shifz on <a href="/view/2#comment-1501">https即可，你这太麻烦</a></li>
+                  
+                  <li>Unknown on <a href="/view/92#comment-1500">好东西，必须顶。。。哈哈哈哈哈哈哈哈</a></li>
+                  
+                  <li>花樣男 on <a href="/view/91#comment-1499">唔錯唔錯</a></li>
+                  
+                
+               </ul>
+            </div>     
+         </div>
+         <div class="span4">
+            <div class="fwidget">
+               <h4>Categories</h4>
+               <ul>
+                
+                  
+                    <li><a href="/category/1">代码</a></li>
+                  
+                    <li><a href="/category/2"> 笔记</a></li>
+                  
+                    <li><a href="/category/3">下载</a></li>
+                  
+                    <li><a href="/category/4">配置</a></li>
+                  
+                
+               </ul>
+            </div>   
+         </div>
+      <div class="span12">
+         <div class="copy">
+            <p>Copyright &copy; 2013 - <a href="/">SudoChina.com.</a> Powered by <a href="https://github.com/insionng/toropress" target="_blank">ToroPress</a>. <script src="http://s21.cnzz.com/stat.php?id=4835781&web_id=4835781" language="JavaScript"></script>
+            </p>
+         </div>
+      </div>
+    </div>
+  <div class="clearfix"></div>
+  </div>
+</footer>       
+
+
+<script src="/static/js/bootstrap.js"></script>
+</body>
+</html>

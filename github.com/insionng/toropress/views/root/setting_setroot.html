@@ -1,0 +1,127 @@
+{{template "head.html" .}}
+<body>
+<div id="body-wrapper">
+  <!-- Wrapper for the radial gradient background -->
+  <div id="sidebar">
+    <div id="sidebar-wrapper">
+      <!-- Sidebar with logo and menu -->
+      <h2 id="sidebar-title">
+        <a href="/root">{{.title_en}} rooter</a>
+      </h2>
+
+      <!-- Sidebar Profile links -->
+      <div id="profile-links">
+        <div>你好, <a href="#" title="Edit your profile">{{.Username}}</a>,</div>
+        <div><a href="/" title="View the Site" target="_blank">浏览网站</a> | <a href="/root-logout" title="Sign Out">退出</a></div>
+      </div>
+
+      {{template "navbar.html" .}}
+      <!-- End #main-nav -->
+    </div>
+  </div>
+  <!-- End #sidebar -->
+  <div id="main-content">
+    <!-- Main Content Section with everything -->
+    <noscript>
+    <!-- Show a notification if the user has disabled javascript -->
+    <div class="notification error png_bg">
+      <div>
+        <h2>Javascript 被禁用或不被你的浏览器支持. </h2>
+        <p>请你更新升级一下浏览器好不？</p>
+        <p>请不要再使用如此古老的浏览器了，简直妨碍地球转！</p>
+      </div>
+    </div>
+    </noscript>
+    <!-- Page Head -->
+    <h2>设置管理员</h2>
+    <div class="clear"></div>
+    <!-- End .clear -->
+    <div class="content-box">
+      <!-- Start Content Box -->
+      <div class="content-box-header">
+        <h3>
+          {{if compare .asidepage "root_setting_setroot"}}添加管理员{{end}}
+          {{if compare .asidepage "root_setting_setroot_edit"}}编辑管理员“{{.root.Nickname}}”{{end}}
+        </h3>
+        <div class="clear"></div>
+      </div>
+      <!-- End .content-box-header -->
+      <div class="content-box-content">
+        {{if .MsgErr}}
+          <div class="notification information png_bg">
+            <a href="#" class="close"><img src="/static/themes/root/img/icons/cross_grey_small.png" title="Close this notification" alt="close"></a>
+            <div>{{.MsgErr}}</div>
+          </div>
+        {{end}}
+          
+          <form action="" method="post">
+            <fieldset>
+            <p>
+              <label>输入新增管理员用户账号：</label>
+              <input class="text-input medium-input datepicker" type="text" id="medium-input" name="newroot" value="{{.root.Nickname}}"/><span> （中、英、数等字符均可作为账号）</span>
+            </p>
+            <p>
+              <label>输入新增管理员真实姓名：</label>
+              <input class="text-input medium-input datepicker" type="text" id="medium-input" name="realname" value="{{.root.Realname}}"/><span> （建议输入该管理员真实身份，能有效区分正常用户）</span>
+            </p>
+            <p>
+              <label>输入当前登录的管理员密码：</label>
+              <input class="text-input medium-input datepicker" type="password" id="medium-input" name="curpassword" value=""/><span>（为了确保系统安全，以便系统再次确认你的身份）</span>
+            </p>
+            <p>
+              <label>输入新增管理员密码：</label>
+              <input class="text-input medium-input datepicker" type="password" id="medium-input" name="newpassword" value=""/>
+            </p>
+            <p>
+              <label>再次确认新增管理员密码：</label>
+              <input class="text-input medium-input datepicker" type="password" id="medium-input" name="repassword" value=""/>
+            </p>
+          {{if .roots}}
+          <table>
+            <thead>
+              <tr>
+                <th>序号</th>
+                <th>管理员账号</th>
+                <th>真实姓名</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              
+              {{range .roots}}
+              <tr>
+                <td>#{{.Id}}</td>
+                <td>{{.Nickname}}</td>
+                <td>{{.Realname}}</td>
+                <td>{{dateformat .Created "January 2 , 2006 at 15:04 am"}}</td>
+                <td>
+                  <a href="/root-setting-setroot-edit/{{.Id}}" title="编辑管理员：{{.Nickname}}"><img src="/static/themes/root/img/icons/pencil.png" alt="Edit" /></a> 
+                  <a href='javascript:if(confirm("你确认要删除吗?"))location="/root-setting-setroot-del/{{.Id}}"' title="删除管理员：{{.Nickname}}"><img src="/static/themes/root/img/icons/cross.png" alt="Delete" /></a>
+                </td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+          <div class="line"></div>
+          {{end}}
+
+            <p>
+              <input class="button" type="submit" value="保存修改" />
+            </p>
+            </fieldset>
+            <div class="clear"></div>
+            <!-- End .clear -->
+          </form>
+      </div>
+      <!-- End .content-box-content -->
+    </div>
+    <!-- End .content-box -->
+
+    {{template "footer.html" .}}
+    <!-- End #footer -->
+  </div>
+  <!-- End #main-content -->
+</div>
+</body>
+</html>

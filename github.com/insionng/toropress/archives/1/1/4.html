@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>  
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <meta name="keywords" content="速动中国,SudoChina,开源技术,开源软件,开源网站,开源源码,开源社区,开源站长社区,golang开源,java开源,perl开源,python开源,ruby开源,php开源,开源项目,开源代码" />
+    <meta name="description" content="速动中国 www.sudochina.com 是目前中国最大的开源站长技术社区。我们借助开源的力量，推广使用开源项目建设网站，为站长提供了一个发现、使用、并交流开源站长技术平台。" />
+    <meta name="author" content="insion"/>
+    
+    <title>速动中国 - 借力开源技术，打造心中网站，分享开源技术及站长软件工具，分享运营经验和站长行业交流！</title>
+    <link href='http://fonts.googleapis.com/css?family=Droid+Sans:400,700' rel='stylesheet' type='text/css'>
+  
+    
+    <link href="/static/themes/nannie/css/bootstrap.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/themes/nannie/css/font-awesome.css">
+          
+    <link href="/static/themes/nannie/css/style.css" rel="stylesheet">
+    <link href="/static/themes/nannie/css/bootstrap-responsive.css" rel="stylesheet">
+
+    
+  
+    
+    <link rel="shortcut icon" href="/static/ico/favicon.ico">
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="/static/ico/apple-touch-icon-114-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="/static/ico/apple-touch-icon-72-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" href="/static/ico/apple-touch-icon-57-precomposed.png">
+
+    <style type="text/css">.recentcomments a{display:inline !important;padding:0 !important;margin:0 !important;}</style>
+   
+    <script type="text/javascript" src="/static/js/jquery-1.8.3.min.js"></script>
+
+    <link rel="stylesheet" href="/static/js/highlight/styles/monokai.css">
+    <script type="text/javascript" src="/static/js/highlight/highlight.pack.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+
+    <script src="/static/js/ckeditor/ckeditor.js"></script>
+</head>
+
+<body>
+
+
+<header>
+   <div class="container">
+      <div class="row">
+         <div class="span4">
+            <div class="logo">
+               
+               <a href="/"><h1><span class="color">Sudo</span>China</h1></a>
+               <p class="lmeta">速动中国，借力开源，快速行动！</p>
+            </div>
+         
+      </div>
+   </div>
+  </div>
+</header>
+
+         <div class="navbar">
+            <div class="navbar-inner">
+               <div class="container">
+                  <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+                     <span>菜单</span>
+                  </a>
+                  <div class="nav-collapse collapse">
+                      <ul class="nav">
+                        <ul id="menu-menu" class="nav">
+                        
+                        
+                          
+                          <li class="menu-item"><a href="/">首页</a></li>
+
+                          
+                                  <li class="menu-item"><a href="/category/1">
+                                    Category！</a>
+                                  </li>
+                          
+                        
+                          <li class="menu-item dropdown"><a class="dropdown-toggle" data-toggle="dropdown" data-target="#" href="#">語言 <b class="caret"></b></a>
+                          <ul class="dropdown-menu">
+                            <li class="menu-item"><a href="?lang=normal">默認語言</a></li>
+                            <li class="menu-item"><a href="?lang=cn">簡體中文</a></li>
+                            <li class="menu-item"><a href="?lang=hk">繁體中文</a></li>
+                          </ul>
+                          </li>
+                        </ul>
+                      </ul>
+                  </div>
+               </div>
+            </div>
+         </div>
+
+
+
+<div class="content">
+   <div class="container">
+      <div class="row">
+         <div class="span8">
+          
+<h3 style="display:none;">
+   <span>Post</span>
+</h3>
+<div class="posts">
+
+   <div class="entry" id="post-4">
+      <div class="matter">
+
+         <h2>go app</h2>
+
+         <div class="meta"> <i class="icon-calendar"></i>
+            May 10 , 2013 at 10:19 am - <i class="icon-folder-open"></i>
+            <a href="/user/0/" title="View all posts in " rel="category tag"></a>
+            -
+            <a href="###" title="6个点击">6点击</a>
+            -
+            <i class="icon-comment"></i>
+            <a href="/view/4#respond" title="0 个评论">0 评论</a>
+         </div>
+         <div><pre>
+<code>package main
+
+import (
+	&quot;./handlers&quot;
+	&quot;./handlers/root&quot;
+	&quot;./models&quot;
+	//&quot;github.com/astaxie/beego&quot;
+	&quot;github.com/insionng/torgo&quot;
+	//&quot;./torgo&quot;
+)
+
+func main() {
+	models.CreateDb()
+	torgo.SetStaticPath(&quot;/static&quot;, &quot;./static&quot;)
+	torgo.SetStaticPath(&quot;/archives&quot;, &quot;./archives&quot;)
+
+	torgo.Router(&quot;/&quot;, &amp;handlers.IndexHandler{})
+
+	torgo.Router(&quot;/search&quot;, &amp;handlers.SearchHandler{})
+	torgo.Router(&quot;/about&quot;, &amp;handlers.AboutHandler{})
+
+	torgo.Router(&quot;/about/:nid([0-9]+)&quot;, &amp;handlers.AboutHandler{})
+	torgo.Router(&quot;/about_view/:tid([0-9]+)&quot;, &amp;handlers.TopicViewHandler{})
+
+	torgo.Router(&quot;/teams&quot;, &amp;handlers.TeamsHandler{})
+	torgo.Router(&quot;/teams_view/:tid([0-9]+)&quot;, &amp;handlers.TopicViewHandler{})
+
+	//torgo.Router(&quot;/services&quot;, &amp;handlers.CaseHandler{})
+	torgo.Router(&quot;/services/:nid([0-9]+)&quot;, &amp;handlers.ServicesHandler{})
+	torgo.Router(&quot;/view/:tid([0-9]+)&quot;, &amp;handlers.TopicViewHandler{})
+
+	torgo.Router(&quot;/crafts&quot;, &amp;handlers.CraftsHandler{})
+	torgo.Router(&quot;/crafts/:nid([0-9]+)&quot;, &amp;handlers.CraftsHandler{})
+	torgo.Router(&quot;/crafts_view/:tid([0-9]+)&quot;, &amp;handlers.TopicViewHandler{})
+
+	torgo.Router(&quot;/information_view/:tid([0-9]+)&quot;, &amp;handlers.TopicViewHandler{})
+
+	torgo.Router(&quot;/advantages&quot;, &amp;handlers.AdvantagesHandler{})
+	torgo.Router(&quot;/services&quot;, &amp;handlers.ServicesHandler{})
+	torgo.Router(&quot;/club&quot;, &amp;handlers.ClubHandler{})
+
+	torgo.Router(&quot;/contact&quot;, &amp;handlers.ContactHandler{})
+	torgo.Router(&quot;/contact/:nid([0-9]+)&quot;, &amp;handlers.ContactHandler{})
+	torgo.Router(&quot;/contact_view/:tid([0-9]+)&quot;, &amp;handlers.TopicViewHandler{})
+
+	torgo.Router(&quot;/feedback&quot;, &amp;handlers.FeedbackHandler{})
+	/*
+		torgo.Router(&quot;/category/:cid([0-9]+)&quot;, &amp;handlers.MainHandler{})
+
+		torgo.Router(&quot;/node/:nid([0-9]+)&quot;, &amp;handlers.NodeHandler{})
+		torgo.Router(&quot;/view/:tid([0-9]+)&quot;, &amp;handlers.ViewHandler{})
+
+		torgo.Router(&quot;/register&quot;, &amp;handlers.RegHandler{})
+		torgo.Router(&quot;/login&quot;, &amp;handlers.LoginHandler{})
+
+		torgo.Router(&quot;/like/topic/:tid([0-9]+)&quot;, &amp;handlers.LikeTopicHandler{})
+		torgo.Router(&quot;/hate/topic/:tid([0-9]+)&quot;, &amp;handlers.HateTopicHandler{})
+
+		torgo.Router(&quot;/like/node/:nid([0-9]+)&quot;, &amp;handlers.LikeNodeHandler{})
+		torgo.Router(&quot;/hate/node/:nid([0-9]+)&quot;, &amp;handlers.HateNodeHandler{})
+
+		torgo.Router(&quot;/new/category&quot;, &amp;handlers.NewCategoryHandler{})
+		torgo.Router(&quot;/new/node&quot;, &amp;handlers.NewNodeHandler{})
+		torgo.Router(&quot;/new/topic&quot;, &amp;handlers.NewTopicHandler{})
+		torgo.Router(&quot;/new/reply/:tid([0-9]+)&quot;, &amp;handlers.NewReplyHandler{})
+
+		torgo.Router(&quot;/modify/category&quot;, &amp;handlers.ModifyCategoryHandler{})
+		torgo.Router(&quot;/modify/node&quot;, &amp;handlers.ModifyNodeHandler{})
+
+		torgo.Router(&quot;/topic/delete/:tid([0-9]+)&quot;, &amp;handlers.TopicDeleteHandler{})
+		torgo.Router(&quot;/topic/edit/:tid([0-9]+)&quot;, &amp;handlers.TopicEditHandler{})
+
+		torgo.Router(&quot;/node/delete/:nid([0-9]+)&quot;, &amp;handlers.NodeDeleteHandler{})
+		torgo.Router(&quot;/node/edit/:nid([0-9]+)&quot;, &amp;handlers.NodeEditHandler{})
+
+		torgo.Router(&quot;/delete/reply/:rid([0-9]+)&quot;, &amp;handlers.DeleteReplyHandler{})
+	*/
+	//root routes
+	//torgo.Router(&quot;/root&quot;, &amp;root.RMainHandler{})
+	torgo.Router(&quot;/root&quot;, &amp;root.RIntroductionHandler{})
+	torgo.Router(&quot;/root-login&quot;, &amp;root.RLoginHandler{})
+	torgo.Router(&quot;/root-logout&quot;, &amp;root.RLogoutHandler{})
+
+	torgo.Router(&quot;/root-uploader&quot;, &amp;root.RUploaderHandler{})
+
+	torgo.Router(&quot;/root-about&quot;, &amp;root.RAboutHandler{})
+	torgo.Router(&quot;/root-about-introduction&quot;, &amp;root.RIntroductionHandler{})
+	torgo.Router(&quot;/root-about-setvideo&quot;, &amp;root.RSetvideoHandler{})
+	torgo.Router(&quot;/root-about-gallery&quot;, &amp;root.RGalleryHandler{})
+	torgo.Router(&quot;/root-about-gallery-del/:delmid([0-9]+)&quot;, &amp;root.RApi{})
+	torgo.Router(&quot;/root-about-gallery-edit/:editmid([0-9]+)&quot;, &amp;root.RApi{})
+
+	torgo.Router(&quot;/root-about-new-node&quot;, &amp;root.RAboutHandler{})
+	torgo.Router(&quot;/root-about-node-list&quot;, &amp;root.RAboutHandler{})
+	torgo.Router(&quot;/root-about-node-edit/:nid([0-9]+)&quot;, &amp;root.RApi{})
+	torgo.Router(&quot;/root-about-node-del/:nid([0-9]+)&quot;, &amp;root.RApi{})
+
+	torgo.Router(&quot;/root-about-topic-list&quot;, &amp;root.RAboutHandler{})
+	torgo.Router(&quot;/root-about-topic-edit/:tid([0-9]+)&quot;, &amp;root.RApi{})
+	torgo.Router(&quot;/root-about-topic-del/:tid([0-9]+)&quot;, &amp;root.RApi{})
+
+	torgo.Router(&quot;/root-advantages&quot;, &amp;root.RAdvantagesHandler{})
+	torgo.Router(&quot;/root-advantages-list&quot;, &amp;root.RAdvantagesHandler{})
+	torgo.Router(&quot;/root-advantages-edit/:tid([0-9]+)&quot;, &amp;root.RAdvantagesHandler{})
+	torgo.Router(&quot;/root-advantages-del/:tid([0-9]+)&quot;, &amp;root.RAdvantagesHandler{})
+
+	torgo.Router(&quot;/root-services&quot;, &amp;root.RServicesHandler{})
+	torgo.Router(&quot;/root-services-node-list&quot;, &amp;root.RServicesHandler{})
+	torgo.Router(&quot;/root-services-new-node&quot;, &amp;root.RServicesHandler{})
+
+	torgo.Router(&quot;/root-services-node-edit/:nid([0-9]+)&quot;, &amp;root.RApi{})
+	torgo.Router(&quot;/root-services-node-del/:nid([0-9]+)&quot;, &amp;root.RApi{})
+
+	torgo.Router(&quot;/root-services-topic-list&quot;, &amp;root.RServicesHandler{})
+	torgo.Router(&quot;/root-services-topic-edit/:tid([0-9]+)&quot;, &amp;root.RApi{})
+	torgo.Router(&quot;/root-services-topic-del/:tid([0-9]+)&quot;, &amp;root.RApi{})
+
+	torgo.Router(&quot;/root-contact&quot;, &amp;root.RContactHandler{})
+	torgo.Router(&quot;/root-contact-node-list&quot;, &amp;root.RContactHandler{})
+	torgo.Router(&quot;/root-contact-new-node&quot;, &amp;root.RContactHandler{})
+	torgo.Router(&quot;/root-contact-topic-list&quot;, &amp;root.RContactHandler{})
+	torgo.Router(&quot;/root-contact-feedback&quot;, &amp;root.RFeedbackHandler{})
+
+	torgo.Router(&quot;/root-contact-node-edit/:nid([0-9]+)&quot;, &amp;root.RApi{})
+	torgo.Router(&quot;/root-contact-node-del/:nid([0-9]+)&quot;, &amp;root.RApi{})
+
+	torgo.Router(&quot;/root-contact-topic-edit/:tid([0-9]+)&quot;, &amp;root.RApi{})
+	torgo.Router(&quot;/root-contact-topic-del/:tid([0-9]+)&quot;, &amp;root.RApi{})
+
+	torgo.Router(&quot;/root-setting&quot;, &amp;root.RSettingHandler{})
+	torgo.Router(&quot;/root-setting-password&quot;, &amp;root.RSettingHandler{})
+	torgo.Router(&quot;/root-setting-setroot&quot;, &amp;root.RSettingHandler{})
+	torgo.Router(&quot;/root-setting-setroot-edit/:rid([0-9]+)&quot;, &amp;root.RSettingHandler{})
+	torgo.Router(&quot;/root-setting-setroot-del/:rid([0-9]+)&quot;, &amp;root.RSettingHandler{})
+
+	torgo.Router(&quot;/root-setting-statistics&quot;, &amp;root.RSettingHandler{})
+
+	//404处理必须放置在最后
+	torgo.Router(&quot;/:all&quot;, &amp;handlers.ErrorHandler{})
+	torgo.SessionOn = true
+	torgo.Run()
+}
+</code></pre>
+</div>
+                <div>
+                  
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/like/topic/4", context: document.body, success: function(){
+               alert("喜欢成功！");
+            }});'>喜欢 &raquo;</a></span>
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/hate/topic/4", context: document.body, success: function(){
+               alert("恶心成功！");
+            }});'>恶心 &raquo;</a></span>
+                </div>
+
+      </div>
+      <div class="clearfix"></div>
+   </div>
+
+
+<div class="navigation">
+
+   <div class="pull-left">
+      &laquo;
+      <a href="/view/3" rel="prev">上篇:go</a>
+   </div>
+
+
+<div class="clearfix"></div>
+</div>
+
+<div class="clearfix"></div>
+   <div class="comments well">
+      <h3>
+         <span class="comment-heading">Comments -</span>
+         0 Responses
+      </h3>
+
+ 
+</div>
+
+<div class="clearfix"></div>
+
+<div id="respond" class="respond well">
+
+   <h3>
+      <span>Leave a Reply</span>
+   </h3>
+
+   <div class="cancel-comment-reply">
+      <a rel="nofollow" id="cancel-comment-reply-link" href="#respond" style="display:none;">Cancel Reply</a>
+   </div>
+
+   <div class="clearfix"></div>
+
+   <form action="/new/reply/4" method="post" id="commentform" class="form-horizontal">
+      <div class="control-group">
+         <label class="control-label" for="author">Name</label>
+         <div class="controls">
+            <input type="text" class="input-large" name="author" id="author" value="" required></div>
+      </div>
+
+      <div class="control-group">
+         <label class="control-label" for="email">Email</label>
+         <div class="controls">
+            <input type="text" class="input-large" name="email" id="email" value="" required></div>
+      </div>
+
+      <div class="control-group">
+         <label class="control-label" for="website">Website</label>
+         <div class="controls">
+            <input type="text" class="input-large" name="website" id="website" value="" ></div>
+      </div>
+
+      
+   <div class="control-group">
+      <label class="control-label" for="comment">Comment</label>
+      <div class="controls">
+         <textarea class="input-xlarge" name="comment" id="comment" rows="8" style="width:78%;"></textarea>
+      </div>
+   </div>
+
+   <div class="form-actions">
+      <input name="submit" type="submit" id="comment-submit" tabindex="5" value="评论" class="btn" />
+      <button type="reset" class="btn">清空</button>
+   </div>
+
+   <p>
+      <input type='hidden' name='comment_userid' value='0' id='comment_userid' />
+      <input type='hidden' name='comment_parent' id='comment_parent' value='4' />
+   </p>
+
+   <div class="clear"></div>
+</form>
+
+</div>
+
+
+<div class="clearfix"></div>
+</div>
+
+<script type="text/javascript">
+   $(document).ready(function() {
+
+         function setCookie(name, value) {
+            var Days = 60; 
+            var exp = new Date(); 
+            exp.setTime(exp.getTime() + Days * 24 * 60 * 60 * 1000); 
+            document.cookie = name + "=" + escape(value) + "; path=/; expires=" + exp.toGMTString();
+         };
+
+         function getCookie(name) {
+             
+            var strCookie = document.cookie;
+            
+            var arrCookie = strCookie.split("; ");
+            for ( var i = 0; i < arrCookie.length; i++) {
+               var arr = arrCookie[i].split("=");
+               if (arr[0] == "username") {
+                  return arr[1];
+               }
+            }
+            return "";
+         };
+
+         function delCookie(name) {
+            var exp = new Date(); 
+            exp.setTime(exp.getTime() - 1); 
+            var cval = getCookie(name);
+            if (cval != null)
+               document.cookie = name + "=" + cval + "; path=/; expires="+ exp.toGMTString();
+         };
+
+         var now = new Date();
+         now.setTime(now.getTime() + 1 * 24 * 60 * 60 * 1000);
+         setCookie("gmt",now.toGMTString());
+
+      });
+
+</script>
+         </div>
+
+         <div class="span4">
+            
+               <div class="sidebar">
+<div class="widget">
+  <h3><span>搜索</span></h3><div class="form">
+  <form method="get" id="searchform" action="/search" class="form-search">
+  <input type="text" value="" name="keyword" id="keyword" class="input-medium"/>
+  <input type="submit" id="searchsubmit" value="搜索" class="btn"/>
+  </form>
+  </div>
+</div>
+
+
+<div class="widget">
+  
+  <h3><span>注册登录</span></h3>
+  
+  <ul>
+  
+     <li><a href="/register">注册</a></li>
+     <li><a href="/login">登录</a></li>
+  
+  </ul>
+</div>
+
+
+<div class="widget">
+  <h3><span>最新话题</span></h3>
+  <ul>
+  
+    
+      <li><a href="/view/4" title="go app">go app</a></li>
+    
+      <li><a href="/view/3" title="go">go</a></li>
+    
+      <li><a href="/view/2" title="gowalker /  Go 步行者 在线浏览 Go 项目源码">gowalker /  Go 步行者 在线浏览 Go 项目源码</a></li>
+    
+      <li><a href="/view/1" title="Topic Title">Topic Title</a></li>
+    
+  
+  </ul>
+</div>
+
+<div class="widget">
+  <h3><span>最新节点</span></h3>
+  <ul>
+  
+    
+      <li><a href="/node/1" title="Node！">Node！</a></li>
+    
+  
+  </ul>
+</div>
+
+<div class="widget">
+  <h3><span>最新评论</span></h3>
+  <ul id="recentcomments">
+  
+      <li class="recentcomments">尚无评论</li>
+  
+  </ul>
+</div>
+
+<div class="widget">
+  <h3><span>博客分类</span></h3>
+  <ul>
+    
+      
+        <li class="cat-item"><a href="/category/1">Category！</a></li>
+      
+    
+  </ul>
+</div>
+
+             </div>
+         </div>
+      </div>
+   </div>
+</div>
+
+
+
+<footer>
+  <div class="container">
+    <div class="row">
+      
+         <div class="span4">
+                        <div class="fwidget">
+               <h4>About SudoChina</h4>
+               <p>速动中国是借力开源技术打造的站长技术交流平台，在这里我们会分享开源技术及站长软件工具，分享运营经验和站长行业交流！欢迎大家注册，享受分享知识的乐趣，请收藏！</p>
+            </div>
+                     </div>
+         <div class="span4">
+                        <div class="fwidget">
+               <h4>Recent Comments</h4>
+               <ul>
+                
+                  <li>尚无评论</li>
+                
+               </ul>
+            </div>     
+         </div>
+         <div class="span4">
+            <div class="fwidget">
+               <h4>Categories</h4>
+               <ul>
+                
+                  
+                    <li><a href="/category/1">Category！</a></li>
+                  
+                
+               </ul>
+            </div>   
+         </div>
+      <div class="span12">
+         <div class="copy">
+            <p>Copyright &copy; 2013 - <a href="/">SudoChina.com.</a> Powered by <a href="https://github.com/insionng/toropress" target="_blank">ToroPress</a>. <script src="http://s21.cnzz.com/stat.php?id=4835781&web_id=4835781" language="JavaScript"></script>
+            </p>
+         </div>
+      </div>
+    </div>
+  <div class="clearfix"></div>
+  </div>
+</footer>       
+
+
+<script src="/static/js/bootstrap.js"></script>
+</body>
+</html>

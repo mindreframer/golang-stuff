@@ -1,0 +1,44 @@
+<!-- Posts area -->
+<h3><span>话题搜索</span></h3>
+<div class="posts">
+{{$Userrole := .Userrole}}
+{{range .search_hotness}}
+
+  <div class="entry" id="post-{{.Id}}">
+  {{if .Attachment}}
+    <div class="thumb">
+       <a href="/view/{{.Id}}" rel="bookmark"><img width="130" height="130" src="{{.Attachment}}" class="attachment-post-thumbnail wp-post-image" alt="{{.Title}}" title="{{.Title}}" /></a>
+    </div>
+  {{end}}
+    <div class="matter">
+      <h2><a rel="bookmark" href="/view/{{.Id}}" title="{{.Title}}">{{.Title}}</a></h2>
+          <div>
+            {{if compare $Userrole -1000}}
+                <span><i class="fa-icon-user"></i> <a class="btn" href="/topic/edit/{{.Id}}">编辑 &raquo;</a></span>
+                <span><i class="fa-icon-heart-empty"></i> <a class="btn" href="/node/delete/{{.Id}}">删除 &raquo;</a></span>
+            {{end}}
+                <span><i class="fa-icon-heart-empty"></i> <a class="btn" href='javascript:$.ajax({ url: "/like/topic/{{.Id}}", context: document.body, success: function(){
+         alert("喜欢成功！");
+      }});'>喜欢 &raquo;</a></span>
+                <span><i class="fa-icon-heart-empty"></i> <a class="btn" href='javascript:$.ajax({ url: "/hate/topic/{{.Id}}", context: document.body, success: function(){
+         alert("恶心成功！");
+      }});'href="">恶心 &raquo;</a></span>
+          </div>
+          
+          <div class="meta"><i class="icon-calendar"></i> {{dateformat .Created "January 2 , 2006 at 15:04 am"}} - <i class="icon-folder-open"></i> <a href="###" title="作者 {{.Author}}" rel="category tag">
+            {{.Author}}</a> - <i class="icon-comment"></i> <a href="/node/{{.Id}}" title="{{.ReplyCount}}个评论">{{.ReplyCount}}评论</a>
+                     </div>
+                     <div>
+                        {{$cs:=html2str .Content}}
+                        {{$cs:=substr $cs 0 150}}
+                        {{str2html $cs}}
+                     </div>
+    </div>
+    <div class="clearfix"></div>
+  </div>
+{{end}}
+
+<!-- Pagination -->
+    {{.pagesbar}}
+  <div class="clearfix"></div>   
+</div>

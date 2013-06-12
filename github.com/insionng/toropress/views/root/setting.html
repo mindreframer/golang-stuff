@@ -1,0 +1,128 @@
+{{template "head.html" .}}
+<body>
+<div id="body-wrapper">
+  <!-- Wrapper for the radial gradient background -->
+  <div id="sidebar">
+    <div id="sidebar-wrapper">
+      <!-- Sidebar with logo and menu -->
+      <h2 id="sidebar-title">
+        <a href="/root">{{.title_en}} rooter</a>
+      </h2>
+
+      <!-- Sidebar Profile links -->
+      <div id="profile-links">
+        <div>你好, <a href="#" title="Edit your profile">{{.Username}}</a>,</div>
+        <div><a href="/" title="View the Site" target="_blank">浏览网站</a> | <a href="/root-logout" title="Sign Out">退出</a></div>
+      </div>
+
+      {{template "navbar.html" .}}
+      <!-- End #main-nav -->
+    </div>
+  </div>
+  <!-- End #sidebar -->
+  <div id="main-content">
+    <!-- Main Content Section with everything -->
+    <noscript>
+    <!-- Show a notification if the user has disabled javascript -->
+    <div class="notification error png_bg">
+      <div>
+        <h2>Javascript 被禁用或不被你的浏览器支持. </h2>
+        <p>请你更新升级一下浏览器好不？</p>
+        <p>请不要再使用如此古老的浏览器了，简直妨碍地球转！</p>
+      </div>
+    </div>
+    </noscript>
+    <!-- Page Head -->
+    <h2>网站常规设置</h2>
+    <div class="clear"></div>
+    <!-- End .clear -->
+    <div class="content-box">
+      <!-- Start Content Box -->
+      <div class="content-box-header">
+        <div class="clear"></div>
+      </div>
+      <!-- End .content-box-header -->
+      <div class="content-box-content">
+        {{if .MsgErr}}
+          <div class="notification information png_bg">
+            <a href="#" class="close"><img src="/static/themes/root/img/icons/cross_grey_small.png" title="Close this notification" alt="close"></a>
+            <div>{{.MsgErr}}</div>
+          </div>
+        {{end}}
+          <form action="" method="post">
+            <fieldset>
+            <p>
+              <label>网站标题：</label>
+              <input class="text-input medium-input datepicker" type="text" id="medium-input" name="title" value="{{.title}}"/>
+            </p>
+            <p>
+              <label>网站英文标题：</label>
+              <input class="text-input medium-input datepicker" type="text" id="medium-input" name="title_en" value="{{.title_en}}"/>
+            </p>
+            <p>
+              <label>网站关键词：</label>
+              <input class="text-input large-input" type="text" id="large-input" name="keywords" value="{{.keywords}}"/>
+            </p>
+            <p>
+              <label>网站描述：</label>
+              <input class="text-input large-input" type="text" id="large-input" name="description" value="{{.description}}">
+            </p>
+            <p>
+              <label>公司全称：</label>
+              <input class="text-input large-input" type="text" id="large-input" name="company" value="{{.company}}">
+            </p>
+            <p>
+              <label>版权所有：</label>
+              <input class="text-input large-input" type="text" id="large-input" name="copyright" value="{{.copyright}}">
+            </p>
+            <p>
+              <label>网站电邮：</label>
+              <input class="text-input large-input" type="text" id="large-input" name="site_email" value="{{.site_email}}">
+            </p>
+            <p>
+              <label>新浪微博链接设置：</label>
+              <input class="text-input large-input" type="text" id="large-input" name="sweibo" value="{{.sweibo}}">
+            </p>
+            <p>
+              <label>腾讯微博链接设置：</label>
+              <input class="text-input large-input" type="text" id="large-input" name="tweibo" value="{{.tweibo}}">
+            </p>
+            <p>
+              <label>外部统计代码设置：</label>
+              <input class="text-input large-input" type="text" id="large-input" name="statistics" value="{{.statistics}}">
+            </p>
+            <!--p>
+              <div class="line"></div>
+              <label>网站图标设置：</label>
+              {{if .team.Location}}
+              <div class="notification attention png_bg">
+                <div>
+                <span>当前图标：</span><img src="{{.team.Location}}"/>
+                  <strong>如果你选择新图标上传，旧图标将被系统自动删除更新。</strong>
+                </div>
+              </div>
+              {{end}}
+              <input type="file" name="image" accept="image/gif,image/jpeg,image/png"/>
+              <div class="line"></div>
+            </p-->
+            <p>
+              <input class="button" type="submit" value="保存修改" />
+            </p>
+            </fieldset>
+            <div class="clear"></div>
+            <!-- End .clear -->
+          </form>
+      </div>
+      <!-- End .content-box-content -->
+    </div>
+    <!-- End .content-box -->
+
+
+    <!-- End Notifications -->
+    {{template "footer.html" .}}
+    <!-- End #footer -->
+  </div>
+  <!-- End #main-content -->
+</div>
+</body>
+</html>

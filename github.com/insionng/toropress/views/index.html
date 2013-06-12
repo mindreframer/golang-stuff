@@ -1,0 +1,328 @@
+<div class="tabbable">
+  <!-- Only required for left/right tabs -->
+  <ul class="nav nav-tabs">
+    <li{{if compare .curtab 0}} class="active"{{end}}{{if compare .curtab 1}} class="active"{{end}}><a href="#tab1" data-toggle="tab">最新话题</a></li>
+    <li{{if compare .curtab 2}} class="active"{{end}}><a href="#tab2" data-toggle="tab">最热话题</a></li>
+    <li{{if compare .curtab 3}} class="active"{{end}}><a href="#tab3" data-toggle="tab">话题点击榜</a></li>
+    <li{{if compare .curtab 4}} class="active"{{end}}><a href="#tab4" data-toggle="tab">话题评论榜</a></li>
+
+    <li{{if compare .curtab 5}} class="active"{{end}}><a href="#tab5" data-toggle="tab">最新节点</a></li>
+    <li{{if compare .curtab 6}} class="active"{{end}}><a href="#tab6" data-toggle="tab">最热节点</a></li>
+    <li{{if compare .curtab 7}} class="active"{{end}}><a href="#tab7" data-toggle="tab">节点点击榜</a></li>
+  </ul>
+
+  <div class="tab-content">
+    {{$Userrole := .Userrole}}
+    <div class="tab-pane{{if compare .curtab 0}} active{{end}}{{if compare .curtab 1}} active{{end}}" id="tab1">
+      <!-- Posts area -->
+      <h3><span>日志章节</span></h3>
+      <div class="posts">
+      {{range .topics_latest}}
+      <div class="entry" id="post-{{.Id}}">
+            {{if .Attachment}}
+                        <div class="thumb">
+                           <a href="/view/{{.Id}}" rel="bookmark"><img width="130" height="130" src="{{.Attachment}}" class="attachment-post-thumbnail wp-post-image" alt="{{.Title}}" title="{{.Title}}" /></a>
+                        </div>
+            {{end}}
+                        <div class="matter">
+                        
+                          <h2><a rel="bookmark" href="/view/{{.Id}}" title="{{.Title}}">{{.Title}}</a></h2>
+
+                           <div class="meta"><i class="icon-calendar"></i>本话题发表于{{dateformat .Created "January 2 , 2006 at 15:04 am"}} - <i class="icon-folder-open"></i> <a href="/view/{{.Id}}" title="{{.Views}}个点击">{{.Views}}点击</a> - <i class="icon-comment"></i> <a href="/view/{{.Id}}#respond" title="{{.ReplyCount}} 个评论">{{.ReplyCount}} 评论</a>
+                           </div>
+                            <div>
+                              {{$cs:=html2str .Content}}
+                              {{$cs:=substr $cs 0 150}}
+                              {{str2html $cs}}
+                            </div>
+                        </div>
+                <div>
+                  {{if compare $Userrole -1000}}
+                      <span><i class="fa-icon-user"></i> <a class="btn btn-mini" href="/topic/edit/{{.Id}}">编辑 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" href="/topic/delete/{{.Id}}">删除 &raquo;</a></span>
+                  {{end}}
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/like/topic/{{.Id}}", context: document.body, success: function(){
+               alert("喜欢成功！");
+            }});'>喜欢 &raquo;</a></span>
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/hate/topic/{{.Id}}", context: document.body, success: function(){
+               alert("恶心成功！");
+            }});'>恶心 &raquo;</a></span>
+                </div>
+                        <div class="clearfix"></div>
+      </div>
+      {{end}}
+
+      <!-- Pagination -->
+          {{.topics_pagesbar_tab1}}
+        <div class="clearfix"></div>   
+      </div>
+    </div>
+    <div class="tab-pane{{if compare .curtab 2}} active{{end}}" id="tab2">
+      <!-- Posts area -->
+      <h3><span>日志章节</span></h3>
+      <div class="posts">
+      {{range .topics_hotness}}
+      <div class="entry" id="post-{{.Id}}">
+        {{if .Attachment}}
+                        <div class="thumb">
+                           <a href="/view/{{.Id}}" rel="bookmark"><img width="130" height="130" src="{{.Attachment}}" class="attachment-post-thumbnail wp-post-image" alt="{{.Title}}" title="{{.Title}}" /></a>
+                        </div>
+        {{end}}
+                        <div class="matter">
+                        
+                          <h2><a rel="bookmark" href="/view/{{.Id}}" title="{{.Title}}">{{.Title}}</a></h2>
+
+                           <div class="meta"><i class="icon-calendar"></i>本话题发表于{{dateformat .Created "January 2 , 2006 at 15:04 am"}} - <i class="icon-folder-open"></i> <a href="/view/{{.Id}}" title="{{.Views}}个点击">{{.Views}}点击</a> - <i class="icon-comment"></i> <a href="/view/{{.Id}}#respond" title="{{.ReplyCount}} 个评论">{{.ReplyCount}} 评论</a>
+                           </div>
+                            <div>
+                              {{$cs:=html2str .Content}}
+                              {{$cs:=substr $cs 0 150}}
+                              {{str2html $cs}}
+                            </div>
+                        </div>
+                <div>
+                  {{if compare $Userrole -1000}}
+                      <span><i class="fa-icon-user"></i> <a class="btn btn-mini" href="/topic/edit/{{.Id}}">编辑 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" href="/topic/delete/{{.Id}}">删除 &raquo;</a></span>
+                  {{end}}
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/like/topic/{{.Id}}", context: document.body, success: function(){
+               alert("喜欢成功！");
+            }});'>喜欢 &raquo;</a></span>
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/hate/topic/{{.Id}}", context: document.body, success: function(){
+               alert("恶心成功！");
+            }});'>恶心 &raquo;</a></span>
+                </div>
+                        <div class="clearfix"></div>
+      </div>
+      {{end}}
+
+      <!-- Pagination -->
+          {{.topics_pagesbar_tab2}}
+        <div class="clearfix"></div>   
+      </div>
+    </div>
+    <div class="tab-pane{{if compare .curtab 3}} active{{end}}" id="tab3">
+      <!-- Posts area -->
+      <h3><span>日志章节</span></h3>
+      <div class="posts">
+      {{range .topics_views}}
+      <div class="entry" id="post-{{.Id}}">
+            {{if .Attachment}}
+                        <div class="thumb">
+                           <a href="/view/{{.Id}}" rel="bookmark"><img width="130" height="130" src="{{.Attachment}}" class="attachment-post-thumbnail wp-post-image" alt="{{.Title}}" title="{{.Title}}" /></a>
+                        </div>
+            {{end}}
+                        <div class="matter">
+                        
+                          <h2><a rel="bookmark" href="/view/{{.Id}}" title="{{.Title}}">{{.Title}}</a></h2>
+
+                           <div class="meta"><i class="icon-calendar"></i>本话题发表于{{dateformat .Created "January 2 , 2006 at 15:04 am"}} - <i class="icon-folder-open"></i> <a href="/view/{{.Id}}" title="{{.Views}}个点击">{{.Views}}点击</a> - <i class="icon-comment"></i> <a href="/view/{{.Id}}#respond" title="{{.ReplyCount}} 个评论">{{.ReplyCount}} 评论</a>
+                           </div>
+                            <div>
+                              {{$cs:=html2str .Content}}
+                              {{$cs:=substr $cs 0 150}}
+                              {{str2html $cs}}
+                            </div>
+                        </div>
+                <div>
+                  {{if compare $Userrole -1000}}
+                      <span><i class="fa-icon-user"></i> <a class="btn btn-mini" href="/topic/edit/{{.Id}}">编辑 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" href="/topic/delete/{{.Id}}">删除 &raquo;</a></span>
+                  {{end}}
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/like/topic/{{.Id}}", context: document.body, success: function(){
+               alert("喜欢成功！");
+            }});'>喜欢 &raquo;</a></span>
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/hate/topic/{{.Id}}", context: document.body, success: function(){
+               alert("恶心成功！");
+            }});'>恶心 &raquo;</a></span>
+                </div>
+                        <div class="clearfix"></div>
+      </div>
+      {{end}}
+
+      <!-- Pagination -->
+          {{.topics_pagesbar_tab3}}
+        <div class="clearfix"></div>   
+      </div>
+    </div>
+    <div class="tab-pane{{if compare .curtab 4}} active{{end}}" id="tab4">
+      <!-- Posts area -->
+      <h3><span>日志章节</span></h3>
+      <div class="posts">
+      {{range .topics_reply_count}}
+      <div class="entry" id="post-{{.Id}}">
+            {{if .Attachment}}
+                        <div class="thumb">
+                           <a href="/view/{{.Id}}" rel="bookmark"><img width="130" height="130" src="{{.Attachment}}" class="attachment-post-thumbnail wp-post-image" alt="{{.Title}}" title="{{.Title}}" /></a>
+                        </div>
+            {{end}}
+                        <div class="matter">
+                        
+                          <h2><a rel="bookmark" href="/view/{{.Id}}" title="{{.Title}}">{{.Title}}</a></h2>
+
+                           <div class="meta"><i class="icon-calendar"></i>本话题发表于{{dateformat .Created "January 2 , 2006 at 15:04 am"}} - <i class="icon-folder-open"></i> <a href="/view/{{.Id}}" title="{{.Views}}个点击">{{.Views}}点击</a> - <i class="icon-comment"></i> <a href="/view/{{.Id}}#respond" title="{{.ReplyCount}} 个评论">{{.ReplyCount}} 评论</a>
+                           </div>
+                            <div>
+                              {{$cs:=html2str .Content}}
+                              {{$cs:=substr $cs 0 150}}
+                              {{str2html $cs}}
+                            </div>
+                        </div>
+                <div>
+                  {{if compare $Userrole -1000}}
+                      <span><i class="fa-icon-user"></i> <a class="btn btn-mini" href="/topic/edit/{{.Id}}">编辑 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" href="/topic/delete/{{.Id}}">删除 &raquo;</a></span>
+                  {{end}}
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/like/topic/{{.Id}}", context: document.body, success: function(){
+               alert("喜欢成功！");
+            }});'>喜欢 &raquo;</a></span>
+                  <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/hate/topic/{{.Id}}", context: document.body, success: function(){
+               alert("恶心成功！");
+            }});'>恶心 &raquo;</a></span>
+                </div>
+                        <div class="clearfix"></div>
+      </div>
+      {{end}}
+
+      <!-- Pagination -->
+          {{.topics_pagesbar_tab4}}
+        <div class="clearfix"></div>   
+      </div>
+    </div>
+    <div class="tab-pane{{if compare .curtab 5}} active{{end}}" id="tab5">
+      <!-- Posts area -->
+      <h3><span>最新节点</span></h3>
+      <div class="posts">
+      {{range .nodes_latest}}
+
+        <div class="entry" id="post-{{.Id}}">
+          {{if .Attachment}}
+          <div class="thumb">
+             <a href="/node/{{.Id}}" rel="bookmark"><img width="130" height="130" src="{{.Attachment}}" class="attachment-post-thumbnail wp-post-image" alt="{{.Title}}" title="{{.Title}}" /></a>
+          </div>
+          {{end}}
+          <div class="matter">
+            <h2><a rel="bookmark" href="/node/{{.Id}}" title="{{.Title}}">{{.Title}}</a></h2>
+
+                <div class="meta"><i class="icon-calendar"></i>本节点创建于{{dateformat .Created "January 2 , 2006 at 15:04 am"}} - <i class="icon-folder-open"></i> <a href="/node/{{.Id}}" title="{{.Views}}个点击">{{.Views}}点击</a> - <i class="icon-comment"></i> <a href="/node/{{.Id}}" title="{{.TopicCount}}个话题">
+                  {{.TopicCount}}话题</a>
+                           </div>
+                           <div>
+                              {{$cs:=html2str .Content}}
+                              {{$cs:=substr $cs 0 150}}
+                              {{str2html $cs}}
+                           </div>
+                <div>
+                  {{if compare $Userrole -1000}}
+                      <span><i class="fa-icon-user"></i> <a class="btn btn-mini" href="/node/edit/{{.Id}}">编辑 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" href="/node/delete/{{.Id}}">删除 &raquo;</a></span>
+                  {{end}}
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/like/node/{{.Id}}", context: document.body, success: function(){
+               alert("喜欢成功！");
+            }});'>喜欢 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/hate/node/{{.Id}}", context: document.body, success: function(){
+               alert("恶心成功！");
+            }});'href="">恶心 &raquo;</a></span>
+                </div>
+          </div>
+          <div class="clearfix"></div>
+        </div>
+      {{end}}
+
+      <!-- Pagination -->
+          {{.nodes_pagesbar_tab5}}
+        <div class="clearfix"></div>   
+      </div>
+    </div>
+    <div class="tab-pane{{if compare .curtab 6}} active{{end}}" id="tab6">
+      <!-- Posts area -->
+      <h3><span>热门节点</span></h3>
+      <div class="posts">
+      {{range .nodes_hotness}}
+
+        <div class="entry" id="post-{{.Id}}">
+        {{if .Attachment}}
+          <div class="thumb">
+             <a href="/node/{{.Id}}" rel="bookmark"><img width="130" height="130" src="{{.Attachment}}" class="attachment-post-thumbnail wp-post-image" alt="{{.Title}}" title="{{.Title}}" /></a>
+          </div>
+        {{end}}
+          <div class="matter">
+            <h2><a rel="bookmark" href="/node/{{.Id}}" title="{{.Title}}">{{.Title}}</a></h2>
+
+                <div class="meta"><i class="icon-calendar"></i>本节点创建于{{dateformat .Created "January 2 , 2006 at 15:04 am"}} - <i class="icon-folder-open"></i> <a href="/node/{{.Id}}" title="{{.Views}}个点击">{{.Views}}点击</a> - <i class="icon-comment"></i> <a href="/node/{{.Id}}" title="{{.TopicCount}}个话题">
+                  {{.TopicCount}}话题</a>
+                           </div>
+                           <div>
+                              {{$cs:=html2str .Content}}
+                              {{$cs:=substr $cs 0 150}}
+                              {{str2html $cs}}
+                           </div>
+                <div>
+                  {{if compare $Userrole -1000}}
+                      <span><i class="fa-icon-user"></i> <a class="btn btn-mini" href="/node/edit/{{.Id}}">编辑 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" href="/node/delete/{{.Id}}">删除 &raquo;</a></span>
+                  {{end}}
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/like/node/{{.Id}}", context: document.body, success: function(){
+               alert("喜欢成功！");
+            }});'>喜欢 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/hate/node/{{.Id}}", context: document.body, success: function(){
+               alert("恶心成功！");
+            }});'href="">恶心 &raquo;</a></span>
+                </div>
+          </div>
+          <div class="clearfix"></div>
+        </div>
+      {{end}}
+
+      <!-- Pagination -->
+          {{.nodes_pagesbar_tab6}}
+        <div class="clearfix"></div>   
+      </div>
+    </div>
+    <div class="tab-pane{{if compare .curtab 7}} active{{end}}" id="tab7">
+      <!-- Posts area -->
+      <h3><span>节点点击榜</span></h3>
+      <div class="posts">
+      {{range .nodes_views}}
+
+        <div class="entry" id="post-{{.Id}}">
+          {{if .Attachment}}
+          <div class="thumb">
+             <a href="/node/{{.Id}}" rel="bookmark"><img width="130" height="130" src="{{.Attachment}}" class="attachment-post-thumbnail wp-post-image" alt="{{.Title}}" title="{{.Title}}" /></a>
+          </div>
+          {{end}}
+          <div class="matter">
+            <h2><a rel="bookmark" href="/node/{{.Id}}" title="{{.Title}}">{{.Title}}</a></h2>
+                
+                <div class="meta"><i class="icon-calendar"></i>本节点创建于{{dateformat .Created "January 2 , 2006 at 15:04 am"}} - <i class="icon-folder-open"></i> <a href="/node/{{.Id}}" title="{{.Views}}个点击">{{.Views}}点击</a> - <i class="icon-comment"></i> <a href="/node/{{.Id}}" title="{{.TopicCount}}个话题">
+                  {{.TopicCount}}话题</a>
+                           </div>
+                           <div>
+                              {{$cs:=html2str .Content}}
+                              {{$cs:=substr $cs 0 150}}
+                              {{str2html $cs}}
+                           </div>
+                <div>
+                  {{if compare $Userrole -1000}}
+                      <span><i class="fa-icon-user"></i> <a class="btn btn-mini" href="/node/edit/{{.Id}}">编辑 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" href="/node/delete/{{.Id}}">删除 &raquo;</a></span>
+                  {{end}}
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/like/node/{{.Id}}", context: document.body, success: function(){
+               alert("喜欢成功！");
+            }});'>喜欢 &raquo;</a></span>
+                      <span><i class="fa-icon-heart-empty"></i> <a class="btn btn-mini" onclick='javascript:$.ajax({ url: "/hate/node/{{.Id}}", context: document.body, success: function(){
+               alert("恶心成功！");
+            }});'href="">恶心 &raquo;</a></span>
+                </div>
+          </div>
+          <div class="clearfix"></div>
+        </div>
+      {{end}}
+
+      <!-- Pagination -->
+          {{.nodes_pagesbar_tab7}}
+        <div class="clearfix"></div>   
+      </div>
+    </div>
+  </div>
+</div>
