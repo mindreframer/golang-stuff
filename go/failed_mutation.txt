@@ -1,0 +1,32 @@
+2013/03/09 22:28:23 mutating in /var/folders/t2/k4y07r396d5006j7y9w9zldc0000gn/T/mutation867582255
+2013/03/09 22:28:23 mutating < to > in sha256.go
+2013/03/09 22:28:23 found 3 occurrences of < in sha256.go
+2013/03/09 22:28:23 mutation 0 failed the tests, as it should
+2013/03/09 22:28:24 mutation 1 failed the tests, as it should
+2013/03/09 22:28:24 mutation 2 failed the tests, as it should
+2013/03/09 22:28:24 mutating < to <= in sha256.go
+2013/03/09 22:28:24 found 3 occurrences of < in sha256.go
+2013/03/09 22:28:24 mutation 0 failed the tests, as it should
+2013/03/09 22:28:24 mutation 1 failed the tests, as it should
+2013/03/09 22:28:25 mutation 2 failed to break any tests
+2013/03/09 22:28:25 mutating < to >= in sha256.go
+2013/03/09 22:28:25 found 3 occurrences of < in sha256.go
+2013/03/09 22:28:25 mutation 0 failed the tests, as it should
+2013/03/09 22:28:25 mutation 1 failed the tests, as it should
+2013/03/09 22:28:25 mutation 2 failed the tests, as it should
+2013/03/09 22:28:25 mutating < to > in sha256block.go
+2013/03/09 22:28:25 found 3 occurrences of < in sha256block.go
+2013/03/09 22:28:26 mutation 0 failed the tests, as it should
+2013/03/09 22:28:26 mutation 1 failed the tests, as it should
+2013/03/09 22:28:26 mutation 2 failed the tests, as it should
+2013/03/09 22:28:26 mutating < to <= in sha256block.go
+2013/03/09 22:28:26 found 3 occurrences of < in sha256block.go
+2013/03/09 22:28:27 mutation 0 failed the tests, as it should
+2013/03/09 22:28:27 mutation 1 failed the tests, as it should
+2013/03/09 22:28:27 mutation 2 failed the tests, as it should
+2013/03/09 22:28:27 mutating < to >= in sha256block.go
+2013/03/09 22:28:27 found 3 occurrences of < in sha256block.go
+2013/03/09 22:28:27 mutation 0 failed the tests, as it should
+2013/03/09 22:28:28 mutation 1 failed the tests, as it should
+2013/03/09 22:28:28 mutation 2 failed the tests, as it should
+exit status 1
