@@ -1,0 +1,19 @@
+### SLAVE
+rm -rf ~/go/*
+go get -u -v github.com/zond/god/bench/god_bench_slave
+go get -u -v github.com/zond/god/god_cli
+god_bench_slave -ip=$(ec2metadata --public-hostname)
+
+### FIRST NODE
+rm -rf ~/go/*
+rm -rf ec2*
+rm -rf 127.*
+go get -u -v github.com/zond/god/god_server
+god_server -ip=$(ec2metadata --public-hostname) -verbose=true -dir=""
+
+### ANY NODE
+rm -rf ~/go/*
+rm -rf ec2*
+rm -rf 127.*
+go get -u -v github.com/zond/god/god_server
+god_server -ip=$(ec2metadata --public-hostname) -joinIp=ec2-176-34-65-40.eu-west-1.compute.amazonaws.com -verbose=true -dir=""
