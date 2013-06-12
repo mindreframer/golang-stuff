@@ -1,0 +1,36 @@
+diff -r d5666bad617d src/cmd/5l/asm.c
+--- a/src/cmd/5l/asm.c	Thu Sep 27 15:36:22 2012 -0700
++++ b/src/cmd/5l/asm.c	Thu Apr 04 11:51:45 2013 +1100
+@@ -1789,7 +1789,8 @@
+ int
+ chipzero(Ieee *e)
+ {
+-	if(e->l != 0 || e->h != 0)
++	// We use GOARM=7 to gate the use of VFPv3 vmov (imm) instructions.
++	if(goarm < 7 || e->l != 0 || e->h != 0)
+ 		return -1;
+ 	return 0;
+ }
+@@ -1800,6 +1801,10 @@
+ 	int n;
+ 	ulong h;
+ 
++	// We use GOARM=7 to gate the use of VFPv3 vmov (imm) instructions.
++	if(goarm < 7)
++		goto no;
++
+ 	if(e->l != 0 || (e->h&0xffff) != 0)
+ 		goto no;
+ 	h = e->h & 0x7fc00000;
+diff -r d5666bad617d src/cmd/5l/l.h
+--- a/src/cmd/5l/l.h	Thu Sep 27 15:36:22 2012 -0700
++++ b/src/cmd/5l/l.h	Thu Apr 04 11:51:45 2013 +1100
+@@ -312,6 +312,8 @@
+ EXTERN	Prog*	blitrl;
+ EXTERN	Prog*	elitrl;
+ 
++EXTERN	int	goarm;
++
+ void	initdiv(void);
+ EXTERN	Prog*	prog_div;
+ EXTERN	Prog*	prog_divu;

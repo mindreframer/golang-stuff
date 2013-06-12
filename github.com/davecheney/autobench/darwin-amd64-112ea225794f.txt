@@ -1,0 +1,53 @@
+# 2.3 GHz Core i5, 8 GB 1333 MHz DDR3
+# OSX 10.8.3 (Build 12D78)
+# MacBookPro8,1
+benchmark                         old ns/op    new ns/op    delta
+BenchmarkBinaryTree17            6563303000   6312583724   -3.82%
+BenchmarkFannkuch11              5280261000   4119436206  -21.98%
+BenchmarkFmtFprintfEmpty                162          110  -32.10%
+BenchmarkFmtFprintfString               530          347  -34.53%
+BenchmarkFmtFprintfInt                  401          248  -38.15%
+BenchmarkFmtFprintfIntInt               636          380  -40.25%
+BenchmarkFmtFprintfPrefixedInt          554          413  -25.45%
+BenchmarkFmtFprintfFloat                822          585  -28.83%
+BenchmarkFmtManyArgs                   2546         1476  -42.03%
+BenchmarkGobDecode                 24668600     13608450  -44.83%
+BenchmarkGobEncode                 12895190     16724829  +29.70%
+BenchmarkGzip                     563915200    571821615   +1.40%
+BenchmarkGunzip                   250302800    156918742  -37.31%
+BenchmarkHTTPClientServer            192335       140314  -27.05%
+BenchmarkJSONEncode                83371800     55193855  -33.80%
+BenchmarkJSONDecode               347709200    123322152  -64.53%
+BenchmarkMandelbrot200              8399705      5396823  -35.75%
+BenchmarkGoParse                    9685425      7646329  -21.05%
+BenchmarkRegexpMatchEasy0_32            184          150  -18.48%
+BenchmarkRegexpMatchEasy0_1K            520          445  -14.42%
+BenchmarkRegexpMatchEasy1_32            160          121  -24.38%
+BenchmarkRegexpMatchEasy1_1K           1180         1083   -8.22%
+BenchmarkRegexpMatchMedium_32           269          241  -10.41%
+BenchmarkRegexpMatchMedium_1K         89433       105760  +18.26%
+BenchmarkRegexpMatchHard_32            4591         4429   -3.53%
+BenchmarkRegexpMatchHard_1K          137363       134354   -2.19%
+BenchmarkRevcomp                 1255948000   1083271474  -13.75%
+BenchmarkTemplate                 551614200    160165762  -70.96%
+BenchmarkTimeParse                     1505          590  -60.80%
+BenchmarkTimeFormat                    2840          636  -77.61%
+
+benchmark                          old MB/s     new MB/s  speedup
+BenchmarkGobDecode                    31.11        56.40    1.81x
+BenchmarkGobEncode                    59.52        45.89    0.77x
+BenchmarkGzip                         34.41        33.93    0.99x
+BenchmarkGunzip                       77.52       123.66    1.60x
+BenchmarkJSONEncode                   23.27        35.16    1.51x
+BenchmarkJSONDecode                    5.58        15.73    2.82x
+BenchmarkGoParse                       5.98         7.58    1.27x
+BenchmarkRegexpMatchEasy0_32         173.20       212.19    1.23x
+BenchmarkRegexpMatchEasy0_1K        1968.08      2300.35    1.17x
+BenchmarkRegexpMatchEasy1_32         199.62       262.66    1.32x
+BenchmarkRegexpMatchEasy1_1K         867.21       945.39    1.09x
+BenchmarkRegexpMatchMedium_32          3.71         4.14    1.12x
+BenchmarkRegexpMatchMedium_1K         11.45         9.68    0.85x
+BenchmarkRegexpMatchHard_32            6.97         7.22    1.04x
+BenchmarkRegexpMatchHard_1K            7.45         7.62    1.02x
+BenchmarkRevcomp                     202.37       234.63    1.16x
+BenchmarkTemplate                      3.52        12.12    3.44x
