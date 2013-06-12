@@ -1,0 +1,74 @@
+<html>
+	<head>
+		<title>Go'Circuit: Modules, APIs and command-line toolkit</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>Modules, APIs and command-line toolkit</h1>
+			<div class="twocol">
+			<h4>Modules and their APIs</h4>
+
+			<p>The circuit runtime can be instrumented with custom <em>circuit modules</em>
+				that leverage visibility into the circuit's workings to implement application-facing <abbr>API</abbr>s for various special tasks—much like a kernel module would in Linux e.g.
+				Circuit modules are essentially Go packages that can be linked into the circuit runtime.
+
+			<p>The circuit source follows a convention for incorporating modules, in order to decouple specific implementations from interfaces. <abbr>API</abbr>s to modular functionalities are placed in packages
+				descendant to <code>circuit/use</code>. These <abbr>API</abbr>-packages are the endpoints to be utilized by application code. However, they merely act as proxies to other packages that implement the <abbr>API</abbr>s. This allows one to write application code that depends only on the presence of a given <abbr>API</abbr>, but not on its specific implementation in any given circuit runtime configuration.
+
+			<p>There are three core user-visible <abbr>API</abbr>s—there also are modules with no user interfaces—that come implemented with the circuit. (Their package sources are within <code>circuit/sys/…</code>.)
+
+			<ul>
+				<li>Package <code>circuit/use/circuit</code> is the circuit's core programming <abbr>API</abbr>, which is
+					described at length in <a href="lang.html">the programming guide</a>.
+
+				<li>Package <code>circuit/use/anchorfs</code> exposes access to the <a href="anchor.html">anchor file system</a> for keeping track of live workers.</li>
+
+				<li>Package <code>circuit/use/worker</code> is mostly intended for internal use. It defines a low-level abstract <abbr>API</abbr> for spawning and killing workers, as well as establishing communication with them.
+				</li>
+			</ul>
+
+	<p>Two additional packages are included, mostly as examples. Package <code>circuit/use/issuefs</code> is a programmatic <abbr>API</abbr> to an issue tracking system. And package <code>circuit/use/durablefs</code> is an experimental persistent file system, backed by Zookeeper, for storing Go types that may contain circuit-specific subtypes like cross-interfaces.
+
+	<p>All <abbr>API</abbr>s are documented within the <code>godoc</code> documentation system.
+
+<h4>Command-line toolkit</h4>
+
+<p>The command-line toolkit of the circuit is a set of commands that facilitate daily interaction with circuit environments. It encompasses building, debugging, profiling, maintnance and operation.
+
+<p>All toolkit commands are implemented as descendants to package <code>circuit/cmd</code>. Respectively, their detailed and up-to-date documentation should be looked up within the <code>godoc</code> of the respective package.
+
+<h4>Miscellaneous libraries</h4>
+
+<p>We find ourselves using a set of library packages over and over again when we build circuit apps. 
+	We have included the most commonly-used ones as descendants to package <code>circuit/kit</code>.
+	The <code>godoc</code> is the best source for these packages.
+
+<p>At high-level, the miscellaneous libraries kit includes things like scheduling abstractions like <code>circuit/kit/sched/limiter</code>, consistent-hashing algorithms <code>circuit/kit/xor</code>, file system abstractions often used for isolation or integration, data structures like <code>circuit/kit/llrb</code>, statistics, Zookeeper usability tools, etc.
+
+<h4>The documentation server</h4>
+<p class="first">Once the Go Circuit is installed and is in your <code>GOPATH</code>,
+you can view the <abbr>API</abbr> documentation the same way you view Go's documentation itself. 
+Simply run the Go documentation server:</p>
+
+<pre>
+% godoc -http=:6060
+</pre>
+
+<p class="first">And point your browser to <code>localhost:6060/pkg</code>.
+This will give you the table-of-contents of all packages currently available on
+your system. Locate the <code>circuit</code> packages and read on.</p>
+
+<p>Alternatively, you can read the Go documentation of any package on the command-line, with
+	queries like
+<pre>
+% godoc circuit | less 
+</pre>
+</div>
+
+		</div>
+	</body>
+</html>

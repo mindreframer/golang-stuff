@@ -1,0 +1,241 @@
+<html>
+	<head>
+		<title>Sumr: Scalable low-latency persistent key-counter store</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>Sumr: Scalable low-latency persistent counter database</h1>
+			
+			<div class="moto">
+				<p>This is an advanced tutorial that is best read after the <a href="hello.html">Hello, world! tutorial</a>. It assumes <a href="build.html">the Go Circuit is installed</a>. The application in this tutorial is a distributed persistent key-value store, built from the ground up. One might describe it as a “distributed Redis” that supports only counter values. 
+
+				<p>While this application does not have the polishings of a final product, it is performant, stable and quite useful. We have successfully experimented with using it for site analytics, whereby our deployment was exposed to the web-page impressions event stream at Tumblr. 
+
+				<p>While discussing Sumr, we go over some design patterns that we have converged to for organizing sharded services.
+			</div>
+
+<h3>Quick start</h3>
+
+<p>Go to subdirectory <code>tutorials/sumr</code> of your circuit clone. Within it, find a sample <a href="config.html">app configuration file</a> called <code>app.config</code>. This configuration is geared towards a quick and simple build and deploy on the local machine. The cross-build tool is configured to perform the build on the local machine, and all necessary repos (Go, circuit and app) are <code>rsync</code>-ed locally into the build jail. You must modify the hardcoded paths with ones applicable to your system. 
+
+<p>You can then build and deploy the Sumr app. From subdirectory <code>tutorials/sumr</code>:
+
+<pre>
+% CIR=app.config 4crossbuild
+</pre>
+This will result in a binary distribution in local directory <code>~/.sumr/ship</code>. Deploy your distribution to <code>localhost</code>:
+<pre>
+% echo localhost | CIR=app.config 4deploy
+</pre>
+This will install the deployment in <code>~/.sumr/deploy</code>. Lauch the shard workers:
+<pre>
+% CIR=app.config ~/.sumr/ship/sumr-spawn-shard -sumr shard.config -durable /tutorial/sumr
+</pre>
+You will notice we need a shard configuration file. Its syntax is explained in the next section. The flag <code>-durable</code> specifies the name of a file in the durable file system where the service will record its configuration for clients to discover it. Finally, deploy the API workers:
+<pre>
+% CIR=app.config ~/.sumr/ship/sumr-spawn-api -api api.config -durable /tutorial/sumr
+</pre>
+The API workers also require a configuration, described below. The flag <code>-durbale</code> points to the same durable file that was created during <code>sumr-spawn-shard</code>.
+
+<h4>Configuration</h4>
+<p>Two configuration files specify the shard and API workers independently.
+
+<p><em>Shards configuration.</em> In JSON format, it describes the set of shard workers to be spawned.
+<pre>
+{
+	"Anchor": "/tutorial/sumr/shard",
+	"Workers": [
+		{
+			"Host": "localhost",
+			"DiskPath": "/tmp/sumr1",
+			"Forget": 3600000000000
+		},
+		{
+			"Host": "localhost",
+			"DiskPath": "/tmp/sumr2",
+			"Forget": 3600000000000
+		}
+	]
+}
+</pre>
+<p>Field <code>Anchor</code> specifies the directory prefix for the anchors of the shard workers.
+Following, field <code>Workers</code> is a list of worker configs. Each worker config specifies
+a <code>Host</code> where the worker is to be executed, a <code>DiskPath</code> on that same host, where the database
+directory is to be located (created if not present), and a time interval <code>Forget</code> in nanoseconds, which ensures that counters that have not been updated for more than <code>Forget</code> nanoseconds will be evicted from memory.
+
+<p><em>API configuration.</em> In JSON format, as well, describes the set of API workers:
+<pre>
+{
+	"Anchor": "/tutorial/sumr/api",
+	"ReadOnly": false,
+	"Workers": [
+		{
+			"Host": "localhost",
+			"Port": 43000
+		},
+		{
+			"Host": "localhost",
+			"Port": 43001
+		}
+	]
+}</pre>
+<p>Field <code>Anchor</code> is the directory prefix for the API worker anchors. Within this directory, workers will be registered under subdirectories named after the index into the configuration of the respective worker. If <code>ReadOnly</code> is <code>true</code>, only <code>SUM</code> operations will be accepted. <code>Workers</code> is a list of worker configuration. Each specifies a <code>Host</code> where the worker is to be spawned and an HTTP <code>Port</code> where the API interface is to be installed.
+
+<h3>Using Sumr</h3>
+<p>Summer supports two operations <code>ADD</code> and <code>SUM</code>.
+
+<p>Operation <code>ADD</code> adds a persistent floating-point value to a counter—which is simply a persistent floating-point variable named by a key. The operation is explicitly timestamped by the caller. Keys are in the form of depth-1 JSON structs which can contain arbitrary string fields. Here is the CURL invocation sample
+<pre>
+curl localhost:43000/add --data '{"t": 0, "k":{"p":"q","r":"s"}, "v":0.23} {"t": 10, "k":{"r":"s","a":"b"}, "v":0.11}'
+</pre>
+Multiple operations can be requested within the body of a single request, separated by zero or more whitespace characters (including newline and TAB). Each request is a JSON object with three fields. Field <code>"t"</code> specifies an integral timestamp in nanoseconds since epoch. Field <code>"k"</code> specifies a JSON object to be used a counter key. Field <code>"v"</code> specifies an integral floating-point number to be added to the current value of the counter, or to create this counter with that value if one does not exist. 
+
+<p>Operation <code>SUM</code> returns the sum of all values added to a given key. In other words, it returns the current value of that counter. The CURL sample:
+<pre>
+curl localhost:43000/sum --data '{"k":{"p":"q","r":"s"}}'
+</pre>
+The syntax here is identical to that for <code>ADD</code> except the fileds <code>"t"</code> and <code>"v"</code> are omitted.
+
+
+			<h3>Design overview</h3>
+
+<div class="twocol">
+			<p>We build <em>Sumr</em>—a distributed low-latency persistent counter database. A “counter database” is a key-value store where the values are numbers and support an “addition” operation, as well as the generic “set” and “get” operations. One application of a counter database is in keeping site analytics over time. In this context, for example, the purpose of the database might be to fulfill two types of commands: “increase the impression count of page <code>P</code> for the hour 5pm–6pm on March 2, 2013” and “tell me how many impressions of page <code>P</code> occured during the hour 2am–3am on July 2, 2011.”
+
+			<p>To meet this requirement, Sumr supports two commands. An addition command <code>ADD</code> takes three parameters: (i) a 64-bit timestamp, (ii) a 64-bit key and a (iii) 64-bit floating-point additive difference.
+			If the key has not been seen before, a new key is created with a corresponding value of zero. The additive difference is added into the current value and the prior value of the key is returned. The user-supplied timestamp is remembered as the latest time when this key was updated. Keys that have not been updated for a pre-configured interval of time are evicted from the database in-memory structures and are not seen by subsequent queries (unless updated again).
+			<em>All</em> <code>ADD</code> operations are persisted to disk.
+
+			<p>A “summation” command <code>SUM</code> takes a 64-bit key parameter and returns its current value or zero if the key is not present in-memory.
+			</p>
+
+			<p>A database of this kind is typically used by upstream front-end logic, from a language—like PHP—that is text-based, with poor concurrency and inefficient CPU utilization. To enable this use case, we also build an API proxy which translates richer REST HTTP API requests—incoming from external technologies—to database calls. The API supports batched <code>ADD</code> and <code>SUM</code> requests, which are parallelized transparently.
+
+			<p>The <code>ADD</code> and <code>SUM</code> HTTP API calls differ from the naked database API calls in two ways. First, they are presented in the form of JSON objects. And, second, keys can be nearly-any JSON objects. This allows upstream logic to encode semantically meaningful information in the keys themselves, and in a format that is more naturally accessible to common interpreted languages, like JavaScript and PHP.
+
+			<p>The presence of an HTTP API proxy resolves another problem too. It turns out that parsing JSON-formatted keys and converting them to 64-bit binary keys is more CPU-intensive than the database workload itself. By decoupling the API layer from the database, one is able to add as many API workers as are necessary to hit the right balance.
+</div>
+
+	<p><object data="img/sumr.svg" type="image/svg+xml" width="800px"> <img src="img/sumr.png" alt="Illustration of the Hello, world! application logic." /></object></p>
+
+	<h3>Architecture</h3>
+<div class="twocol">
+
+	<p>The worker-level anatomy of a Sumr circuit is illustrated above. We have two kinds of workers: shard and API.
+
+<ul>
+	<li>Shard workers are implemented in package <code>circuit/app/sumr/server</code>.
+		The type <code>Server</code> is underlying a cross-interface which is passed around to other
+		workers to use. Type <code>Server</code> has two public methods
+<pre>
+type ServerInterface interface {
+	Add(updateTime time.Time, key sumr.Key, value float64) float64
+	Sum(key sumr.Key) float64
+}
+</pre>
+They implement the operations <code>ADD</code> and <code>SUM</code> that we discussed earlier.
+The logic behind these commands maintains both an in-memory representation of the current state of the database, as well
+as a persistent store into a write-ahead log file. The latter is implemented from first principles in Go to demonstrate how one can build a real database end-to-end.
+
+<p>Additionally, the implementation provides facilities for snapshot-ing the current state of the database in a non-invasive and efficient manner during live operation. These snapshots are created regularly and consequently used for enabling rapid restarts after service failure. The implementation of the intrinsic database logic is collected in package <code>circuit/app/sumr/block</code>.
+	</li>
+
+	<li>API workers, implemented in <code>circuit/app/sumr/api</code>, are the glue between external HTTP/JSON-based technologies and the shard workers. But they do more than that. They accept <em>batch</em> requests from upstream technologies that are concurrency-disabled, like PHP for example, and parallelize the batches within the circuit on their behalf.
+
+	<p>We have discovered that JSON processing per request is more CPU-expensive than the respective database manipulations. 
+		This has informed our design whereby API workers are separate from shard workers and can therefore be spawned in customizable proportions.
+	</li>
+</ul>
+
+</div>
+
+<h3>Discovery and smart clients</h3>
+<div class="twocol">
+<p>The API workers are clients to the shard workers, naturally. 
+The circuit provides a few different ways to engineer how the API workers “find” the shard workers.
+Which technique is best depands on the occasion. In the context of Sumr, we assume that the individual workers can suffer independent failures and that it is desirable ro repair individual failures separately while affecting the remaining circuit in a minimal way.
+
+<p>We therefore design Sumr so that:
+	<ul>
+		<li><em>Workers can be restarted individually without affecting keys allocated to other workers.</em>
+			<p>Each shard worker is responsible for storing a subset of the counter key space.
+				The division of the space is done using the <a href="http://maymounkov.org/kademlia">XOR-metric</a>.
+				Each shard worker is asssigned a random ID (point) within the XOR-metric space.
+				Incoming keys are assigned to the shard whose ID is closest to that of the key.
+
+			<p>If a shard disappers, requests for keys belonging to other workers continue to map correctly, whereas requests for keys
+				pertaining to the dead worker result in error conditions at the caller.
+				The distance function of the XOR-metric is implemented in the package <code>circuit/kit/xor</code>.
+
+		<li><em>API workers can be added and removed elastically as needed.</em>
+			<p>In order to add API workers (which are clients to the cluster of shard workers) at any time, new workers need to be able to discover the shard workers dynamically. The circuit provides two different mechanisms for that. The first technique relies on the <a href="anchor.html">anchor file system</a>, while the secon one—on the durable file system 
+				(implemented in package <code>circuit/use/durablefs</code>).
+		</ul>	
+
+<h4>Anchored discovery</h4>
+
+<p>When shards are spawned (with the command from package <code>/sumr/cmd/sumr-spawn-shard</code>), they are registered under descriptive anchor paths. We use the following format
+
+<pre>
+/sumr/server/1234ab009cc
+</pre>
+The prefix directory, <code>/sumr/server</code> in this example, is specified by the user so as to enable co-existence of multiple instances of the service. The prefix directory houses one or more subdirectories, each corresponding to one worker, and automatically named after the XOR-metric key, <code>1234ab009cc</code> in our example, of the shard logic running on the worker.
+<p>Of course, the actual worker file is automatically generated within the latter directory by the circuit spawn mechanism. It would look something like this:
+<pre>
+/sumr/server/1234ab009cc/R0de1473b3c192b4c
+</pre>
+<p>Upon spawning, an API worker would list the contents of the directory <code>/sumr/server</code> to discover all the shards living in the circuit at the moment, as well as their XOR-metric keys.
+
+<p>Discovering the anchor file of a worker amounts to obtaining a <code>circuit.Addr</code> address to the worker process. However, the client's end goal is to access the <code>Server</code> object living within a shard worker and make cross-calls to its <code>Add</code> and <code>Sum</code> methods. For this, the client needs to obtain a cross-interface to the <code>Server</code> object.
+
+<p>To accomplish this, we utilize the circuit's listen and dial mechanism, accessed via <code>circuit.Listen</code> and <code>circuit.Dial</code>. (This mechanism is <a href="lang.html#services">described in detail</a> in the programming guide under the name “cross-services”.) In particular, every shard worker listens on the service name <code>"sumr"</code> and when requests for this service are received from clients, the worker returns a cross-interface to the <code>Server</code> object.
+
+<p>This anchor-based technique is very clean and simple and it additionally provides visibility into the service to administrators, who could manually list the content of the shard directory with <code>4ls</code> as well as use patterns like
+<pre>
+% 4kill /sumr/...
+</pre>
+To kill all workers pertaining to a deployment.
+	
+<h4>Durable discovery</h4>
+
+<p>An additional discovery mechanism is given, mostly for demonstrating a different approach. The durable file system is a global file system for small files, backed by Zookeeper, and its interface is found in <code>circuit/use/durablefs</code>. This file system has two distibguishing characteristics. 
+
+<p>First, file contents is saved and retrieved in the form of unconstrained native Go values which can, in addition, also have <em>permanent cross-interface</em> sub-values. Second, directory listing semantics are similar to those of Zookeeper, in order to enable implementation of app synchronization logic.
+
+<p>The main idea of this mechanism is that during the launch of the shard workers, the launching sequence—implemented in package <code>circuit/app/sumr/server</code> and file <code>spawn.go</code>—saves
+shard XOR-metric keys and respective permanent cross-interfaces, for all shards, in a durable file.
+Consequently, clients can read this file and immediately access the shards, using the cross-interfaces.
+
+<h4>Smart clients</h4>
+
+<p>Smart clients are the norm, not the exception, within the circuit. Each individual API worker is a client to the entire set of shard workers. Other circuit workers and application could be as well. 
+
+<p>As we showed in our discussion of discovery, there a few steps of work involved in being a client. First,
+	one needs to discover the set of shards and their respective XOR-metric keys. And second, for very database operations, the client needs to detrmine which shard to use and only after this it can proceed with a vanilla <a href="lang.html#cross">cross-call</a> to the shard.
+<p>Furthermore, since we would like clients to parallelize batched operations, one also needs to take care of parallelization in a manner that is stable against varying load and even against DoS attacks.
+
+<p>Since this logic would be replicated by any entity that acts as a client to the Sumr database, it is customary to write a client library that exposes simple Go routines that do all the work.
+
+<p>For Sumr, the client implementation is found in package <code>circuit/app/sumr/client</code>. It performs preceisely the steps described above. Ensuring resilience against DoS attacks in a parallel setting is more challanging than the synchronous one, where simple backpressure suffices. A simple but effective method, based on concurrency caps at various locations, is demonstrated within the Sumr client. 
+
+<p>In the client implementation, one will find a useful primitive that we find ourselves using over and over again. 
+It is given by package <code>circuit/kit/sched/limiter</code> and it constitutes a lock that can be held by a maximum limited number of users at any given time. It is a natural abstraction for throttling various concurrent patterns appearing throughout the circuit code base.
+
+</div>
+
+
+		</div>
+
+
+		<div id="footer">
+			The content of this page is licensed under the
+			Creative Commons Attribution 3.0 License,
+			and code is licensed under an <a href=license.html>Apache license</a>.
+			Made at <a href="http://tumblr.com">Tumblr</a>.
+		</div>
+	</body>
+</html>

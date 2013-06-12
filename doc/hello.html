@@ -1,0 +1,729 @@
+<html>
+	<head>
+		<title>Circuit language runtime</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>Hello, world: Implement, build, cross-build, deploy</h1>
+			
+			<div class="moto">
+				This is an end-to-end self-contained tutorial,
+				assuming only that <a href="build.html">the Go Circuit is installed</a>. The tutorial 
+				introduces the
+				concept of spawning remote goroutines programmatically, while maintaining transparent cross-process type safety.
+				The tutorial then goes on to describe
+				the build, deploy and sustenance workflows.
+			</div>
+
+			<h3>Overview</h3>
+
+			<p class="first">In this tutorial, we implement, build and deploy a “Hello, world!” circuit app from scratch.
+			The final product will be a binary, called <code>hello-spawn</code>, which when executed from a terminal 
+			will behave as follows:</p>
+
+			<ul>
+				<li>Print an informative greeting <code>"Starting ..."</code> to the local console</li>
+				<li>Spawn a new worker process on a remote host, whose job is to
+				execute a <em>worker function</em> provided by us, and to deliver the return values of
+				that function back to the invocation site.
+				<li>The worker function (to be executed remotely) will do as follows:
+				<ul>
+					<li>Start a new goroutine locally (in addition
+					to the goroutine it is executing in), which
+					waits for 30 seconds, prints
+					<code>"Hello world!"</code> and
+					die.</li>
+
+					<li>Return the current time (at the newly spawned worker) back to the 
+					invocation site.</li>
+				</ul>
+				</li>
+				<li>Once the returned value is received in the main application process, it is printed out
+			</ul>
+			<p>Here's a schematic view of this:</p>
+	<p><object data="img/hello.svg" type="image/svg+xml" width="800px"> <img src="img/hello.png" alt="Illustration of the Hello, world! application logic." /></object></p>
+
+			<p>Running <code>hello-spawn</code> on the developer console, will produce a similar output instantaneously:</p>
+<pre>
+% ./hello
+Staring...
+Spawned R72fd87ca40beca64@127.0.0.1:55118
+Time at remote on spawn: 2:59PM
+(Application exits.)
+</pre>
+			<p>On the remote machine, where the spawned worker is executing, one would see (there is a way to observe
+			the output of a remote worker):</p>
+<pre>
+(Delay of 30 seconds.)
+Hello world!
+(Worker exits.)
+</pre>
+			<p>In both figures above, the text in brackets is not part of the output; it represents annotations that
+			clarify what is taking place. The source code of the project described here can be found in the 
+			<code>tutorials/hello</code> directory within the circuit repository.</p>
+
+			<h3>Prerequisites</h3>
+			<p class="first">For this tutorial you need to have built the Go Circuit project and setup your environment, as 
+			described in <a href="build.html">download, build and install manual</a>. In particular, make sure that
+			you have the <code>CGO_*</code> and <code>GOPATH</code> environment variables set. E.g. if you are using <code>sh</code>,
+			you could check like so:</p>
+<pre>
+% env | grep CGO
+CGO_LDFLAGS=/Users/petar/gocircuit/misc/starter-kit-osx/zookeeper/lib/libzookeeper_mt.a
+CGO_CFLAGS=-I/Users/petar/gocircuit/misc/starter-kit-osx/zookeeper/include
+% env | grep GOPATH
+GOPATH=/Users/petar/gocircuit
+</pre>
+			<p>Your actual directories may vary.
+
+			<h3>Implementation</h3>
+			<p>Moving right along, begin by creating a directory for this project's source root. From within your home
+			directory, execute
+<pre>
+% mkdir -p hello/src/hello
+</pre>
+			<p>The main directory <code>hello</code> will enclose your project (sources and other things), 
+			whereas <code>hello/src</code> will be the <code>GOPATH</code> of your project. Finally, no source files
+			will reside outside of <code></code>, so as to make sure that all project-related package paths
+			begin with <code>hello/…</code>. As in every Go project,
+			you need to make the Go compiler aware of your project, by including its root directory
+			in the <code>GOPATH</code> environment variable. Do this as follows:</p>
+<pre>
+% export GOPATH=$GOPATH:/Users/petar/hello
+</pre>
+			<p>Notice, we are retaining any prior <code>GOPATH</code> and adding the new project path,
+			separated by a colon.</p>
+
+			<h4>Main logic</h4>
+			<p>Take a look at this listing. This is the body of our <code>hello-spawn</code> program, and
+				you should place it in <code>src/hello/cmd/hello-spawn/main.go</code> within the 
+				root project directory. (The column numbers in the left gutter are not part of the source listing.)</p>
+<pre>
+ 	package main
+
+	import (
+1:		_ "circuit/load"	// Link the circuit into this executable
+2:		"circuit/use/circuit"	// Import the circuit language API
+ 		"time"
+3:		"hello/x"		// Import the package implementing the worker function
+	)
+
+ 	func main() {
+		println("Starting...")
+
+4:		retrn, addr, err := circuit.Spawn(
+			"localhost",                // Host where to spawn the new worker
+			[]string{"/hello"},         // List of anchors for the new worker
+			x.App{},                    // User type that encloses the worker function
+			"world!",                   // Argument to pass to worker function
+		)
+		if err != nil {
+			println("Oh well", err.Error())
+			return
+		}
+
+5:		println("Spawned", addr.String())
+
+6:		remoteTime := retrn[0].(time.Time)
+		println("Time at remote on spawn:", remoteTime.Format(time.Kitchen))
+	}
+</pre>
+
+<p>We now explain the program line-by-line, following the progression in which one
+designs the program:</p>
+<ul>
+
+<li>Line <code>1</code>: Importing <code>"circuit/load"</code> has
+the side-effect of linking the <em>Circuit Runtime</em> into the final
+executable. You need to use this line in programs that you want running as part of
+a circuit. You do not have to use this line in library packages, even if they 
+are intended to be part of a circuit program.</li>
+
+<li>On Line <code>4</code>, we make the first use of the circuit. The
+<code>circuit.Spawn</code> call (i) starts a new process, called <em>worker</em> on
+a specified host, (ii) executes a specified function (giving it any arguments you pass),
+(iii) blocks until the function completes (on the remote worker), and (iv) returns whatever
+values that function returned. 
+<p>Now, let's look at the invocation of <code>Spawn</code> in detail:
+<ul>
+
+	<li><code>Spawn</code> is provided by the package <code>circuit/use/circuit</code>, which 
+	you can see imported on line <code>2</code>. 
+
+	<p>More generally, note that the package
+	<code>circuit/load</code> simply links the circuit runtime (which is always doing some
+	background work for you, like monitoring, etc.) into your program. If you want to explicitly
+	talk to the runtime and take advantage of various functions that it offers, you need to
+	include one of a set of <code>circuit/use/…</code> packages that exports a circuit API to you;
+	<code>circuit/use/circuit</code> is the main API, however <a href="api.html">there are some others</a> which 
+	give you access to different sub-systems of the circuit, like the issue tracking system e.g.,
+	found in <code>circuit/use/issue</code>.
+
+	<li>The first argument to <code>Spawn</code> is the target host for the new worker. The
+	circuit's internal transport system is responsible for interpreting the meaning of <code>host</code>.
+	The default transport implementation takes <code>host</code> to be an Internet hostname.</li>
+
+	<li>The second argument is a slice (i.e. a list) of strings. Each string is a directory within the 
+	circuit's global <a href="anchor.html">anchor file system</a> within which you would like 
+	the new worker to register itself. 
+
+	<p>The anchor file system is much like <em>procfs</em> on Linux
+	(found in <code>/proc</code>), differing from it in two ways. The anchor file system is a unifed global file system that
+	registers all circuit workers across machines and datacenters. It gives a global view of 
+	everything that is running on a cloud circuit deployment. Each worker can be registered under
+	multiple user-chosen paths. This provides useful semantics for utilizing the anchor file system as
+	a dynamic configuration and discovery service.
+
+	<p>On the other hand, procfs is a flat system (all processes are
+	registered in the same directory and by their process IDs) which registers processes under
+	meaningless numerical IDs, and has visibility limited to a single host.
+
+	<p>In addition, anchor file system paths, which correspond to live workers, are used as the main
+	way of referring to a worker instance when using circuit command-line utilities.</li>
+
+	<li>The role of the third argument is to specify a <em>worker function</em> that you
+	want executed on the newly spawned worker.
+
+	<p>The worker function is specified by providing
+	an instance of a type that has a <em>single</em> public method. We'll get to implement this type and
+	its function in the next section. For now, let it be said that <code>x.App{}</code>
+	simply specifies the code that will execute on the worker. Since we intend to implement the
+	type <code>App</code> in a different package called <code>hello/x</code>, we also need
+	to import that package, as seen in line <code>3</code>.
+	</li>
+
+	<li>You can supply an arbitrary number
+	of arguments, following the third
+	argument. They are going to be passed
+	to the worker function “as is”. Type
+	checking is in effect, so if you pass
+	an argument of the wrong type, you will
+	get a runtime panic as soon as you
+	start your program.
+
+	In our example, we are going to implement the worker function so it consumes one argument of
+	type <code>string</code>. We pass the value <code>world!</code>, which you'll see is going to
+	be the “world!” in “Hello world!”
+</ul>
+</li>
+<li>The three return values of <code>Spawn</code> are a wealth of information:
+<ul>
+	<li>The last return value is of type <code>error</code>. If non-<code>nil</code>,
+	something went wrong and the first two values are undefined. Go error values
+	carry information about the nature of the problem.</li>
+
+	<li>The second return value is of type <code>circuit.Addr</code>. It holds the “address”
+	of the newly spawned worker. This address can be used in various circuit API calls to refer
+	to a specific worker, and can also be used to print a textual representation of the
+	worker's identity. We demonstrate this on line <code>5</code>.
+
+	<li>The first value is of type <code>[]interface{}</code> — a slice of interfaces.
+	It holds the return values of the worker function. You can safely cast each element of
+	this slice to the type you expect it to be. In this example, I plan to implement the worker
+	function so it returns one value of type <code>time.Time</code>, which holds the local time
+	at the new worker when execution begins. We cast this value to its correct type and print it
+	out on line <code>6</code>.
+	</li>
+	</ul>
+</ul>
+
+			<h4>Worker logic</h4>
+		<p>We are going to place the worker function in package <code>hello/x</code>, located
+			in <code>src/hello/x/hello.go</code>.
+<pre>
+	package x
+
+	import (
+		"fmt"
+		"time"
+ 1:		"circuit/use/circuit"
+	)
+
+ 2:	type App struct{}
+
+ 3:	func (App) Main(suffix string) time.Time {
+ 4:		circuit.Daemonize(func() {
+			time.Sleep(30*time.Second)
+			fmt.Printf("Hello %s\n", suffix)
+		})
+ 5:		return time.Now()
+	}
+
+ 6:	func init() { circuit.RegisterFunc(App{}) }
+</pre>
+
+		<ul>
+		<li>Line <code>3</code> defines function <code>Main</code> — the function that we want to use as
+			a worker function. Because of the way the Go reflection system is setup, we cannot
+			pass the function <code>Main</code> itself to <code>circuit.Spawn</code>. Instead, we need to
+			add a minimal amount of cruft. This involves two steps:
+			<ul>
+				<li>Define a new type, <code>App</code> in our case on line <code>2</code>, and make your desired worker function a public method of that type.
+				<li>Make sure that the type is registered with the circuit during package initialization. This is accomplished on line <code>6</code>. (And, of course, because the registration function <code>RegisterFunc</code> is a circuit call,
+					make sure to import the main circuit API as done on line <code>1</code>.)
+			</ul>
+
+		<li>Consider the implementation of <code>Main</code> now. Recall the <code>Spawn</code> execution semantics: a new worker is started, the worker function is executed on it, and <em>the worker process is killed as soon as the worker function completes</em>. The last bit is quite important
+			as it gives the programmer explicit control over the life and death of a worker. 
+
+			<p>It raises the question, however: How do we start a worker and delegate a long running task to it, while
+			returning immediately to the caller? To address this, the circuit provides a method
+			called <code>circuit.Daemonize</code>. This method has the exact same effect as the <code>go</code> operator — it executes a function inside a new, concurrent goroutine. The difference is that <code>Daemonize</code> explicitly instructs the worker not to die until the argument of <code>Daemonize</code> completes. If we were to use 
+<pre>
+	…
+	go func() {
+		time.Sleep(30*time.Second)
+		fmt.Printf("Hello %s\n", suffix)
+	}()
+	…
+</pre>
+			above, instead, the worker would have been killed as soon as the <code>return</code> statement is reached and the anonymous function would not have the chance to complete.
+
+		<li>To summarize, our implementation of <code>Main</code> starts by forking a new goroutine,
+			which waits for 30 seconds and then prints <code>"Hello "</code>, followed by the
+			value of the argument <code>suffix</code>. Since we are passing the value <code>"world!"</code> for that argument, the print out will say <code>"Hello world!"</code>. After forking that goroutine, <code>Main</code> returns immediately with a value holding the current time.
+		</ul>
+
+<h4>Worker executable</h4>
+
+<p>When spawning a new worker, the <a href="spawn.html">spawning mechanism</a> expects to find a <em>worker executable</em> on the target host. Once started, the worker effectively waits for incoming network requests
+	from other workers, asking it to spawn one function or another.
+
+<p>For a worker to be able to execute any user-defined worker function, it needs to have any such function linked into it. For this reason, implementing the worker program is the responsibility of the application programmer.
+	This task however is quite straightforward. 
+
+<p>Below is the source listing for the worker executable for this tutorial. Save this code as 
+	 <code>src/hello/worker/worker.go</code>:
+
+<pre>
+package main
+
+import (
+        // Package worker ensures that this executable will act as a circuit worker
+        _ "circuit/load/worker"
+
+        // Importing hello/x ensures that the hello tutorial's logic is linked into the worker executable
+        _ "hello/x"
+)
+
+// Main will never be executed.
+func main() {}
+</pre>
+
+<p>The import of <code>circuit/load/worker</code> has the side-effect of making this program
+behave as a circuit worker. In particular, the <code>init()</code> function of this package
+hijacks program execution on startup and <code>main()</code> is never started.
+This would be a boilerplate import in every worker program one writes.
+
+<p>The import of package <code>x</code> has the side-effect of executing its <code>init()</code>
+	function which, if you recall, registers the user-defined type <code>x.App</code>
+	with the circuit runtime. As a consequence, the resulting worker executable will be able
+	to accept spawn requests for <code>x.App</code>.
+
+<h3>Principles of build and deploy</h3>
+<div class="twocol">
+
+<p>In this section, we explain the principles of operation of the build and deploy systems.
+	Step-by-step hands-on instructions for performing the build will come in the following sections.
+
+<p>To build this application, we have to understand how the
+circuit works and what exactly is being built. Two executable files
+are to be built:
+<ul>
+	<li>The <em>command</em> executable <code>hello-spawn</code> which we implemented in 
+		<code>src/hello/cmd/hello-spawn/main.go</code>. Command executables are stand-alone and typically intended for 
+		command-line use. An application can have any number of those. Typically there is at least
+		one such command that launches your application.
+
+<li>The <em>worker</em> executable which we implemented in <code>src/hello/worker/worker.go</code>. 
+	This is what is being automatically
+executed on the remote host, when <code>hello-spawn</code> spawns the new
+worker. You will never have to use this executable directly, but it
+needs to be present on the remote host where the new worker is to be started.</li>
+</ul>
+
+<p>The command executable is often invoked from the same or similar system to the developer console, which is
+	why one can build it directly using the <code>go build</code> tool. And we cover this in detail later.
+
+
+<p>The worker executable, on the other hand, is usually hosted on a “datacenter” machine that typically differs 
+	in hardware from the developer console. The worker cannot be cross-built on the developer console, because
+	the circuit links against C libraries (for Apache Zookeeper) and in such cases, the Go toolchain requires a 
+	native build on the target hardware.
+
+<p>To facilitate the process of logging into a remote host and performing a build there, the circuit provides
+	a <em>cross-build tool</em> that does this automatically. Furthermore, the output of this tool (which is 
+	delivered locally to the developer console) is integrated with a subsequent <em>deploy tool</em> that simplifies the 
+	deployment of the freshly built binaries to the remote host(s).
+
+<h4>How cross-building works</h4>
+
+
+<p>The cross-build tool is embodied in the command-line program <code>4crossbuild</code>.
+	To build the worker binary, we first need to create a <a href="config.html">configuration file</a> 
+	(and we are going to do this in the <a href="#config">next section</a>) that specifies
+the build parameters for the application at hand and then invoke the cross-build tool with this configuration.
+The invocation itself is quite simple:
+<pre>
+% CIR=app.config 4crossbuild
+</pre>
+We point the <code>CIR</code> environment variable to the configuration file and run <code>4crossbuild</code>
+in this environment.
+
+<p>Let us understand what <code>4crossbuild</code> does at high level. First, it connects
+to a remote <em>build host</em> via <code>ssh</code>. 
+There it executes the circuit command <code>4build</code>, which does the actual building. 
+When the build completes, the resulting binaries are downloaded back to the developer console in a designated
+directory.
+
+<p><code>4build</code> creates a <em>build jail</em>
+directory which encloses all build-related files. In this jail,
+<code>4build</code> fetches the Go compiler repository, the circuit repository, as well as 
+the repository of the user application. It then goes on to build the Go compiler (if this is the first
+invocation of <code>4build</code> on this project) as well as the user application's worker executable and
+any number of command executables. At the end, all resulting binaries are downloaded back to the 
+developer console where <code>4crossbuild</code> was invoked.</p>
+
+<p>Note that <code>4build</code> requires that <a href="http://golang.org/doc/install/source">prerequsite technologies for
+building the Go Compiler</a> be installed on the build host <em>a priori</em> and be accessible through 
+the <code>PATH</code> environment there.
+
+<h4>How deploying works</h4>
+
+<p>After a successful cross-build, the next step is to upload the compiled binaries to all hosts that might
+be used as targets for spawning new workers. This is achieved by the <em>deploy tool</em>, embodied in <code>4deploy</code>.</p>
+
+<p>The deploy tool integrates nicely with the cross-build tool. 
+	The product of cross-building is delivered to a local directory, which we call the <em>shipping directory</em>.
+	It will contain a worker executable and possibly other files. 
+
+<p>The deploy tool is aware of the shipping directory (as it shares the configuration file with the cross-build tool),
+	so it can be invoked immediately after the cross-build completes. It expects a list of target hosts on its standard input, one per line. 
+	A typical invocation looks like:
+
+<pre>
+% CIR=app.config 4deploy < list_of_hosts
+</pre>
+
+<p>The deploy tool connects to each of the supplied hosts in parallel, using <code>ssh</code>,
+and takes the necessary steps to install the worker executables there.
+
+<p>You must configure your developer environment to
+be able to connect to each of these hosts via a <em>password-less <code>ssh</code> login</em>.
+</p>
+
+</div>
+<h3 id="config">Configuration</h3>
+
+<p>Create the following configuration file inside the main project directory <code>hello</code> and name it <code>app.config</code>:
+<pre>
+{
+    "Build": {
+            "Host":             "localhost",
+            "Jail":             "/Users/petar/.hello/build",
+            "ZookeeperInclude": "/Users/petar/gocircuit/misc/starter-kit-osx/zookeeper/include",
+            "ZookeeperLib":     "/Users/petar/gocircuit/misc/starter-kit-osx/zookeeper/lib",
+            "Tool":             "/Users/petar/gocircuit/bin/4build",
+            "PrefixPath":       "",
+
+            "AppRepo":          "{rsync}/Users/petar/gocircuit",
+            "AppSrc":           "/tutorials/hello",
+
+            "GoRepo":           "{rsync}/Users/petar/go",
+            "RebuildGo":        false,
+
+            "CircuitRepo":      "{rsync}/Users/petar/gocircuit",
+            "CircuitSrc":       "/",
+
+            "WorkerPkg":        "hello/worker",
+            "CmdPkgs":          ["hello/cmd/hello-spawn"],
+            "ShipDir":          "/Users/petar/.hello/ship"
+    },
+    "Deploy": {
+            "Dir":              "/Users/petar/.hello/deploy",
+            "Worker":           "4hello"
+    }
+}
+</pre>
+
+<p>This listing is merely an example. You would have to modify some of the parameters to fit your environment, as we describe next.
+
+<p>Even though cross-building is usually invoked to perform a remote build on different hardware, nothing prevents the remote build host
+	from being <code>localhost</code>. This is what we intend to do in this tutorial to make it accessible to most people. You can make
+	your own changes accordingly, if you prefer to use an actual remote build host.
+
+<p>&nbsp;
+
+<div class="twocol">
+
+	<h4>Build</h4>
+
+	<p>The <code>"Build"</code> configuration section instructs the build tool how to prepare the binary distribution of your circuit application.
+
+		<hr>
+		<p><em>Build host environment:</em>
+		<ul>
+			<li><code>"Host"</code> points to the build host where the build process will take place. Your local user environment should be setup 
+				to be able to <code>ssh</code> into the build host without interactive password input. 
+				In our example, we are going to use <code>"localhost"</code> as a build host.</li>
+
+			<li><code>"Jail"</code> is the directory on the build host that will enclose all working files of the build process. 
+				This directory will be created if not existent, recursively if need be.</li>
+
+			<li><code>"ZookeeperInclude"</code> and <code>"ZookeeperLib"</code> point to the Zookeeper C driver include files and libraries on the build host. Their presence there must be arranged by the user.</li>
+
+			<li><code>"Tool"</code> is a path pointing to the binary of the circuit build tool <code>4build</code> on the build host. 
+				Its presence must be arranged by the user. Typically this involves manually logging into the build host once and <a href="build.html">building the circuit</a> there. 
+				<p>Since we are using <code>"localhost"</code>
+				as a build host, we already have installed circuit binaries, and in our case the build tool is found under 
+				<code>"/Users/petar/gocircuit/bin/4build"</code>.</li>
+
+			<li><code>"PrefixPath"</code> is a <code>PATH</code> environment value that will 
+				be prepended to the default <code>PATH</code> when logging into the build host. Its purpose is to
+				help you make sure that required tools (like <code>git</code>, <code>hg</code>, etc.) are accessible.</li>
+
+		</ul>
+
+
+		<hr>
+		<p><em>App sources:</em>
+		<ul>
+			<li><code>"AppRepo"</code> specifies a “link” describing how to fetch the source repository of the user application to be built. 
+				Links have powerful syntax, explained in the <a href="config.html">configuration manual</a>. In our example, we would
+				like the fetch the repo using <code>rsync</code> and from the local (to the build host) directory <code>"/Users/petar/gocircuit"</code>.
+				Even though the latter directory holds the circuit's repo in general, the following configuration argument will allow us to 
+				single out the “Hello, World!” tutorial's sources, which are located within the circuit's main repo.
+			</li>
+
+			<li><code>"AppSrc"</code> specifies the subdirectory, relative to the root of the <code>AppRepo</code> repository, 
+				that should be used as the <code>GOPATH</code> directory for your app's sources.
+				The value <code>"/tutorials/hello"</code> points at the root of this tutorial's sources within the circuit repo.
+			</li>
+		</ul>
+
+		<hr>
+		<p><em>Go compiler:</em>
+		<ul>
+			<li>Field <code>GoRepo</code> specifies how to fetch the Go compiler repository. It has the same rich semantics as <code>AppRepo</code>, described in the 
+				<a href="config.html">configuration manual</a>. For this tutorial, you can try using two different values for it. 
+				<p>If you use <code>"{rsync}/Users/petar/go"</code>, modified accordingly to your directory structure, the build tool will copy the circuit sources from a pre-existing local clone of the Go repo.
+				<p>If you use <code>"{hg}{tip}code.google.com/p/go"</code>, the build tool will fetch the most recent changeset on the default branch, from the original Go Language repo.
+			</li>
+
+			<li>If <code>"RebuildGo"</code> is true, the Go compiler sources are re-fetched every time the build process is invoked, and rebuilt in the event that they have changed. Otherwise, the Go compiler is built only once, on the first invocation of the build process.</li>
+		</ul>
+
+		<hr>
+		<p><em>Circuit sources:</em></p>
+		<ul>
+			<li><code>"CircuitRepo"</code> is a link to the circuit repository. It has the same syntax as <code>"AppRepo"</code>.</li>
+
+			<li><code>"CircuitSrc"</code> is the analog of <code>"AppSrc"</code>.</li>
+
+
+		</ul>
+
+		<hr>
+		<p><em>Output:</em></p>
+		<ul>
+			<li><code>"WorkerPkg"</code> specifies a program package within the app repo's <code>GOPATH</code>, which is to be
+				built as the worker executable.</li>
+
+			<li><code>"CmdPkgs"</code> is an optional list of zero or more strings, each specifying a program package with the app repo's <code>GOPATH</code>, which you want built (in addition to the worker executable above).</li>
+
+			<li><code>"ShipDir"</code> is a directory on the deveoper's local host, where the built distribution of your application will be delivered. This distribution will include the the worker and command binaries.</li>
+		</ul>
+
+	<h4>Deploy</h4>
+
+	<p>The <code>"Deploy"</code> configuration specifies how your circuit app distribution is installed on your cluster hosts. The build system also needs this configuration to read the name of the worker binary that you have chosen.
+		<ul>
+			<li><code>"Dir"</code> is the directory on your cluster hosts where the circuit distribution will be installed. It will be created if it does not exist.</li>
+			<li><code>"Worker"</code> is the desired name of the worker binary. When running multiple circuits on the same host, it is handy to have them have different names for purposes of level debugging. In such cases, running the shell command <code>ps</code> makes it easy to differentiate processes belonging to different circuits.</li>
+		</ul>
+</div>
+
+<h3>Cross-build</h3>
+
+<p>Having saved the configuration file, the cross-build can be invoked from any location. Go ahead and build the tutorial app:
+<pre>
+% CIR=app.config 4crossbuild
+Building circuit on localhost
+/Users/petar/gocircuit/bin/4build \
+	'-binary=4hello' '-jail=/Users/petar/.hello/build' \
+	'-app={rsync}/Users/petar/gocircuit' '-appsrc=/tutorials/hello' \
+	'-workerpkg=worker' '-show=true' '-go={rsync}/Users/pet
+localhost:4build/err|  No previous build flags found in jail.
+localhost:4build/err|  Building Go compiler
+localhost:4build/err|  % cd
+localhost:4build/err|  % rsync -acrv --delete --exclude .git --exclude .hg --exclude *.a /Users/petar/go/* /Users/petar/.hello/build/go/
+localhost:4build/err|  rsync -acrv --delete --exclude .git --exclude .hg --exclude *.a /Users/petar/go/* /Users/petar/.hello/build/go/
+localhost:4build/err|  building file list ... done
+…
+localhost:4build/err|  Shipping install package
+localhost:4build/err|  --Packaging worker 4hello
+localhost:4build/err|  --Packaging helper 4clear-helper
+localhost:4build/err|  --Packaging command cmd/hello-spawn
+localhost:4build/err|  Build successful!
+Downloading from /var/folders/l9/fhmztmg504bdt4pjc6jtm6_00000gq/T/4d65822107fcfd52
+Download successful.
+Done.
+%
+</pre>
+
+<h3>Deploy</h3>
+
+After a successful build, you can go ahead and deploy the compiled binaries to your hosts.
+In our case, the deploy will be to the local host:
+
+<pre>
+% echo localhost | CIR=app.config 4deploy
+Installing circuit.
+Installing on localhost
+Done.
+%
+</pre>
+
+	<h3>Build the app spawning command</h3>
+
+	<p>We implemented the program <code>hello-spawn</code> to start the tutorial circuit application.
+		Since we intend to invoke this command from the developer console, we need to build it
+		on the developer console (on native hardware).
+
+	<p>Since our cross-build actually happened on the local host, <code>hello-spawn</code> was
+		already built and can be found in the shipping directory. In general, however, the cross-build
+		will be performed on a remote host with different hardware. In this case, we would still have
+		to build <code>hello-spawn</code> on the developer hardware. We are going to demonstrate
+		how to do this here.
+
+	<p>As mentioned before, one builds a program binary the same way one 
+		builds any Go binary—using the <code>go build</code> tool.
+		First, remember to make sure that the app sources are within the <code>GOPATH</code> environment:
+<pre>
+% export GOPATH=/Users/petar/gocircuit/tutorials/hello:$GOPATH
+</pre>
+And make sure that all other environment that was prepared while <a href="build.html">building and installing 
+the circuit</a> is in effect.
+		Next, change to the source directory of <code>hello-spawn</code>. In my case (modify accordingly):
+<pre>
+% cd /Users/petar/gocircuit/tutorials/hello/src/cmd/hello-spawn
+% go build
+</pre>
+	This step will leave you with a program binary, <code>hello-spawn</code>, 
+	inside the same source directory. At this point we are ready for the final step: running the application.
+
+<h3>Launch Zookeeper</h3>
+
+<p>The current implementation of the circuit requires a running Zookeeper instance for a variety of its internal functions.
+(This is a limitation that will be lifted eventually.) Before we can run our application, we need to launch a Zookeeper instance.
+</p>
+
+<p>One way to do so is to use the pre-packaged Zookeeper binaries that come with the circuit. If you are running on OS X, for example,
+the following command will do the trick:
+<pre>
+% /Users/petar/gocircuit/misc/start-kit-osx/zookeeper/usr/start.sh
+</pre>
+Of course, modify the directory path to your environment.
+</p>
+
+<h3>Run the application</h3>
+
+	<p>All circuit command-line tools, application commands (like
+	<code>hello-spawn</code>) as well as worker executables, henceforth <em>circuit executables</em>,
+	need to be aware of “where the circuit is” before
+	they can begin execution. An individual circuit is embodied in a Zookeeper cluster and the 
+	root directory inside it that houses all circuit-related data. Hence, before a circuit executable
+	can begin operation, it needs to be made aware of these parameters.
+
+	<p>Additionally, a circuit executable needs to be aware of the deploy configuration used
+	so as to be able to find the circuit worker binary when spawning new workers
+	on remote hosts.
+
+	<p>These configuration parameters are passed to circuit
+	executables in the same manner we passed the configuration to the cross-build and deploy tools.
+	We let the <code>CIR</code> environment variable points to the same
+	configuration file, <code>app.config</code>, that we prepared for the build and deploy, but
+	we need to add one more section to it.
+
+	<p>We are going to add a <code>Zookeeper</code> section, pointing
+	to the local instance of Zookeeper that we launched in the previous section.
+	Here is the new addition to the configuration:
+
+<pre>
+{
+	…
+	"Zookeeper": {
+		"Workers": ["localhost:2181"],
+		"Dir":     "/circuit/hello"
+	}
+}
+</pre>
+
+<p>We are now ready to run. In this example, from the source directory of <code>hello-spawn</code>:
+<pre>
+% CIR=app.config ./hello-spawn
+Starting ...
+Spawned R0de1473b3c192b4c@127.0.0.1:65530
+Time at remote on spawn: 12:42AM
+%
+</pre>
+
+		<p>After <code>hello</code> returns, the spawned process will linger for another 30 seconds, by design.
+		During this time, we can find this process by listing the contents of the anchor file system:
+<pre>
+% CIR=app.config 4ls /...
+/hello
+/hello/R0de1473b3c192b4c
+/host
+/host/localhost
+/host/localhost/R0de1473b3c192b4c
+%
+</pre>
+		<p>The paths ending with something looking like <code>R6aca01d945c3b861</code> are files, corresponding to workers. 
+		The others are directories. Each worker process, uniquely defined by its worker ID—the <code>R6aca01d945c3b861</code> part—will 
+		be seen within multiple directories: Recall that we can specify multiple anchor directories when we spawn a new worker.
+		Furthermore, the circuit registers all new workers under the anchor <code>/host/{target_host_name}/{worker_id}</code> automatically.
+
+		<p>To showcase some of the other tools in the circuit toolbox, try obtaining the stack trace of the running worker in real-time.
+			(You can only do this withing the 30 seconds while that worker is still alive.) Copy any one of the anchors corresponding to the worker 
+			from the output of <code>4ls</code>, and feed it into the stack trace tool <code>4stk</code>:
+<pre>
+% CIR=app.config 4stk /hello/R6aca01d945c3b861
+goroutine profile: total 12
+1 @ 0x10fcee 0x10faf7 0x10cb12 0xbd137 0x87b8f 0x86beb 0x60452 0x67755 0x6b05d 0x187a0
+#       0x10fcee        runtime/pprof.writeRuntimeProfile+0x9e          /Users/petar/.hello/build/go/src/pkg/runtime/pprof/pprof.go:540
+#       0x10faf7        runtime/pprof.writeGoroutine+0x87               /Users/petar/.hello/build/go/src/pkg/runtime/pprof/pprof.go:502
+#       0x10cb12        runtime/pprof.(*Profile).WriteTo+0xb2           /Users/petar/.hello/build/go/src/pkg/runtime/pprof/pprof.go:229
+#       0xbd137         circuit/sys/acid.(*Acid).RuntimeProfile+0x107   /Users/petar/.hello/build/circuit/src/circuit/sys/acid/acid.go:53
+#       0x87b8f         reflect.Value.call+0xe9f                        /Users/petar/.hello/build/go/src/pkg/reflect/value.go:474
+#       0x86beb         reflect.Value.Call+0x9b                         /Users/petar/.hello/build/go/src/pkg/reflect/value.go:345
+#       0x60452         circuit/sys/lang.call+0x432                     /Users/petar/.hello/build/circuit/src/circuit/sys/lang/call.go:50
+#       0x67755         circuit/sys/lang.(*Runtime).serveCall+0x495     /Users/petar/.hello/build/circuit/src/circuit/sys/lang/value.go:113
+#       0x6b05d         circuit/sys/lang.func·008+0x36d                 /Users/petar/.hello/build/circuit/src/circuit/sys/lang/runtime.go:97
+
+1 @ 0x185f4 0x534b 0x5948 0x2515d 0x251b5 0x2050 0x16838 0x187a0
+#       0x2515d circuit/load/worker.init·1+0x2d /Users/petar/.hello/build/circuit/src/circuit/load/worker/worker.go:26
+#       0x251b5 circuit/load/worker.init+0x45   /Users/petar/.hello/build/circuit/src/circuit/load/worker/worker.go:0
+#       0x2050  main.init+0x40                  /Users/petar/.hello/build/app/tutorials/hello/src/worker/worker.go:0
+#       0x16838 runtime.main+0x88               /Users/petar/.hello/build/go/src/pkg/runtime/proc.c:179
+
+…
+%
+</pre>
+		<p>This concludes our first tutorial! 
+
+		</div>
+
+
+		<div id="footer">
+			The content of this page is licensed under the
+			Creative Commons Attribution 3.0 License,
+			and code is licensed under an <a href=license.html>Apache license</a>.
+			Made at <a href="http://tumblr.com">Tumblr</a>.
+		</div>
+	</body>
+</html>

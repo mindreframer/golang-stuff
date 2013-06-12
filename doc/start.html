@@ -1,0 +1,208 @@
+<html>
+	<head>
+		<title>Circuit language runtime</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">Go Circuit</div>
+
+		<div id="page">
+			<h1>Rapid dive into the circuit</h1>
+
+			<p class="first">In the first part of this article, we demonstrate the linguistic
+				convenience that the circuit brings to distributed programming by
+			building a real-time MapReduce cloud application that keeps track of the top ten
+			most popular blogs on Tumblr in the past one minute. This <em>trending blog</em>
+			application is <em>entirely implemented in a single source file</em> of a few hundred lines.
+			In the second half, we showcase the command-line tools
+			for querying, debugging, profiling and controlling deployed circuits. 
+			We don't focus here on the procedure for building (compiling and linking) 
+			circuit apps.</p>
+
+			<p>The heart of what the circuit offers to the programmer is a linguistic facility
+				for spawning goroutines on remote hosts.To support that facility well, the circuit
+				also provides ways for passing arguments and returning values across the network in
+				a type safe manner. The latter is barely noticeable to the programmer, as it is 
+				achieved nearly transparently from a programming point of view. We discuss both of 
+				these first. This puts us in shape
+				to then proceed with implementing a real-world cloud application.</p>
+
+			<h3>The spawn operation</h3>
+			<p class="first">The circuit's main goal is to facilitate development of 
+				multi-process applications. To that end, we made two high-level design choices:
+				<ul>
+					<li><em>Application logic should have access to the operation of spawning additional
+						(not necessarily identical) process.</em> This is in contrast to traditional
+						workflows in cloud architectures. There, an administrator — entity different than the
+						application programmer — executes a group of processes belonging to the same logical app
+						and notifies these processes of each other's existence by way of configurations, typically
+						provided at startup.</li>
+				</ul>
+
+			... To get our feet wet, consider an elementary circuit app:</p>
+<pre>
+package main
+
+// 1. Load the circuit runtime
+import "tumblr/circuit"
+
+// 2. Implement the function that we would like to spawn remotely:
+func (RemoteMain) RemoteMain() {
+	println("Hòla a todo el mundo!")
+}
+
+// 3*. Wrap it as the single method of a dummy class
+type RemoteMain struct{}
+
+// 4*. And make the circuit runtime aware that RemoteMain is remotely spawn-able
+func init() {
+	circuit.RegisterFunc(RemoteMain{})
+}
+
+// 5. Implement the code that runs locally at the execution site (usually an admin console)
+func main() {
+	if _, _, err := circuit.Spawn("remote.org", nil, RemoteMain{}); err != nil {
+		println("A physical problem occurred.")
+		return
+	}
+	println("Greeting accomplished!")
+}
+</pre>
+
+			<p>This is an elementary example that far-underscores the power of <code>Spawn</code>, but
+				it provides a starting point for thinking about the circuit runtime environment. What happens
+				when we run this program?
+
+				The invocation of <code>Spawn</code> causes a new circuit runtime process to be started on
+				the host <code>remote.org</code>. This process is immediately instructed to execute the
+				function <code>RemoteMain</code>. When execution completes, the invoking runtime is notified
+				and the call to <code>Spawn</code> returns.</p> 
+
+				<p>In this particular example, the remote runtime
+				is killed immediately after it notifies the invoking runtime that the call has completed.
+				Later, we will see other patterns that allow us to start a long-running logic
+				remotely and return into the caller immediately while retaining means to communicate with the
+				remote thread of execution.</p>
+
+			<div class="footnote">
+				<p class="first">(On a side note, observe that steps <code>3*</code> and <code>4*</code> are cruft. A circuit app would normally 
+					accrue about 6 lines of curft for each different <em>type</em> of worker process in the application's network topology. It is a small price to pay, we believe, for the programming
+				convenience attained otherwise. </p>	
+				</div>
+
+				<p>This first example is intended to allude that the ci
+
+			<h3>Passing values and pointers across the wire</h3>
+
+
+			<h3>Real time map/reduce example</h3>
+
+			<p class="first">In order to put some flesh around our circuit tutorial, we are going to build a real-world, real-time
+			map/reduce application. The app &mdash; trending blogs &mdash; will continuously consume user events
+			from the Tumblr Firehose, and will maintain an in-memory ranking of the top ten blogs, as decided by
+			their “like” count throughout the immediately preceding minute. Look at the following figure:</p>
+			<img src="img/arm.png" />
+			<p>This is the network service topology we would like to build. 
+				Each box represents a separate process running on a separate host. The M-boxes are mappers. They
+				continually consume events from the Tumblr Firehose service, which outputs a stream of JSON events
+				over a traditional HTTP protocol. For each “like” event, the receiving mapper identifies
+				a reducer, an R-box, that is responsible for the affected blog ID &mdash; the space of
+				blog IDs is partitioned across the reducers. It then calls into that reducer to announce the new “like”
+				event. The reducer, which keeps track of blogs' like counts from the past minute, updates the
+				respective structure and returns.</p>
+
+			<p>Each reducer maintains the blogs at hand in sorted-by-like-count order, thereby always ready to
+				produce the ten most liked blogs upon request. This will be accomplished using a binary search tree (BST).
+				An altogether separate aggregator process, the A-box, periodically calls into every reducer and collects
+				the top ten blogs from each. It then computes the global top ten and remembers it, making it available to
+				upstream apps on demand.</p>
+
+			<p>You will notice the arrows in the above diagram point in different directions. An arrow pointing
+				from box X to box Y indicates that X is calling into Y in our application. In particular, on the left hand-side the mappers
+				are calling into the reducers. Naturally, it is their job, as they are the ones who first encounter
+				the new events. On the right hand side, we have made a design choice that the aggregator calls into
+				the reducers to periodically update its global top ten list. The connection between the mappers and the
+				Firehose service are external to the circuit and hence have no arrows.</p>
+
+			<p>(It is possible to implement a similar app using other combinations of
+				call orientations. In general, different designs correspond to different event reaction semantics and
+				network data flow.)</p>
+
+			<p>It may be helpful to relate this call-based mechanism for transporting information to others.
+				For example, calling into a remote worker for the purpose of obtaining some information (in the return values)
+				is also known as a <em>pull</em> model. Whereas, calling into a worker in order to give new information
+				(in the function arguments) is also known as a <em>push</em> model.</p>
+
+				<p>The objective is now fully laid out. In the
+				coming sections, we will implement the trending
+				blog application, while taking short
+				intermissions to introduce facilities provided
+				by the circuit runtime, starting with the
+				<em>anchor file system</em>.</p>
+
+			<h3>Anchor file system</h3>
+
+			<p>We have 
+
+			<p>In general, the group of circuit runtime processes, called <em>workers</em> for short, executing</p>
+
+
+			<p>It turns out that it easier to go backwards: First, we'll implement the aggregator, then the reducer
+			and finally the mapper. For this reason, and because the Aggregator-Reducer-Mapper is a common design
+			gadget, we'll call it an <abbr>ARM</abbr>.</p>
+
+			<h3>Implementing the aggregator</h3>
+			<p>The job of the aggregator is to sweep through all mappers and ask each of them what are the top
+				ten blogs among the blogs residing with them. The aggreagor would then combine these answers into
+				a single top ten list, made available to others upon demand.</p>
+<pre>
+import ("sync"; "sort")
+
+// Blog pairs a blog name with its respective rank
+type Blog struct{
+	Name string
+	Rank float64
+}
+
+// SortBlogs is in-place sortable by blog rank by implementing sort.Interface
+// We omit the implementation for brevity
+type SortBlogs []*Blog
+
+// Aggregator encloses the state of the aggregation worker
+type Aggregator struct{
+	lk     sync.Mutex
+	topTen SortBlogs
+}
+
+// TopTen returns the top ten blogs in order and will be callable remotely
+func (a *Aggregator) TopTen() []*Blog {
+	a.lk.Lock()
+	defer a.lk.Unlock()
+	r := make([]*Blog, len(a.topTen))
+	copy(r, a.topTen)
+	return r
+}
+
+func NewAggregator() {
+	??
+}
+
+</pre>
+
+			<h4>Reducer</h4>
+			<h4>Mapper</h4>
+			<p>Let's implement the mapper worker now. The job of each mapper is to connect to the 
+			Tumblr Firehose and greedily read events from it. For each event that is a “like”,
+			the mapper forwards the event to the reducer worker, responsible for the blog affected by
+		       the event.</p>
+<pre>
+import "tumblr/firehose"
+
+type Mapper struct {
+	firehose *firehose.Conn
+}
+</pre>
+		</div>
+	</body>
+</html>

@@ -1,0 +1,178 @@
+<html>
+<head>
+	<title>Go'Circuit: Big picture</title>
+	<meta charset="utf-8">
+	<link href="skin/main.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+<div id="page">
+
+<h1>Big picture</h1>
+
+<div class="moto">Before we dive into the specifics of the circuit mechanics (in the other articles of the circuit documentation), in this article we offer a couple of discussions that will help you place the circuit in the larger ecosystem of software design:
+<ul>
+	<li>We motivate the need for the circuit, based on our view of current industrial practices, and 
+	<li>We position the circuit within the high-level map of software design workflow by asking: How does the circuit compare to a typical traditional datacenter infrastructure? And, how does it facilitate and change the process of developing and maintaining cloud applications?
+</ul>
+If you are purely interested in the high-level architecture of the circuit, you can skip the next section and continue with <a href="#solution">Solution concept</a>.
+</div>
+
+<h3 id="problem">A compounding problem</h3>
+<div class="twocol">
+<p>The motivation for the circuit design is a language-agnostic one. Building any scalable (distributed) application with existing public tools is error-prone and cumbersome, to say the least, as compared to building its <em>non-scalable</em> (non-distributed) equivalent.
+These inefficiencies arise from an innocuously looking, but far reaching, root cause:
+
+<blockquote>
+	Each time, in the development process, a distributed application needs to communicate information across system processes, the engineer has to step out of the programming environment (of the application's source language) and utilize a different technology to provision cross-process networking protocols and semantics.
+</blockquote>
+
+<p>This programming “detour” is necessitated by two essential differences between single- and multi-process development: one fundamental and one accidental. The <i>fundamental difference</i> is that communication within a process cannot fail unless the process itself fails, whereas cross-process communication can fail even if communicating processes stay alive. The <i>accidental difference</i> is that most languages, barring a few “exotic” ones like Erlang, wrap the engineer within a safe, semantically rich and intuitive environment that stimulates high productivity as long as they stay in-process, whereas all bets are off should cross-process communication be required, effectively leaving application engineers at the mercy of “assembler-level” in the context of networking.
+
+<p>The fundamental difference imposes semantic burden on the engineer, as they need to instrument their otherwise application-specific code with <i>off-topic logic</i> for handing network phenomena. The accidental difference manifests itself in creating the need to <i>use multiple programming tools</i> to overcome the short-comings of the main application language when it comes to handling the network.
+The latter creates follow-on complications in itself. It necessitates the use of specialized build tools to coordinate the co-existence of the various programming tools in use. It also necessitates additional instrumentation in debugging and profiling tools, and so on.
+
+<p>These complications, arising while patching together in-process logic with out-of-process communication, are collectively called “glue”. The human-involvement cost of glue compounds as a function of application complexity, effectively putting a hard limit on the complexity of what small independent engineering teams are able to make and maintain on their own. This limit is significantly lower compared to what they are able to output if they were building the non-distributed counterparts of their applications. 
+
+<p>Building behaviorally complex distributed applications thus tends to be privvy mostly to very large institutions, able to afford support teams dedicated to squaring away the complexities of network programming. This deep-rooted problem manifests itself in a lot of places. Consider just one example. Recent breakthroughts in neural network design and artificial intelligence, originating at the works of academics <a href="http://www.cs.toronto.edu/~hinton/">Geoffrey Hinton</a>, <a href="http://yann.lecun.com/">Yann LeCun</a> and others, were heavily predicated on active infrastructure involvement of Google and Microsoft, to say the least. This begs the question: How many other research teams are being held up from bringing their ideas to fruition due to the limited infrastructure available to them?
+
+<p>The goal of the circuit is to enable any size team to be nearly as productive in building and maintaining a scalable application as they would be in doing so with its simpler non-scalable counterpart.
+
+<h4>Costs of glue</h4>
+
+<p>We now take a more specific walk through the origins of glue and discuss its compounding effect on the engineering process. <i>The need for glue arises in three functionally different parts of the application lifecycle.
+	<i>In the development part</i>, engineers must create networking protocols and encode failure logic.
+	<i>In the maintenance part</i>, engineers need to instrument build, debug and profile tools.
+	<i>In the operations part</i>, engineers must specify to operations administrators how and under what conditions to “restart” their services.</i> 
+
+<p>Finally, glue inflicts one additional and less tangible “semantic” cost, which precludes certain types of application behavior that are quite desirable in many data processing scenarios. In particular, due to the currently standard division of responsibility between applications and operations software, applications (specifically, their network processes) are not able to control the life and death of their peers (the way UNIX processes can) thereby precluding a myriad of better-fit and more natural programming patterns, for example, arising in scientific and numerical computations where spurious large-scale jobs are common.
+
+<p>We cast greater detail on all of these categories in the following subsections.
+
+<h4>Development cost</h4>
+
+<p>Some of the more common sources of cost within the development process are:
+<i>Defining netowrk message formats</i> (e.g. by using <a href="https://code.google.com/p/protobuf/">Protocol Buffers</a> at Google, or <a href="http://thrift.apache.org/">Thrift</a> at Facebook, Twitter and LinkedIn) and deriving their linguistic bindings. 
+
+<i>Defining service APIs</i>, for example, as in RPC, REST HTTP, Thrift RPC, as well as deriving their linguistic bindings.
+
+<i>Standardizing aspects of service behavior</i> that, unlike message formats and API specs, are <em>not programmatically enforceable</em>. These could be recommendations for backpressure and backoff strategies, recommendations for monitoring facilities and so on. For instance, <a href="??">Facebook's Bassline Services aka fb303</a> defines “required” API calls for any server or client willing to communicate with Facebook technologies, like <a href="https://github.com/facebook/scribe">Scribe</a>, but those are not strictly enforced.
+
+<p>The breakdown of costs incurred by these responsibilities is as follows. First, developers need to manually write message and API specifications, even though they will be compiled into language bindings automatically. This is a minor detour, but it impedes fast design iterations.
+
+<p>The introduction of protocol compilers creates a new complication in the build workflow. It requires keeping the build rules in sync with protocol modifications. This is a compounding manual cost that grows with the complexity of protocols. Very few large institutions have been able to subdue these almost entirely at the expense of having large, sophisticated and highly-customized build systems, like Google Blaze, which unfortunately require dedicated teams to stay afloat.
+
+<p>One thing, in common to all of the above glue processes, is that they require the application programmer to leave the application programming environment (and language) and divert efforts into different technologies. This aspect of the distributed engineering process is removed altogether within the circuit environment. In particular, circuit engineers are able to iterate designs at a nearly order of magnitude faster pace.
+
+<h4>Maintenance cost</h4>
+
+<p>Maintenance encompasses the tasks of debugging, profiling and otherwise inspecting or querying into application processes, dead or alive. Thus defined, maintenance tasks are not just part of the initial development process, but also of the continued upkeep of an application. Maintenance tasks are the amplifier of the problems introduced by the development process. 
+
+<p>Debugging and profiling distributed applications using standard tools is very cumbersome, because these tools either do not deal well with the junction points where control flow is handed off from one technology, e.g. the main application logic, into another, the auto-generated protocol handling logic.
+
+<p>Nearly frictionless integration of maintenance tools and development tools is accessible exclusively to the Googles, Microsofts and IBMs of the industry. (This list might be complete.) <i>The reason is that these sophisticated tools (we are referring to debuggers and profilers) demand a huge ongoing engineering involvement
+to stay up to date with <i>modifications and/or changes in the development technologies</i> as well as <i>changes in the build system</i>.</i> Smaller size teams and research groups side-step these problems by making small application-specific compromises or pro-actively shying away from complex designs. This however is precisely the sort of timid engineering—at the expense of the final goal—that the circuit sets out to address.
+
+<h4>Operational cost</h4>
+
+<p>Once an application is deployed “in-production,” common practice designates dedicated <em>operations</em> personnel responsible for monitoring for execution irregularities (caused by external circumstances like network outages or internal circumstances like application bugs) and taking immediate action. While this division of labor is an effective paradigm, its realization in practice is almost always not.
+
+<p>In every industrial implementation of the operations paradigm, that we are aware of, the operations component is fueled by independent software that treats the application's binaries as nearly black-box executables.
+<i>This has two implications. <i>The visibility of operations logic is limited</i> to whether a process is dead or alive in addition to some superficial stats, reported by network endpoints that are built into the application binaries by convention. (A fitting example is <a href="https://github.com/twitter/ostrich">Twitter's Ostrich</a>.)
+<i>The action-ability of operations logic is also limited. It is limited to the ability to <i>start or stop a process</i>, <i>feed a different configuration into a process</i>, as well as <i>tune general runtime parameters</i> (like, for example, garbage collection knobs).</i></i>
+
+<p>By design of such operations software, the developers are additionally responsible to communicate a set of rules to the operations team or software as to how to react to the various supported observable conditions. These rules also add a compounding cost, alebit usually smaller, because more significant updates to the application's behavior (or to the operations software) demand an updated set of rules.
+
+<p>A more serious, in our opinion, implication of this operations paradigm is the one described in the next section.
+
+<h4>Semantic cost</h4>
+
+<p>The interaction betweem operations and applications is very semantically limited.
+	
+<p>Due to the coarse level at which the operations software sees the application (i.e. process-level), as well as the coarse set of actions that it can undertake (i.e. start and stop), most abnormal circumstances are handled with a restart.
+For simple applications (with few interdependent processes) this suffices. For complex applications with long chains of dependent processes, restarting one process is not a solution because it is unclear how it affects the rest of the chain.
+
+<p>Two workarounds are found in practice. Either the entire chained application is restarted, which is an overkill and often the cause of prolonged downtimes or cascading failures, or application developers modify the natural application logic in order to accommodate in-application recovery from a single process failure. 
+
+<p>The latter approach defeats the purpose of the application-operations separation by demanding that application engineers detour from application logic and instrument their code to “help out” operations aspects. This reduces engineer productivity.
+
+<p>There is one additional issue at the boundary of application-operations. This one is potentially big and hard to notice. By design, applications are not themselves able to start or stop instances of their own processes (locally or remotely) on the available hardware. Unfortunately, this is the natural thing to do in many cases. For example, short-lived services or spurious batch jobs naturally call for this control pattern.
+
+<p>To circumvent this crippling restriction, some have developed distributed “applications” whose job it is to accept and schedule jobs in a distributed manner. This imposes additional complexity to the actual application writers because the way in which the application specifies the “job” code to the scheduler is highly limited. For instance, the jobs execute in isolation from the application and cannot access any of its variables. Furthermore, these schedulers are forced to use generic schedules, which end up seriously under-utilizing available hardware.
+This is well known form a theoretical standpoint and has been verified plentifully in practice.
+
+<p>The bottom line here is that distributed job schedulers really are trying to fix the bad design in the division of responsibility between applications and operations.
+
+<h4>Prior art</h4>
+
+<p>We have seen in a couple of places so far that development costs tend to compound when distributed applications have deeper chains of interdependent processes. Twitter, for example, has attempted to resolve this issue with <a href="http://storm-project.net/">Project Storm</a>. Their system however is not a general purpose one—it is exclusively for data processing. Project Storm was one of the first works we investigated before designing the circuit. Looking back one validation of the circuit is that it can express a Storm program with the same concision and a more natural linear logic, while offering a lot more as well.
+</div>
+<h3 id="solution">Solution concept</h3>
+<div class="twocol">
+<p>The circuit consists of two components. A <em>linguistic</em> component gives application and operations engineers a  programming environment where local and remote communication look no different. In particular, no external tools are needed to write multi-process code. A <em>distributed operating system</em> component presents a uniform interface to a datacenter the way a traditional operating system presents a uniform interface to the hardware of a single machine.
+
+<h4>Linguistic aspect</h4>
+
+<p>The root cause for reducing engineering productivity, as well as the need for application-operations division of labor, inform a few design goals which taken together amount to a simple system that side-steps the inefficiencies listed in the previous section. Our first principle is:
+	<blockquote>
+		Cross-process communication should be embodied in a linguistic semantic that is native to the application's source language. This should be accomplished with no changes to the source language, syntactic or semantic, and with a minimal addition that differentiates local from remote interactions.
+	</blockquote>
+<p>We have chosen to use <a href="http://golang.org">Go</a> as a source application language. In principle, one could attempt other choices. But, as we see eventually, Go is particularly well suited to this purpose and not accidentally. Go was designed with the vision that in modern environments communication among independent actors is just as common within a (single-process) program as it is among actors across the Internet.
+With that in mind, the language was designed to make communication across in-process actors (which would be the light-weight threads, called <em>goroutines</em>) as frictionless as possible. Since there is no substantive semantic difference between locally or remotely communicating actors (except for an added possibility for an error condition in the latter case), it is a natural choice to “piggy-back” remote communication over the pre-existing language constructs for cross-goroutine communication.
+
+<p>We found that communication between actors is most naturally encoded in the notion of a function call, whereby function arguments are “sent” and return values are “received”—very much in line with the concept of RPC calls that engineers are already familiar with. The specifics of this are descirbed in the <a href="lang.html">Circuit Programming Guide</a>. 
+
+	<p>At high level, we have extended the Go language so that the pre-existing idiom for running a function in a new goroutine can also be used for running a function in a new goroutine, started on a remote machine.
+Other aspects of the language are unchanged, which has some strong implications. Serialization and type-checking of values that are travelling across processes is performed transparently to the programmer. Error conditions due to external circumstances (like network failures) are returned in the form of Go panics. (These are similar to what is known as “exceptions” in other languages.) The linguistic significance of this choice is that traditional single-process code can be used in a multi-process context unchanged, while new higher-level logic can take care of panic recovery.
+
+<h4>Distributed operating system aspect</h4>
+
+<p>From an application point of view, a distributed application is first and foremost a collection of collaborating workers. These are embodied by operating system processes living on multiple hosts across a datacenter, for example, or perhaps living on a single host. The physical whereabouts of workers are of primary concern to the operations point of view.
+
+<p>For applictions, the circuit's operating system aspect provides a <a href="anchor.html">real-time virtual file system</a> that exposes all living workers in a distributed deployment, organized in a manner dictated by the application logic and equipped with simple but expressive semantics for worker discovery.
+
+<p>For operations, the circuit exposes additional interfaces that allow for worker placement choices to be made independently of the application. Worker placement is not entirely concealed from the application. The operations logic has the ability to create a logical view of available hosts that can be presented to the application.
+
+<p>Additionally, the circuit internals are highly customizable so that, for example, the underlying implementation of communication aspects can be changed or instrumented richly. For example, a “vanilla” circuit runtime can be instrumented with a global tracing tool like Google Dapper entirely on the operations side, without changing any application code.
+
+<p>One of the most powerful instrumentations we have discovered reduces the need for service restarts due to network outages almost by 100%. With a vanilla transport implementation, network outages result in panic conditions in the application code. This is desirable if the application is interested in knowing of these conditions and handling them itself. Typically, this is the case when implementing low-level distributed services like distributed locking systems. Most data processing applications, however, have no concept of how to handle a network outage short of ceasing operation. On the other hand, they are capable of continuing operation when network connectivity resumes. To avoid unnecessary service retarts, we have implemented an experimental transport layer which, instead of panicing at the event of network outages, blocks pending read and write requests from applications until connectivity resumes. This reduces the latency of recovery from (the much too common) network outages to zero.
+	Furthermore, it allows graceful degradation of service quality in some cases of severe network slowdown, which would have otherwise resulted in heavy-weight service restarts.
+
+<p>Another instrumentation, has allowed us to write <em>globally idempotent</em> chains of interdependent services. This is very hard to achieve in any conventional datacenter stack with sufficient robustness. Within the circuit, however, we are able to easily implement a very efficient accounting mechanism for function calls, which can be leveraged to inform implementing services when a certain operation has succeeded end-to-end through a deep chain of recursive cross-service function calls (i.e. remote procedure calls).
+
+</div>
+<h3>Circuit architecture</h3>
+<div class="twocol">
+
+<p>We have formulated an “ideal” architecture for the circuit implementation, which captures all desired aspects in the most natural fashion and it makes the engineer's workflow as simple and, in fact, identical to that of developing single-process Go applications. The “ideal” architecture is an ambitious project which is underway and close to frution. Meanwhile, we have identified a core subset of the ideal architecture that materializes almost all benefits of the circuit design. This subset is embodied in the current architecture and we have been using it to build a large range of non-trivial cloud applications at an unprecedented speed. A few applications we have built are:
+	<ul>
+		<li><em>Deep chains of in-memory MapReduce layers for computing things like trending blogs in real time.</em>
+			An example application of this kind is included in the circuit tutorials. Even though the circuit language is a general-purpose one, it may be surprising that the amount of code needed to implement a custom MapReduce layer is the same, and often less, than the equivalent required by <a href="http://hadoop.apache.org/">Apache Hadoop</a>.
+		</li>
+
+		<li><em>Distributed real-time disk-persistent key-value store for collecting site analytics</em>, akin to <a href="http://www.google.com/analytics/">Google Analytics</a>. This has been experimentally deployed against the web-page impressions event stream at Tumblr. The database part of this system, called SUMR and included in the circuit distribution, can be summarized as a distributed <a href="http://redis.io/">Redis</a>. What is remarkable from this point of view is how short and simple the codebase is in comparison.</li>
+
+		<li><em>Distributed multi-stage directed-acyclic stream processing of data</em>, akin to <a href="http://storm-project.net/">Twitter Storm</a>. In this case too, the custom logic for combining or forking streams has required the same amount of code one would need using the more specialized Twitter Storm.
+	</ul>
+
+<p>The ideal and the current implementation are described next.
+
+<h4>Ideal architecture</h4>
+
+<p>The linguistic aspects of the circuit are provisioned by a <em>Circuit Compiler</em> which constitutes a “wrapper” arround the Go Language Compiler with the exact same command-line interface as the Go Compiler itself, thereby requiring no learning stage for existing Go programmers.
+
+<p>Internally, the Circuit Compiler begins with a source-to-source transformation from circuit code—which is identical to Go code with the sole addition of a new <code>spawn</code> operator—to Go code. Subsequently, the intermediate Go code is compiled to a final binary. It is important to note that the source-to-source transformation does not modify the original application code in places that are on the debug/profile path of the engineer. Therefore it enables reuse of standard Go instrumentaion for maintenance tasks.
+
+<p>The operating system aspect of the circuit is embodied in a runtime logic component, linked into every circuit executable by means of importing a certain Go package. All running runtimes are coordinated together through a common distributed synchronization system, which in our current implementation is <a href="http://zookeeper.apache.org/">Apache Zookeeper</a>. This dependence on external technology is not truly necessary, but it simplifies the implementation. Furthermore, Zookeeper has a proven track record and most teams are accustomed to using it.
+
+<h4>Current architecture</h4>
+
+<p>Our current implementation does not include a Circuit Compiler. (One is in the works.) Instead, the circuit runtime—imported in applications as a Go package—exports a very narrow interface that allows one to take advantage of the full linguistic power of the circuit, while requiring a very minimal amount of off-topic boilerplate code. 
+For most of the circuit functionality, the application engineer does not have to make explicit use of the exported circuit API, thereby approximating the “ideal” experience quite closely. We discovered that this was possible due to the remarkable reflection system that the Go Language offers.
+
+</div>
+
+</div>
+</body>
+</html>

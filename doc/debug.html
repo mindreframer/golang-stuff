@@ -1,0 +1,136 @@
+<html>
+	<head>
+		<title>Go'Circuit: Debug and profile, dead or alive</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+
+
+<div id="page">
+	<h1>Debug and profile, dead or alive</h1>
+
+	<div class="moto">The circuit provides a modest set of first-principles tools that facilitate debugging and profiling.
+		Nevertheless, they have unabled us to tackle every situation that has come up in the past year and handle it
+		quite efficiently. We describe the relevant instrumentation and good practices in this document.
+	</div>
+
+	<h3>Synopsis</h3>
+
+Live worker operations:
+<pre>
+% 4ls /...                                           (List live workers)
+% 4stk /hello/R0de1473b3c192b4c                      (Obtain a live stack trace)
+% 4cpu /hello/R0de1473b3c192b4c 60 > worker.pprof    (Enable CPU profiling for 1 min and save the results)
+</pre>
+Dead worker operations:
+<pre>
+% echo h5.datacenter.net | 4clear                                    (Delete jails of dead workers on h5.datacenter.net)
+% ssh h5.datacenter.net cat {deploy_dir}/jail/R0de1473b3c192b4c/err  (Print out standard error of worker R0de1473b3c192b4c on h5.datacenter.net)
+% ssh h5.datacenter.net cat {deploy_dir}/jail/R0de1473b3c192b4c/out  (Print out standard output of worker R0de1473b3c192b4c on h5.datacenter.net)
+</pre>
+Intrusive manipulation:
+<pre>
+% 4kill /...                                          (Kill all workers descendant to the anchor file system root)
+% 4kill /hello                                        (Kill all workers within the anchor directory /hello)
+% 4kill /hello/R0de1473b3c192b4c                      (Kill a specific worker specified by its anchor path)
+% echo h5.datacenter.net | 4hardkill                      (Kill all workers on host h5.datacenter.net using POSIX' kill -KILL)
+% echo h5.datacenter.net | 4hardkill R0de1473b3c192b4c    (Kill worker with ID R0de1473b3c192b4c on h5.datacenter.net using POSIX' kill -KILL)
+</pre>
+<h3>Debugging live workers</h3>
+
+<h4>Who is alive?</h4>
+<p>Virtually every debug session begins with a listing of the live workers within the circuit, for instance:
+<pre>
+% 4ls /...
+/hello
+/hello/R0de1473b3c192b4c
+/host
+/host/localhost
+/host/localhost/R0de1473b3c192b4c
+%
+</pre>
+Keep in mind that files in the <a href="anchor.html">anchor file system</a> will linger for a few seconds after the death of their corresponding worker processes. The linger duration depends on your Zookeeper settings as well as live network conditions. In practice, it rarely exceeds 10 seconds with a default Zookeeper config file.
+<h4>Stack traces</h4>
+
+<p>The main debug tool is <code>4stk</code>. It contacts the target worker and obtains a stack trace of the worker process at the moment of contact. The trace is printed out on the console.
+
+The stack trace tool finds a worker by its anchor path. For this reason, one usually invokes <code>4stk</code> after an invocation of <code>4ls</code> to discover the worker.
+
+<pre>
+% 4stk /hello/R6aca01d945c3b861
+goroutine profile: total 12
+1 @ 0x10fcee 0x10faf7 0x10cb12 0xbd137 0x87b8f 0x86beb 0x60452 0x67755 0x6b05d 0x187a0
+#       0x10fcee        runtime/pprof.writeRuntimeProfile+0x9e          /Users/petar/.hello/build/go/src/pkg/runtime/pprof/pprof.go:540
+#       0x10faf7        runtime/pprof.writeGoroutine+0x87               /Users/petar/.hello/build/go/src/pkg/runtime/pprof/pprof.go:502
+#       0x10cb12        runtime/pprof.(*Profile).WriteTo+0xb2           /Users/petar/.hello/build/go/src/pkg/runtime/pprof/pprof.go:229
+#       0xbd137         circuit/sys/acid.(*Acid).RuntimeProfile+0x107   /Users/petar/.hello/build/circuit/src/circuit/sys/acid/acid.go:53
+#       0x87b8f         reflect.Value.call+0xe9f                        /Users/petar/.hello/build/go/src/pkg/reflect/value.go:474
+#       0x86beb         reflect.Value.Call+0x9b                         /Users/petar/.hello/build/go/src/pkg/reflect/value.go:345
+#       0x60452         circuit/sys/lang.call+0x432                     /Users/petar/.hello/build/circuit/src/circuit/sys/lang/call.go:50
+#       0x67755         circuit/sys/lang.(*Runtime).serveCall+0x495     /Users/petar/.hello/build/circuit/src/circuit/sys/lang/value.go:113
+#       0x6b05d         circuit/sys/lang.func·008+0x36d                 /Users/petar/.hello/build/circuit/src/circuit/sys/lang/runtime.go:97
+
+1 @ 0x185f4 0x534b 0x5948 0x2515d 0x251b5 0x2050 0x16838 0x187a0
+#       0x2515d circuit/load/worker.init·1+0x2d /Users/petar/.hello/build/circuit/src/circuit/load/worker/worker.go:26
+#       0x251b5 circuit/load/worker.init+0x45   /Users/petar/.hello/build/circuit/src/circuit/load/worker/worker.go:0
+#       0x2050  main.init+0x40                  /Users/petar/.hello/build/app/tutorials/hello/src/worker/worker.go:0
+#       0x16838 runtime.main+0x88               /Users/petar/.hello/build/go/src/pkg/runtime/proc.c:179
+
+…
+%
+</pre>
+
+<p>A quintessential usage of <code>4stk</code> comes out in cases when a bug causes an in-production worker to hang, but not die.
+	A worker that appears “hung” from an application point of view will almost always be fully functional as far as its duties to the
+	circuit internal mechanics go. This is so because most application bugs cannot starve the circuit runtime goroutines out of CPU and
+	the circuit logic requires very little to subsist.
+
+<p>Being able to obtain stack traces in such unexpected in-production events is paramount for catching distributed bugs effectively and systematically.
+
+<p>It should be remarked here that Go stack traces are more informative bug locators than those of most other languages. This is a result of Go's concurrency 
+	abstraction which nurtures writing straight-line code within multiple concurrent executions.
+	As a consequence, goroutine traces reflect the state of the user's logic more transparently.
+	In contrast, the worst concurrency model as far as stack traces go is the asynchronous one. The stack trace of
+	an asynchronous program is almost always within the scheduler loop and not much useful information can be derived from that.
+	Furthermore, hybrid approaches like thread pools suffer from a similar problem to the asynchronous model.
+
+<h4>Profiling</h4>
+
+<p>Profiling a remotely running worker is done using the profile tool <code>4cpu</code>. The tool takes two parameters: A worker, identified by an anchor path, and a profile duration in seconds. The tool contacts the worker, enables profiling samples for the specified duration (see for details the Go package <code>runtime/pprof</code>), waits until the profile completes, and prints out the result on the standard output.
+
+<pre>
+% 4cpu /hello/R6aca01d945c3b861 60 > worker.pprof
+</pre>
+
+<p>The result is in a format that can be fed into the GNU profiling toolchain. Detailed instructions how to do that can be found in various articles on <a href="http://blog.golang.org/2011/06/profiling-go-programs.html">profiling Go programs</a>.
+
+
+<h3>Debugging dead workers</h3>
+
+<h3>Intrusive manipulation</h3>
+
+<p>There are two different ways to kill a worker. The kill tool <code>4kill</code> is the right choice for most cases. It takes one argument which is an anchor <em>selector</em>. Syntactically, an anchor selector is one of three things: (a) an anchor file, (b) an anchor directory, or (c) an anchor directory followed by ellipsis. Semantically, (a) selects the anchor file, (b) selects all files within the anchor directory, and (c) selects all files that are descendants to the anchor directory. The kill tool then kills the workers of all selected anchors.
+<pre>
+% 4kill /...                                          (Kill all workers descendant to the anchor file system root)
+% 4kill /hello                                        (Kill all workers within the anchor directory /hello)
+% 4kill /hello/R0de1473b3c192b4c                      (Kill a specific worker specified by its anchor path)
+</pre>
+<p>The kill tool relies on the anchor file system to find the workers destined for kill. This implies that the Zookeeper instance fueling the circuit environment must be up and running for <code>4kill</code> to function. In some rare cases, a Zookeeper cluster may have died, leaving running circuit workers behind.
+
+<p>To kill left-over workers—without the aid of Zookeeper—one can always go back to basics: Log into each individual host and <code>killall</code> worker processes by their process name. In fact, the command-line arguments of worker processes include their worker ID, so one is even able to pick out a specific worker for a surgical kill, as long as the host where the worker resides is known.
+
+<p>Essentially to facilitate this manual process, the circuit has a hard-kill tool <code>4hardkill</code> which automates the steps above. The tool optionally takes one argument which a worker ID (not an anchor path), and it expects a list of hostnames separated by newlines on its standard input.
+	It then goes on to log into each host, in parallel, and either kill all circuit workers if no argument was given, or kill only the circuit worker with that ID if found.
+
+<pre>
+% echo h5.datacenter.net | 4hardkill                      (Kill all workers on host h5.datacenter.net using POSIX' kill -KILL)
+% echo h5.datacenter.net | 4hardkill R0de1473b3c192b4c    (Kill worker with ID R0de1473b3c192b4c on h5.datacenter.net using POSIX' kill -KILL)
+</pre>
+</div>
+
+
+	</body>
+</html>

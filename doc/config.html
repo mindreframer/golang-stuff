@@ -1,0 +1,179 @@
+<html>
+	<head>
+		<title>Go'Circuit: App configuration: build, deploy, spawn</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+		<div id="page">
+			<h1>App configuration: build, deploy, spawn</h1>
+
+<div class="moto">
+	The circuit distribution comes with a <a href="cross.html">simple build–deploy toolchain</a> which is conveniently integrated with the <a href="spawn.html">runtime spawning mechanism</a>. All three tasks—build, deploy, spawn—utilize a simple shared configuration file. This document is a reference for the format of this file.
+</div>
+
+<h3 id="synopsis">Synopsis</h3>
+
+<p>The build system is embodied in the command <code>4crossbuild</code>, the deploy system is embodied in <code>4deploy</code>
+	and the spawning mechanism is part of the user app's worker and command executables. All four types of executables use the same configuration file (which differs from application to application) and this file is supplied to all of them in the same manner—by pointing the environment variable <code>CIR</code> to that configuration file, before executing a command. For instance,
+<pre>
+% CIR=app.config 4crossbuild
+% CIR=app.config 4deploy < list_of_hosts
+% CIR=app.config myapp_launch_cmd
+</pre>
+
+<h3 id="syntax">Syntax</h3>
+The circuit configuration file must be presented in a valid JSON encoding. Below is a complete example of a circuit configuration file. The purpose of each field is explained afterwards.
+<pre>
+{
+	"Zookeeper": {
+		"Workers":          ["z1.datacenter.net:2181", "z2.datacenter.net:2181"],
+		"Dir":              "/circuit/myapp"
+	},
+	"Deploy": {
+		"Worker":           "myapp_worker_name"
+		"Dir":              "/circuit/myapp",
+	},
+	"Build": {
+		"Host":             "build.datacenter.net",
+		"Jail":             "/home/petar/build/myapp",
+		"ZookeeperInclude": "/home/petar/gocircuit/misc/starter-kit-linux/zookeeper/include",
+		"ZookeeperLib":     "/home/petar/gocircuit/misc/starter-kit-linux/zookeeper/lib",
+		"Tool":             "/home/petar/gocircuit/bin/4build",
+		"PrefixPath":       "/usr/local/bin",
+
+		"AppRepo":          "{git}git@github.com:petar/circuit_myapp_project.git",
+		"AppSrc":           "/GOPATH_relative_to_myapp_repo",
+
+		"GoRepo":           "{hg}{tip}code.google.com/p/go",
+		"RebuildGo":        false,
+
+		"CircuitRepo":      "{git}git@github.com:tumblr/gocircuit.git",
+		"CircuitSrc":       "/",
+
+		"WorkerPkg":        "myapp_worker_pkg",
+		"CmdPkgs":          ["cmd/myapp-spawn"],
+		"ShipDir":          "/Users/petar/ship/myapp"
+	}
+}
+</pre>
+<div class="twocol">
+
+<h4>Zookeeper</h4>
+	<p>Field <code>Zookeeper</code> constitutes the “runtime” configuration of circuit workers. It specifies how to find the Zookeeper instance that coordinates all workers in this circuit's deployment. This part of the configuration file is used only by circuit executables (workers or command-line programs).
+		<ul>
+			<li>Field <code>Workers</code> is a list of strings, each specifying the host/port endpoint of a Zookeeper worker.</li>
+			<li>Field <code>Dir</code> is the root directory inside Zookeeper that houses all data pertaining to this circuit deployment. In particular, this field allows one to reuse a Zookeeper instance for multiple circuit deployments.</li>
+		</ul>
+	</p>
+
+<h4>Deploy</h4>
+	<p>Field <code>Deploy</code> is utilized by (1) the build tool <code>4build</code>, (2) the deploy tool <code>4deploy</code>, as well as (3) the spawning mechanism at runtime. 
+		The build tool uses <code>Deploy</code> to determine how to name the resulting worker binary.
+		The deploy tool uses <code>Deploy</code> to determine where within the file system of cluster hosts to install the circuit app binaries. Whereas, the spawning mechanism uses <code>Deploy</code> to find the installed worker binaries on a given host, when spawning a new worker.
+		<ul>
+			<li>Field <code>Dir</code> is the root directory of the application's installation on the local file system of all cluster hosts.</li>
+			<li>Field <code>Worker</code> specifies the name of the worker binary. Picking a different name for each circuit deployment makes it easier to distinguish the UNIX processes of different circuit deployments that execute on the same host.
+		</ul>
+	</p>
+
+<h4>Build</h4>
+	<p>Field <code>Build</code> is utilized only by the cross-build tool, <code>4crossbuild</code>. It specifies how to build the worker executable of a circuit application. The cross-build tool is responsible for performing the actual build on a remote <em>build host</em> by essentially handing off all information in <code>Build</code> to the build tool, <code>4build</code>, which runs locally on the remote build host.
+	The information in field <code>Build</code> is exactly what <code>4build</code> utilizes to complete a build. However, <code>4build</code> itself does not use the configuration file. It receives all of its configuration on the command-line. This way it can be invoked both manually at the shell prompt as well as remotely through <code>4crossbuild</code>.
+
+<hr>
+<p><em>Build server environment:</em>
+		<ul>
+			<li>Field <code>Host</code> specifies the hostname of the build host. The UNIX environment of the user who is invoking <code>4crossbuild</code> must be configured to be able to connect to the build host via password-less <code>ssh</code>. In other words, the command
+			<code>ssh build.datacenter.net</code>, executed at the user's shell, 
+			should log into <code>build.datacenter.net</code> successfully without prompting for a password.</li>
+
+			<li>Field <code>Jail</code> is a local directory on the build host which will be used for the build process. The build system will create this directory if not present. If present, the build system will assume that this directory was previously used for the same build, and in this case it will save some of the work that was already done. If the directory is present and you used it for a prior build that used a <em>different configuration file</em>, you should make sure to clear it manually.</li>
+
+			<li>Field <code>ZookeeperLib</code> specifies a local directory on the build host, containing the Zookeeper library files, <code>libzookeeper_*</code>.</li>
+
+			<li>Field <code>ZookeeperInclude</code> specifies a local directory on the build host, containing the Zookeeper include files, <code>*.h</code>.</li>
+
+			<li>Field <code>PrefixPath</code> specifies a <code>PATH</code> environment, which will be prepended to the default <code>PATH</code> environment when the cross-build tools logs into the build host over <code>ssh</code>. Note that the shell environment obtained when logging into a host over a non-interactive <code>ssh</code> session is different from the one a user gets with interactive sessions.
+				The latter is customizable by user-owned files, like e.g. <code>.bash_profile</code>, whereas the former is typically administrator-mandated and system-wide. Since it is usually hard to change the non-interactive environment on the build host as a non-root user, and because the defult environment on most systems does not capture all installed binaries in its <code>PATH</code> variable, the <code>PrefixPath</code> provides a convenient and non-intrusive way of making sure <a href="cross.html#prep">all required commands</a> are visible
+				to the build tool.</li>
+
+			<li>Field <code>Tool</code> specifies the absolute path to the build tool, <code>4build</code>, on the build host.</li>
+
+</ul>
+
+<hr>
+<p><em>Application sources:</em>
+<ul>
+	<li>Field <code>AppRepo</code> indicates how and from where to fetch the source tree of the circuit application being built.
+		The field value must begin with a <em>directive</em>—one of <code>{git}</code>, <code>{hg}</code> or <code>{rsync}</code>—that specifies the method for 
+		fetching the source tree. A <code>{git}</code> or <code>{hg}</code> directive can optionally be immediately followed (no intervening whitespaces) by a <em>modifier</em> that specifies a specific branch of changeset.
+		Valid modifiers are:
+		<ul>
+<li><code>{changeset:CHANGESET_ID}</code> fetches the specific changeset <code>CHANGESET_ID</code>
+<li><code>{id:CHANGESET_ID}</code> behaves identically to <code>{changeset:CHANGESET_ID}</code>
+<li><code>{rev:REVISION_ID}</code> fetches the specific changeset with the given <code>REVISION_ID</code>
+<li><code>{tag:TAG_NAME}</code> fetches the changeset with tag <code>TAG_NAME</code>
+<li><code>{tip}</code> fetches the most recent changeset of the default branch
+<li><code>{branch:BRANCH_NAME}</code> fetches the most recent changeset on branch <code>BRANCH_NAME</code>
+		</ul>
+The remainder of the <code>AppRepo</code> string must be a valid <code>git</code> or <code>hg</code>, respectively, URL.
+For instance,
+<pre>
+{git}{branch:dev}git@github.com:tumblr/gocircuit.git
+</pre>
+will fetch the most recent changeset on branch <code>dev</code> from repo <code>git@github.com:tumblr/gocircuit.git</code>.
+
+<p>The <code>{rsync}</code> directive is intended for being able to fetch a source repo from the local file system (of the build server) in an efficient diff-only manner. The <code>rsync</code> directive must be immediately followed by a 
+valid <code>rsync</code> URL. Typically, we would use a local directory for this URL, for instance,
+<pre>
+{rsync}/Users/petar/gocircuit
+</pre>
+That said, any source directory URL (possibly remote) that is accepted by <code>rsync</code> will be acceptable here as well.
+</li>
+
+			<li>Field <code>AppSrc</code> specifies a path relative to the application source repository <code>AppRepo</code> that will be used a  <code>GOPATH</code> while building the circuit worker. In particular, <code>AppSrc</code> must have a subdirectory <code>src</code>
+				which contains the Go sources of the application packages within it.</li>
+		</ul>
+
+<hr>
+<p><em>Go compiler</em>:
+		<ul>
+			<li>Field <code>GoRepo</code> specifies how to fetch the Go compiler repository. The field has the same semantics as <code>AppRepo</code> and a default value of <code>{hg}{tip}code.google.com/p/go</code>.
+
+			<p>When choosing the version of the Go compiler sources, make sure to read the 
+				<a href="build.html#go">Go version considerations in the circuit build manual</a>.
+			</li>
+
+			<li>Field <code>RebuildGo</code> is boolean. If set, the build-tool will try fetch an updated version of the Go compiler and build it, each time <code>4build</code> is invoked for this configuration. Otherwise, this will be done only the first time.</li>
+		</ul>
+
+<hr>
+<p><em>Circuit sources</em>:
+		<ul>
+			<li>Field <code>CircuitRepo</code> specifies the circuit source repository. This field has the same syntax as <code>AppRepo</code>.</li>
+			<li>Field <code>CircuitSrc</code> specifies the <code>GOPATH</code> of the circuit source tree, relative to the root of the circuit repository. The defualt value is <code>"/"</code>.</li>
+		</ul>
+
+<hr>
+<p><em>Output:</em>
+		<ul>
+			<li>Field <code>WorkerPkg</code> specifies a program package name, within the app repo, that will be compiled as the worker executable.</li>
+			<li>Field <code>CmdPkgs</code> is an optional list of program package names, within the app repo, that will be compiled in addition to the worker binary.</li>
+			<li>Field <code>ShipDir</code> specifies a local directory at the build client, where the result of the cross-build will be stored. The deploy tool <code>4deploy</code>—usually invoked after a cross-build—will essentially copy the contents of this directory to all cluster hosts at the location described in <code>Deploy</code> (discussed above).</li>
+		</ul>
+</div>
+
+		</div>
+
+
+		<div id="footer">
+			The content of this page is licensed under the
+			Creative Commons Attribution 3.0 License,
+			and code is licensed under an <a href=license.html>Apache license</a>.
+			Made at <a href="http://tumblr.com">Tumblr</a>.
+		</div>
+	</body>
+</html>

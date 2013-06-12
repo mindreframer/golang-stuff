@@ -1,0 +1,2 @@
+Short reads do not return an err
+Last read before an EOF may contain the EOF

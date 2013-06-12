@@ -1,0 +1,85 @@
+<html>
+	<head>
+		<title>Go'Circuit: Underlying spawning mechanism</title>
+		<meta charset="utf-8">
+		<link href="skin/main.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="splash">GO’CIRCUIT<br><span class="subtumblr">By</span><img id="tumblr" src="img/tumblr.png" /></div>
+
+
+
+<div id="page">
+	<h1>Underlying spawning mechanism</h1>
+
+	<div class="moto">The main linguistic tool in the circuit is starting a goroutine, called worker function, in a new remote worker process.
+		Underlying this is a lower-level mechanism for spawning a remote worker process and establishing contact with it. The design of this spawning mechanism is the topic of this chapter.
+	</div>
+
+	<h3>Design</h3>
+
+<div class="twocol">
+	<h4>Worker and host abstractions</h4>
+Within the runtime exposed to the user, the circuit presents live workers in a clean uniform abstraction.
+Workers are identified by unique 64-it IDs called <em>addresses</em>. (See type <code>Addr</code> in <code>circuit/use/circuit</code>.) These addresses can be used in conjunction with a low-level API to establish communication with or kill the underlying workers. The same API provides mechanisms for spawning new workers, verifying they run healthily (at least at process level), and returning their newly-allocated or user-assigned IDs.
+
+<p>Furthermore, an abstract notion of host locality is supported whereby hosts represent abstract execution sites.
+	Our practice shows that locality awareness is necessary both in low-level apps—like a distributed 
+	database—as well as in high-level data processing and analysis apps.
+
+<p>In the circuit user interface, hosts are identified by opaque strings. The internal implementation of the responsible circuit <a href="api.html">module</a> transparently assigns physical meaning to these host strings. In addition, of course, the user may assign their own out-of-band domain-specific meaning to them.
+
+<h4>Implementation</h4>
+<p>The default implementation included with the circuit treats abstract hosts as Internet host names. And therefore when
+	a new worker is requested to spawn on a given host, it is executed on the corresponding Internet host (e.g. another machine in the datacenter) and an efficient TCP-based communication channel is established between participating parties.
+
+<p>To be precise, two circuit modules are responsible for the entire process of spawning a worker and talking to it.
+	The <code>worker</code> module (found in <code>circuit/sys/worker</code>) is responsible for logging into the remote host
+	and executing the worker binary. A separate <code>transport</code> module (found in <code>circuit/sys/transport</code>) takes care of maintaining efficient, persistent and multiplexed connections between worker processes.
+
+<p>In this document we explain the operation of the default spawning mechanism. Knowledge of this mechanism is helpful in administering and debugging circuit applications, and is a starting point for developers who would like to substitute their own logic in.
+
+<p>For example, by modifying the existing <code>worker</code> module only slightly, one is able to provision user spawn requests on newly allocated, on-demand Amazon spot instances and furthermore release these instances as soon as workers die.
+
+<p>&nbsp;
+</div>
+
+<h3>Spawning mechanism</h3>
+
+	<p><object data="img/spawn.svg" type="image/svg+xml" width="500px"> <img src="img/spawn.png" alt="Illustration of spawning mechanism." /></object></p>
+
+<div class="twocol">
+
+<p>The spawning algorithm is illustrated above. The worker initiating the spawn sequence is the <em>parent worker</em> and the worker to be spawned is the <em>child worker</em>. The spawn sequence proceeds as follows:
+
+<ol>
+	<li>The parent worker establishes an <code>ssh</code> session with the child host. 
+
+	<li>Within this session, the parent worker executes the worker binary at the child host (which is already installed by a prior <a href="cross.html#deploy">deploy</a>) in what we call <em>kicker mode</em>. And we call the resulting process the <em>kicker</em>.
+	</li>
+
+	<li>The kicker is a short-lived process, whose purpose is to start the worker process, which is housed in the same executable file as the kicker for sheer convenience.
+	<p>The reason why the parent worker does not start the child worker process directly (through the <code>ssh</code> session) is because the kicker—being implemented in Go—is significantly better equipped to manage and verify correct execution of the child worker.
+
+	<li>One the child worker is running and ready to accept circuit network interactions, the kicker returns various operational parameters—like the child worker's address—back to the parent worker. Immediately after, the kicker dies.
+
+	<li>Having obtained the child worker's operating parameters, the parent worker establishes a circuit-specific communication channel to the child worker (using the <code>transport</code> module).
+
+	<li>Subsequently, the parent and child's language-level runtimes ensue high-level interaction.
+</ol>
+</div>
+
+<p>&nbsp;
+<hr>
+<h4>Administrative requirements</h4>
+
+<p>The main administrative requirement imposed due to the spawning mechanism is:
+	<blockquote><em>For any pair of participating parent and child host, the parent must be pre-configured so as to be able to log into the child using a password-less <code>ssh</code> session</em>.</blockquote>
+
+</div>
+
+
+
+
+	</body>
+</html>

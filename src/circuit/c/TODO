@@ -1,0 +1,4 @@
+
+To be able to parse Go's source tree:
+* recognize // +build ignore
+* recognize source file naming patterns xxx_os_arch.go, etc.

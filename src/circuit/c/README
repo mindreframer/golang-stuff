@@ -1,0 +1,53 @@
+FUNC
+
+= register all public types that have public methods
+	restrict just to struct types (simplicity and safety)
+
+= register all public functions that return public types
+
+TYPE
+
+= public types (IN PROGRESS)
+	that have >0 public methods
+	register as circuit value types
+	under all receiver type variations
+		seen in its public methods
+
+= create boilerplate cross-client types
+	for each registered value type
+	two client types:
+		LocalClient, when the origin is in the same process; and
+		RemoteClient, otherwise
+	one interface type:
+		interface containing public methods of value type
+
+√ given multiple target packages,
+	compute dependency packages
+	parse types thru-out tree
+	rewrite
+
+
+
+
+argument, or return value, kind:
+	unsafe pointer
+		panic
+	struct
+		pass by value, because linguistically the client may access its fields directly
+	ptr
+		return as local ptr to whatever the return rules are for the target type
+		eventually,
+			for target types struct, slice, array, map, builtin
+			after function completes,
+			check if target object was modified, and 
+			return the modifications back to the origin
+	slice, array, map
+		pass by value
+	interface
+		acceps a local compatible type or cross-pointer ???
+	chan
+		n/i temporarily
+		accept/return local or remote channel
+	func
+		n/i temporarily
+		local func or wrapper that calls remote
