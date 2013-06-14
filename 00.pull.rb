@@ -2,7 +2,12 @@
 ##### inspired by:
 ## http://code.dimilow.com/git-subtree-notes-and-workflows/
 
-PROJECTS = File.read("projects.txt").split("\n").sort_by{|x| x.downcase}
+if ARGV[0]
+  PROJECTS = []
+  PROJECTS << ARGV[0]
+else
+  PROJECTS = File.read("projects.txt").split("\n").sort_by{|x| x.downcase}
+end
 
 def remote_name(git_url)
   "remote_#{git_url.split("/").last[0..-5]}"
