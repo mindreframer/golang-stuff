@@ -215,6 +215,10 @@ Basics:
       Golang - Regular Expression Tutorial
        43 commits, 35 stars, 8 forks
 
+    trevex/golem:
+      Lightweight Go WebSocket-Framework
+       75 commits, 57 stars, 0 forks
+
     tumblr/gocircuit:
 
        300 commits, 143 stars, 10 forks
