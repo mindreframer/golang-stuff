@@ -38,6 +38,7 @@ https://github.com/PuerkitoBio/goquery.git
 https://github.com/skydb/sky.git
 https://github.com/stathat/bingo.git
 https://github.com/StefanSchroeder/Golang-Regex-Tutorial.git
+https://github.com/trevex/golem.git
 https://github.com/tumblr/gocircuit.git
 https://github.com/thomas11/csp.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
