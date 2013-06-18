@@ -111,6 +111,10 @@ Basics:
       Goamz with DynamoDB (merge of latest `bzr branch lp:goamz` with https://github.com/danieltoshea/goamz)
        206 commits, 14 stars, 5 forks
 
+    d2fn/gopack:
+      Dependency management for go inspired by rebar
+       38 commits, 58 stars, 2 forks
+
     mindreframer/go-thestdlib:
       a copy from darkhelmets repo
        1 commit, 0 stars, 0 forks
