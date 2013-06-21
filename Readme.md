@@ -91,6 +91,10 @@ Basics:
       A Go implementation of the Raft distributed consensus protocol.
        85 commits, 141 stars, 8 forks
 
+    buger/gor:
+      HTTP traffic replay in real-time. Replay traffic from production to staging and dev environments.
+       47 commits, 486 stars, 21 forks
+
     BurntSushi/cmail:
       cmail runs a command and sends the output to your email address at certain intervals.
        8 commits, 2 stars, 0 forks
@@ -166,6 +170,14 @@ Basics:
     jingweno/gh:
       Fast GitHub command line client.
        202 commits, 198 stars, 14 forks
+
+    jondot/groundcontrol:
+      Manage and monitor your Raspberry Pi with ease
+       45 commits, 508 stars, 35 forks
+
+    jondot/gosigar:
+
+       13 commits, 1 stars, 10 forks
 
     jordansissel/lumberjack:
       Cuts logs in preparation for processing elsewhere.
