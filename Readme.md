@@ -231,6 +231,10 @@ Basics:
       Golang - Regular Expression Tutorial
        47 commits, 35 stars, 8 forks
 
+    rcrowley/go-metrics:
+      Go port of Coda Hale's Metrics library
+       82 commits, 87 stars, 20 forks
+
     trevex/golem:
       Lightweight Go WebSocket-Framework
        75 commits, 59 stars, 0 forks
