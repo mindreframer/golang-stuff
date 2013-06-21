@@ -1,0 +1,35 @@
+
+{
+
+  "temperature" : "/sys/class/thermal/thermal_zone0/temp",
+
+  "port": 4571,
+
+  "host": "0.0.0.0",
+
+  "stdout" : false,
+
+  "interval" : 30,
+
+  "history_interval": 60,
+  "history_backlog": 20,
+
+  "tempodb":{
+    "user": "delete this or see http://tempo-db.com",
+    "key": "delete this or see http://tempo-db.com"
+  },
+
+  "librato" :{
+    "user": "delete this or see http://librato.com",
+    "key": "delete this or see http://librato.com"
+  },
+
+
+  "controls" : {
+    "xbmc": {
+      "on" : "/etc/init.d/xbmc start",
+      "off" : "/etc/init.d/xbmc stop"
+    }
+  }
+
+}
