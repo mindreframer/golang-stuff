@@ -1,0 +1,160 @@
+<!doctype html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title></title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width">
+
+        <link href="http://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="styles/06a5262d.main.css">
+
+        <script type="text/x-handlebars" id="template-controls">
+          {{#each controls}}
+              <li data-control="{{@key}}">
+                  <h4>
+                    {{@key}}
+                  </h4>
+                  <p>
+                    {{#each this}}
+                        <a href="#" data-action="{{@key}}" class="btn btn-large btn-block btn-success">{{@key}}</a>
+                    {{/each}}
+                  </p>
+              </li>
+          {{/each}}
+        </script>
+
+        <script type="text/x-handlebars" id="template-health">
+              <div class="metric">
+                <div class="metric-value-important">
+                  {{ health.cpuTemp }}°
+                </div>
+                <div class="metric-label-important">
+                  CPU
+                </div>
+              </div>
+
+              <div class="metric">
+                <div class="metric-value-important">
+                  {{ health.loadAvg15 }}
+                </div>
+                <div class="metric-label-important">
+                  LOAD
+                </div>
+              </div>
+
+            </div>
+      </script>
+    </head>
+    <body>
+    <div class="container">
+        <div class="row">
+          <div class="span8">
+            <div id="gc">
+              <h1>
+                Ground Control
+              </h1>
+            </div>
+          </div>
+          <div class="span4">
+            <div class="controls-search">
+              <input id="controls-search" class="controls-search-field" type="search" value="" placeholder="Search">
+            </div>
+          </div>
+        </div>
+    </div>
+
+      <div class="container main-content">
+
+
+      <div class="row">
+        <div class="span12 header">
+            <div id="health">
+              <div class="metric">
+                <div class="metric-value-important">
+                  51.7°
+                </div>
+                <div class="metric-label-important">
+                  CPU
+                </div>
+              </div>
+
+              <div class="metric">
+                <div class="metric-value-important">
+                  0.67
+                </div>
+                <div class="metric-label-important">
+                  LOAD
+                </div>
+              </div>
+
+              <div class="graph">
+              </div>
+            </div>
+            <div id="graph">
+            </div>
+        </div>
+
+      </div>
+          
+    <div class="controls">
+    <div class="row">
+      <div class="span4">
+            <ul id="controls-listing">
+              <li>
+                  <h4>
+                    XBMC
+                  </h4>
+                  <p>
+                    <a href="#" class="btn btn-large btn-block btn-success">On</a>
+                    <a href="#" class="btn btn-large btn-block btn-success">Off</a>
+                    <a href="#" class="btn btn-large btn-block btn-success">Refresh Media</a>
+                  </p>
+              </li>
+
+              <li>
+                  <h4>
+                    Power
+                  </h4>
+                  <a href="#" class="btn btn-large btn-block btn-success">Off</a>
+              </li>
+
+              <li>
+                  <h4>
+                    Foobar
+                  </h4>
+              </li>
+
+            </ul>
+      
+    </div>
+            
+    <div class="span8">
+      <div class="cards">
+        <!-- article class="card">
+          <div class="card-header">
+            <div class="card-title">
+              Enterprise S01E02 Finished Downloading
+            </div>
+          </div>
+          <div class="card-body">
+            Took 1.8 minutes, 2.4GB
+            Watch now
+          </div>
+        </article-->
+      </div>
+    </div>
+        </div>
+
+      </div>
+    </div>
+
+        <script src="main.js"></script>
+
+
+</body>
+</html>
