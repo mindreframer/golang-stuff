@@ -7,6 +7,7 @@ https://github.com/astaxie/build-web-application-with-golang.git
 https://github.com/bitly/google_auth_proxy.git
 https://github.com/bitly/nsq.git
 https://github.com/benbjohnson/go-raft
+https://github.com/buger/gor.git
 https://github.com/BurntSushi/cmail.git
 https://github.com/BurntSushi/ty.git
 https://github.com/cdarwin/go-koans.git
