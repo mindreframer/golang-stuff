@@ -79,6 +79,10 @@ Basics:
       A golang ebook intro how to build a web with golang
        746 commits, 1,776 stars, 804 forks
 
+    benbjohnson/go-raft:
+      A Go implementation of the Raft distributed consensus protocol.
+       88 commits, 147 stars, 10 forks
+
     bitly/google_auth_proxy:
       A reverse proxy that provides authentication using Google OAuth2
        14 commits, 82 stars, 8 forks
@@ -86,10 +90,6 @@ Basics:
     bitly/nsq:
       realtime distributed message processing at scale
        832 commits, 1,132 stars, 79 forks
-
-    benbjohnson/go-raft:
-      A Go implementation of the Raft distributed consensus protocol.
-       88 commits, 147 stars, 10 forks
 
     buger/gor:
       HTTP traffic replay in real-time. Replay traffic from production to staging and dev environments.
@@ -118,10 +118,6 @@ Basics:
     d2fn/gopack:
       Dependency management for go inspired by rebar
        39 commits, 58 stars, 4 forks
-
-    mindreframer/go-thestdlib:
-      a copy from darkhelmets repo
-       1 commit, 0 stars, 0 forks
 
     davecheney/autobench:
       Go 1.0 vs Go 1.1 benchmark harness.
@@ -171,17 +167,21 @@ Basics:
       Fast GitHub command line client.
        226 commits, 202 stars, 14 forks
 
-    jondot/groundcontrol:
-      Manage and monitor your Raspberry Pi with ease
-       45 commits, 518 stars, 36 forks
-
     jondot/gosigar:
 
        13 commits, 1 stars, 10 forks
 
+    jondot/groundcontrol:
+      Manage and monitor your Raspberry Pi with ease
+       45 commits, 518 stars, 36 forks
+
     jordansissel/lumberjack:
       Cuts logs in preparation for processing elsewhere.
        428 commits, 154 stars, 30 forks
+
+    mindreframer/go-thestdlib:
+      a copy from darkhelmets repo
+       1 commit, 0 stars, 0 forks
 
     mindreframer/go-tour:
       mirror for go-tour from google
@@ -191,13 +191,13 @@ Basics:
       google reader clone in go on app engine
        327 commits, 16 stars, 0 forks
 
-    moovweb/gokogiri:
-      A light libxml wrapper for Go
-       541 commits, 120 stars, 19 forks
-
     mmcgrana/gobyexample:
       Go by Example
        642 commits, 254 stars, 60 forks
+
+    moovweb/gokogiri:
+      A light libxml wrapper for Go
+       541 commits, 120 stars, 19 forks
 
     nathany/go-poodr:
       A Go translation of the example code from Practical Object-Oriented Design in Ruby by Sandi Metz.
@@ -219,6 +219,10 @@ Basics:
       A little like that j-thing, only in Go.
        111 commits, 178 stars, 30 forks
 
+    rcrowley/go-metrics:
+      Go port of Coda Hale's Metrics library
+       87 commits, 88 stars, 20 forks
+
     skydb/sky:
       Sky is an open source, behavioral analytics database.
        556 commits, 121 stars, 16 forks
@@ -231,9 +235,9 @@ Basics:
       Golang - Regular Expression Tutorial
        47 commits, 36 stars, 8 forks
 
-    rcrowley/go-metrics:
-      Go port of Coda Hale's Metrics library
-       87 commits, 88 stars, 20 forks
+    thomas11/csp:
+      Tony Hoare's seminal 1978 paper Communicating sequential processes implemented in Go.
+       4 commits, 27 stars, 1 forks
 
     trevex/golem:
       Lightweight Go WebSocket-Framework
@@ -242,10 +246,6 @@ Basics:
     tumblr/gocircuit:
 
        300 commits, 147 stars, 10 forks
-
-    thomas11/csp:
-      Tony Hoare's seminal 1978 paper Communicating sequential processes implemented in Go.
-       4 commits, 27 stars, 1 forks
 
     Unknwon/build-web-application-with-golang_EN:
       This is an English version of 《Go Web编程》, which original version was written by AstaXie and translated by Unknown.
