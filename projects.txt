@@ -1,6 +1,7 @@
 https://github.com/alco/gostart.git
 https://github.com/ant0ine/go-json-rest.git
 https://github.com/ant0ine/go-urlrouter.git
+https://github.com/apcera/nats.git
 https://github.com/astaxie/beedb.git
 https://github.com/astaxie/beego.git
 https://github.com/astaxie/build-web-application-with-golang.git
@@ -12,6 +13,7 @@ https://github.com/BurntSushi/cmail.git
 https://github.com/BurntSushi/ty.git
 https://github.com/cdarwin/go-koans.git
 https://github.com/ciju/gotunnel.git
+https://github.com/cloudfoundry/gorouter.git
 https://github.com/crowdmob/goamz.git
 https://github.com/d2fn/gopack.git
 https://github.com/davecheney/autobench.git
@@ -48,5 +50,3 @@ https://github.com/trevex/golem.git
 https://github.com/tumblr/gocircuit.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
 https://github.com/zond/god.git
-https://github.com/cloudfoundry/gorouter.git
-https://github.com/apcera/nats.git
