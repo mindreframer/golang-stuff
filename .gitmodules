@@ -1,0 +1,18 @@
+[submodule "vendor"]
+	path = vendor
+	url = https://github.com/cloudfoundry/govendor
+[submodule "src/github.com/cloudfoundry/gosteno"]
+	path = src/github.com/cloudfoundry/gosteno
+	url = https://github.com/cloudfoundry/gosteno
+[submodule "src/github.com/cloudfoundry/go_cfmessagebus"]
+	path = src/github.com/cloudfoundry/go_cfmessagebus
+	url = https://github.com/cloudfoundry/go_cfmessagebus
+[submodule "src/github.com/rcrowley/go-metrics"]
+	path = src/github.com/rcrowley/go-metrics
+	url = https://github.com/rcrowley/go-metrics
+[submodule "src/github.com/vito/yagnats"]
+	path = src/github.com/vito/yagnats
+	url = https://github.com/vito/yagnats.git
+[submodule "src/code.google.com/p/gomock"]
+	path = src/code.google.com/p/gomock
+	url = https://github.com/rafrombrc/gomock.git
