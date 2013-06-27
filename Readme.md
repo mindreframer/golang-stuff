@@ -67,6 +67,10 @@ Basics:
       Efficient URL routing using a Trie data structure.
        54 commits, 46 stars, 5 forks
 
+    apcera/nats:
+      NATS client for Go
+       197 commits, 30 stars, 5 forks
+
     astaxie/beedb:
       beedb is a go ORM,support database/sql interface，pq/mysql/sqlite
        45 commits, 265 stars, 60 forks
@@ -110,6 +114,10 @@ Basics:
     ciju/gotunnel:
       serve your local server/directory over the internet
        49 commits, 29 stars, 5 forks
+
+    cloudfoundry/gorouter:
+
+       284 commits, 40 stars, 18 forks
 
     crowdmob/goamz:
       Goamz with DynamoDB (merge of latest `bzr branch lp:goamz` with https://github.com/danieltoshea/goamz)
