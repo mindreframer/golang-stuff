@@ -1,0 +1,14 @@
+language: go
+go: 1.1
+
+before_script:
+  - gem -v
+  - ruby -v
+  - gem install nats --pre
+  - which nats-server
+  - nats-server -v
+
+script:
+  - go vet ./...
+  - go test -i -race ./...
+  - go test -v -race ./...
