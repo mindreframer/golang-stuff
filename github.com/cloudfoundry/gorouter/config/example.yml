@@ -1,0 +1,25 @@
+status:
+  port: 8082
+  user:
+  pass:
+
+nats:
+  host: "localhost"
+  port: 4222
+  user:
+  pass:
+
+logging:
+  file:
+  syslog:
+  level: debug
+
+port: 8081
+index: 0
+
+go_max_procs: 8
+
+publish_start_message_interval: 30
+prune_stale_droplets_interval: 30
+droplet_stale_threshold: 120
+publish_active_apps_interval: 0 # 0 means disabled

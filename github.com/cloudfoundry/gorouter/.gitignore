@@ -1,0 +1,9 @@
+bin/*
+!bin/test
+!bin/env
+!bin/go
+/pkg
+*.test
+/tmp
+*.iml
+.idea/

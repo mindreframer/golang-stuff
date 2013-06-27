@@ -1,0 +1,7 @@
+#!/bin/bash
+
+pushd $(dirname $0)/.. > /dev/null
+base=$PWD
+popd > /dev/null
+
+exec env GOPATH=$base $@
