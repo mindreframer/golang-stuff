@@ -33,6 +33,7 @@ https://github.com/jondot/groundcontrol.git
 https://github.com/jordansissel/lumberjack.git
 https://github.com/mindreframer/go-thestdlib.git
 https://github.com/mindreframer/go-tour.git
+https://github.com/mitchellh/packer.git
 https://github.com/mjibson/goread.git
 https://github.com/mmcgrana/gobyexample.git
 https://github.com/moovweb/gokogiri.git
@@ -50,4 +51,3 @@ https://github.com/trevex/golem.git
 https://github.com/tumblr/gocircuit.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
 https://github.com/zond/god.git
-https://github.com/mitchellh/packer.git
