@@ -195,6 +195,10 @@ Basics:
       mirror for go-tour from google
        1 commit, 0 stars, 0 forks
 
+    mitchellh/packer:
+
+       , 94 stars, 13 forks
+
     mjibson/goread:
       google reader clone in go on app engine
        327 commits, 16 stars, 0 forks
