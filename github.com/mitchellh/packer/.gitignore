@@ -1,0 +1,5 @@
+/bin
+/local
+/pkg
+/website/.sass-cache
+/website/build
