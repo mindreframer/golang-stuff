@@ -57,11 +57,11 @@ Basics:
 <!-- PROJECTS_LIST_START -->
     alco/gostart:
       A getting started guide for Go newcomers
-       33 commits, 94 stars, 6 forks
+       33 commits, 95 stars, 6 forks
 
     ant0ine/go-json-rest:
       A quick and easy way to setup a RESTful JSON API
-       101 commits, 52 stars, 5 forks
+       101 commits, 55 stars, 5 forks
 
     ant0ine/go-urlrouter:
       Efficient URL routing using a Trie data structure.
@@ -69,23 +69,23 @@ Basics:
 
     apcera/nats:
       NATS client for Go
-       197 commits, 30 stars, 5 forks
+       197 commits, 30 stars, 6 forks
 
     astaxie/beedb:
       beedb is a go ORM,support database/sql interface，pq/mysql/sqlite
-       45 commits, 265 stars, 60 forks
+       45 commits, 268 stars, 61 forks
 
     astaxie/beego:
       web framework for golang,like tornado(python),ci(php)
-       221 commits, 634 stars, 176 forks
+       233 commits, 642 stars, 183 forks
 
     astaxie/build-web-application-with-golang:
       A golang ebook intro how to build a web with golang
-       746 commits, 1,776 stars, 804 forks
+       748 commits, 1,786 stars, 815 forks
 
     benbjohnson/go-raft:
       A Go implementation of the Raft distributed consensus protocol.
-       88 commits, 147 stars, 10 forks
+       130 commits, 151 stars, 10 forks
 
     bitly/google_auth_proxy:
       A reverse proxy that provides authentication using Google OAuth2
@@ -93,11 +93,11 @@ Basics:
 
     bitly/nsq:
       realtime distributed message processing at scale
-       832 commits, 1,132 stars, 79 forks
+       832 commits, 1,144 stars, 82 forks
 
     buger/gor:
       HTTP traffic replay in real-time. Replay traffic from production to staging and dev environments.
-       57 commits, 606 stars, 21 forks
+       57 commits, 644 stars, 22 forks
 
     BurntSushi/cmail:
       cmail runs a command and sends the output to your email address at certain intervals.
@@ -105,7 +105,7 @@ Basics:
 
     BurntSushi/ty:
       Easy parametric polymorphism at run time using completely unidiomatic Go.
-       85 commits, 27 stars, 2 forks
+       85 commits, 28 stars, 2 forks
 
     cdarwin/go-koans:
       koans for go
@@ -117,11 +117,11 @@ Basics:
 
     cloudfoundry/gorouter:
 
-       284 commits, 40 stars, 18 forks
+       284 commits, 50 stars, 18 forks
 
     crowdmob/goamz:
       Goamz with DynamoDB (merge of latest `bzr branch lp:goamz` with https://github.com/danieltoshea/goamz)
-       221 commits, 17 stars, 7 forks
+       221 commits, 17 stars, 8 forks
 
     d2fn/gopack:
       Dependency management for go inspired by rebar
@@ -133,15 +133,15 @@ Basics:
 
     davepederson/genetic-go:
 
-       ,  stars,  forks
+        commits,  stars,  forks
 
     dotcloud/docker:
       Docker - the Linux container runtime
-       1000+ commits, 3,554 stars, 329 forks
+       1000+ commits, 3,655 stars, 343 forks
 
     eaigner/hood:
       Database agnostic ORM for Go
-       291 commits, 326 stars, 38 forks
+       291 commits, 327 stars, 38 forks
 
     eblume/proto:
       Map, Reduce, Filter, De/Multiplex, etc. for the Go language.
@@ -153,7 +153,7 @@ Basics:
 
     garyburd/go-websocket:
       Go-WebSocket is a Go implementation of the WebSocket protocol.
-       25 commits, 110 stars, 16 forks
+       25 commits, 111 stars, 16 forks
 
     globocom/gandalf:
       Gandalf is an API to manage git repositories.
@@ -161,7 +161,7 @@ Basics:
 
     globocom/tsuru:
       Open source Platform as a Service.
-       1000+ commits, 537 stars, 39 forks
+       1000+ commits, 542 stars, 39 forks
 
     handcraftsman/GeneticGo:
       Genetic problem solver written in Go
@@ -169,47 +169,47 @@ Basics:
 
     insionng/toropress:
       toropress is a cms system of written in golang
-       56 commits, 33 stars, 13 forks
+       56 commits, 34 stars, 13 forks
 
     jingweno/gh:
       Fast GitHub command line client.
-       226 commits, 202 stars, 14 forks
+       246 commits, 210 stars, 15 forks
 
     jondot/gosigar:
 
-       13 commits, 1 stars, 10 forks
+       13 commits, 1 stars, 11 forks
 
     jondot/groundcontrol:
       Manage and monitor your Raspberry Pi with ease
-       45 commits, 518 stars, 36 forks
+       45 commits, 524 stars, 38 forks
 
     jordansissel/lumberjack:
       Cuts logs in preparation for processing elsewhere.
-       428 commits, 154 stars, 30 forks
+       428 commits, 157 stars, 30 forks
 
     mindreframer/go-thestdlib:
       a copy from darkhelmets repo
-       1 commit, 0 stars, 0 forks
+       1 commits, 0 stars, 0 forks
 
     mindreframer/go-tour:
       mirror for go-tour from google
-       1 commit, 0 stars, 0 forks
+       1 commits, 0 stars, 0 forks
 
     mitchellh/packer:
-
-       , 94 stars, 13 forks
+      Packer is a tool for creating identical machine images for multiple platforms from a single source configuration.
+       796 commits, 413 stars, 45 forks
 
     mjibson/goread:
       google reader clone in go on app engine
-       327 commits, 16 stars, 0 forks
+       437 commits, 863 stars, 113 forks
 
     mmcgrana/gobyexample:
       Go by Example
-       642 commits, 254 stars, 60 forks
+       642 commits, 259 stars, 61 forks
 
     moovweb/gokogiri:
       A light libxml wrapper for Go
-       541 commits, 120 stars, 19 forks
+       543 commits, 122 stars, 19 forks
 
     nathany/go-poodr:
       A Go translation of the example code from Practical Object-Oriented Design in Ruby by Sandi Metz.
@@ -225,30 +225,30 @@ Basics:
 
     PuerkitoBio/gocrawl:
       Polite, slim and concurrent web crawler.
-       157 commits, 157 stars, 21 forks
+       157 commits, 158 stars, 22 forks
 
     PuerkitoBio/goquery:
       A little like that j-thing, only in Go.
-       111 commits, 178 stars, 30 forks
+       111 commits, 181 stars, 32 forks
 
     rcrowley/go-metrics:
       Go port of Coda Hale's Metrics library
-       87 commits, 88 stars, 20 forks
+       88 commits, 91 stars, 20 forks
 
     skydb/sky:
       Sky is an open source, behavioral analytics database.
        556 commits, 121 stars, 16 forks
 
     stathat/bingo:
-      go http helper package.  Includes contexts, logging, and some rendering helpers.
+      go http helper package. Includes contexts, logging, and some rendering helpers.
        15 commits, 26 stars, 2 forks
 
     StefanSchroeder/Golang-Regex-Tutorial:
       Golang - Regular Expression Tutorial
-       47 commits, 36 stars, 8 forks
+       47 commits, 39 stars, 8 forks
 
     thomas11/csp:
-      Tony Hoare's seminal 1978 paper Communicating sequential processes implemented in Go.
+      Tony Hoare's seminal 1978 paper "Communicating sequential processes" implemented in Go.
        4 commits, 27 stars, 1 forks
 
     trevex/golem:
@@ -257,13 +257,13 @@ Basics:
 
     tumblr/gocircuit:
 
-       300 commits, 147 stars, 10 forks
+       300 commits, 148 stars, 11 forks
 
     Unknwon/build-web-application-with-golang_EN:
       This is an English version of 《Go Web编程》, which original version was written by AstaXie and translated by Unknown.
-       132 commits, 100 stars, 21 forks
+       132 commits, 101 stars, 21 forks
 
     zond/god:
       A Go database
-       813 commits, 337 stars, 25 forks
+       813 commits, 341 stars, 25 forks
 <!-- PROJECTS_LIST_END -->
