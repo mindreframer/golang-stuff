@@ -57,213 +57,213 @@ Basics:
 <!-- PROJECTS_LIST_START -->
     alco/gostart:
       A getting started guide for Go newcomers
-       33 commits, 95 stars, 6 forks
+       33 commits, last change: 2013-04-01 07:06:56, 95 stars, 6 forks
 
     ant0ine/go-json-rest:
       A quick and easy way to setup a RESTful JSON API
-       101 commits, 55 stars, 5 forks
+       101 commits, last change: 2013-06-08 20:04:47, 56 stars, 5 forks
 
     ant0ine/go-urlrouter:
       Efficient URL routing using a Trie data structure.
-       54 commits, 46 stars, 5 forks
+       54 commits, last change: 2013-04-22 20:49:17, 46 stars, 5 forks
 
     apcera/nats:
       NATS client for Go
-       197 commits, 30 stars, 6 forks
+       197 commits, last change: 2013-06-22 08:15:21, 30 stars, 6 forks
 
     astaxie/beedb:
       beedb is a go ORM,support database/sql interface，pq/mysql/sqlite
-       45 commits, 268 stars, 61 forks
+       45 commits, last change: 2013-05-07 18:49:51, 270 stars, 62 forks
 
     astaxie/beego:
       web framework for golang,like tornado(python),ci(php)
-       233 commits, 642 stars, 183 forks
+       234 commits, last change: 2013-07-01 18:45:12, 650 stars, 186 forks
 
     astaxie/build-web-application-with-golang:
       A golang ebook intro how to build a web with golang
-       748 commits, 1,786 stars, 815 forks
+       748 commits, last change: 2013-06-25 19:19:13, 1,801 stars, 824 forks
 
     benbjohnson/go-raft:
       A Go implementation of the Raft distributed consensus protocol.
-       130 commits, 151 stars, 10 forks
+       144 commits, last change: 2013-07-02 11:54:52, 151 stars, 10 forks
 
     bitly/google_auth_proxy:
       A reverse proxy that provides authentication using Google OAuth2
-       14 commits, 82 stars, 8 forks
+       14 commits, last change: 2012-12-26 13:53:02, 84 stars, 8 forks
 
     bitly/nsq:
       realtime distributed message processing at scale
-       832 commits, 1,144 stars, 82 forks
+       832 commits, last change: 2013-06-22 10:05:44, 1,150 stars, 82 forks
 
     buger/gor:
       HTTP traffic replay in real-time. Replay traffic from production to staging and dev environments.
-       57 commits, 644 stars, 22 forks
+       57 commits, last change: 2013-06-23 23:23:46, 656 stars, 22 forks
 
     BurntSushi/cmail:
       cmail runs a command and sends the output to your email address at certain intervals.
-       8 commits, 2 stars, 0 forks
+       8 commits, last change: , 2 stars, 0 forks
 
     BurntSushi/ty:
       Easy parametric polymorphism at run time using completely unidiomatic Go.
-       85 commits, 28 stars, 2 forks
+       85 commits, last change: 2013-04-06 11:27:53, 28 stars, 2 forks
 
     cdarwin/go-koans:
       koans for go
-       61 commits, 16 stars, 24 forks
+       61 commits, last change: 2012-04-26 14:49:23, 16 stars, 24 forks
 
     ciju/gotunnel:
       serve your local server/directory over the internet
-       49 commits, 29 stars, 5 forks
+       49 commits, last change: , 29 stars, 5 forks
 
     cloudfoundry/gorouter:
 
-       284 commits, 50 stars, 18 forks
+       285 commits, last change: 2013-07-01 12:26:16, 53 stars, 19 forks
 
     crowdmob/goamz:
       Goamz with DynamoDB (merge of latest `bzr branch lp:goamz` with https://github.com/danieltoshea/goamz)
-       221 commits, 17 stars, 8 forks
+       221 commits, last change: 2013-06-22 17:27:00, 17 stars, 9 forks
 
     d2fn/gopack:
       Dependency management for go inspired by rebar
-       39 commits, 58 stars, 4 forks
+       39 commits, last change: 2013-06-21 23:47:02, 58 stars, 4 forks
 
     davecheney/autobench:
       Go 1.0 vs Go 1.1 benchmark harness.
-       83 commits, 38 stars, 11 forks
+       83 commits, last change: 2013-06-03 00:06:24, 38 stars, 11 forks
 
     davepederson/genetic-go:
 
-        commits,  stars,  forks
+        commits, last change: ,  stars,  forks
 
     dotcloud/docker:
       Docker - the Linux container runtime
-       1000+ commits, 3,655 stars, 343 forks
+       1000+ commits, last change: 2013-07-02 11:42:44, 3,693 stars, 348 forks
 
     eaigner/hood:
       Database agnostic ORM for Go
-       291 commits, 327 stars, 38 forks
+       291 commits, last change: 2013-06-21 03:38:40, 326 stars, 38 forks
 
     eblume/proto:
       Map, Reduce, Filter, De/Multiplex, etc. for the Go language.
-       12 commits, 22 stars, 2 forks
+       12 commits, last change: 2012-12-19 09:57:14, 22 stars, 2 forks
 
     frrad/project-euler:
       Solutions to some Project Euler problem in Go
-       216 commits, 0 stars, 0 forks
+       216 commits, last change: , 0 stars, 0 forks
 
     garyburd/go-websocket:
       Go-WebSocket is a Go implementation of the WebSocket protocol.
-       25 commits, 111 stars, 16 forks
+       25 commits, last change: 2013-06-12 07:12:02, 111 stars, 16 forks
 
     globocom/gandalf:
       Gandalf is an API to manage git repositories.
-       434 commits, 70 stars, 9 forks
+       434 commits, last change: 2013-06-19 15:34:36, 70 stars, 9 forks
 
     globocom/tsuru:
       Open source Platform as a Service.
-       1000+ commits, 542 stars, 39 forks
+       1000+ commits, last change: 2013-07-02 12:22:58, 543 stars, 41 forks
 
     handcraftsman/GeneticGo:
       Genetic problem solver written in Go
-       100 commits, 34 stars, 2 forks
+       100 commits, last change: 2012-12-04 07:58:42, 34 stars, 2 forks
 
     insionng/toropress:
       toropress is a cms system of written in golang
-       56 commits, 34 stars, 13 forks
+       56 commits, last change: 2013-05-23 12:15:15, 35 stars, 13 forks
 
     jingweno/gh:
       Fast GitHub command line client.
-       246 commits, 210 stars, 15 forks
+       280 commits, last change: 2013-07-02 12:43:27, 210 stars, 15 forks
 
     jondot/gosigar:
 
-       13 commits, 1 stars, 11 forks
+       13 commits, last change: 2013-05-25 11:01:05, 1 stars, 11 forks
 
     jondot/groundcontrol:
       Manage and monitor your Raspberry Pi with ease
-       45 commits, 524 stars, 38 forks
+       48 commits, last change: 2013-07-02 13:28:10, 529 stars, 38 forks
 
     jordansissel/lumberjack:
       Cuts logs in preparation for processing elsewhere.
-       428 commits, 157 stars, 30 forks
+       428 commits, last change: 2013-06-13 19:04:34, 158 stars, 30 forks
 
     mindreframer/go-thestdlib:
       a copy from darkhelmets repo
-       1 commits, 0 stars, 0 forks
+       1 commits, last change: , 0 stars, 0 forks
 
     mindreframer/go-tour:
       mirror for go-tour from google
-       1 commits, 0 stars, 0 forks
+       1 commits, last change: 2013-04-11 10:55:01, 0 stars, 0 forks
 
     mitchellh/packer:
       Packer is a tool for creating identical machine images for multiple platforms from a single source configuration.
-       796 commits, 413 stars, 45 forks
+       876 commits, last change: 2013-07-02 13:16:39, 577 stars, 62 forks
 
     mjibson/goread:
       google reader clone in go on app engine
-       437 commits, 863 stars, 113 forks
+       487 commits, last change: 2013-07-02 11:01:19, 1,129 stars, 149 forks
 
     mmcgrana/gobyexample:
       Go by Example
-       642 commits, 259 stars, 61 forks
+       642 commits, last change: 2013-06-20 08:21:08, 260 stars, 61 forks
 
     moovweb/gokogiri:
       A light libxml wrapper for Go
-       543 commits, 122 stars, 19 forks
+       543 commits, last change: 2013-06-28 14:56:29, 122 stars, 19 forks
 
     nathany/go-poodr:
       A Go translation of the example code from Practical Object-Oriented Design in Ruby by Sandi Metz.
-       39 commits, 21 stars, 2 forks
+       39 commits, last change: 2012-12-07 22:43:12, 21 stars, 2 forks
 
     pebbe/zmq2:
       A Go interface to ZeroMQ version 2
-       50 commits, 4 stars, 1 forks
+       50 commits, last change: 2013-04-12 15:41:05, 4 stars, 2 forks
 
     pebbe/zmq3:
       A Go interface to ZeroMQ version 3
-       134 commits, 46 stars, 4 forks
+       134 commits, last change: 2013-04-12 15:40:55, 47 stars, 4 forks
 
     PuerkitoBio/gocrawl:
       Polite, slim and concurrent web crawler.
-       157 commits, 158 stars, 22 forks
+       157 commits, last change: 2013-06-05 09:38:11, 158 stars, 22 forks
 
     PuerkitoBio/goquery:
       A little like that j-thing, only in Go.
-       111 commits, 181 stars, 32 forks
+       111 commits, last change: 2013-05-24 08:40:46, 183 stars, 33 forks
 
     rcrowley/go-metrics:
       Go port of Coda Hale's Metrics library
-       88 commits, 91 stars, 20 forks
+       88 commits, last change: 2013-06-27 15:22:15, 92 stars, 20 forks
 
     skydb/sky:
       Sky is an open source, behavioral analytics database.
-       556 commits, 121 stars, 16 forks
+       556 commits, last change: 2013-04-02 07:23:03, 122 stars, 16 forks
 
     stathat/bingo:
       go http helper package. Includes contexts, logging, and some rendering helpers.
-       15 commits, 26 stars, 2 forks
+       15 commits, last change: 2013-04-10 11:04:22, 26 stars, 2 forks
 
     StefanSchroeder/Golang-Regex-Tutorial:
       Golang - Regular Expression Tutorial
-       47 commits, 39 stars, 8 forks
+       47 commits, last change: 2013-06-18 06:38:07, 39 stars, 8 forks
 
     thomas11/csp:
       Tony Hoare's seminal 1978 paper "Communicating sequential processes" implemented in Go.
-       4 commits, 27 stars, 1 forks
+       4 commits, last change: 2013-04-14 23:19:52, 27 stars, 1 forks
 
     trevex/golem:
       Lightweight Go WebSocket-Framework
-       75 commits, 64 stars, 0 forks
+       75 commits, last change: 2013-06-13 02:37:59, 65 stars, 0 forks
 
     tumblr/gocircuit:
 
-       300 commits, 148 stars, 11 forks
+       300 commits, last change: 2013-04-22 06:33:25, 149 stars, 11 forks
 
     Unknwon/build-web-application-with-golang_EN:
       This is an English version of 《Go Web编程》, which original version was written by AstaXie and translated by Unknown.
-       132 commits, 101 stars, 21 forks
+       132 commits, last change: 2013-06-22 06:18:13, 102 stars, 21 forks
 
     zond/god:
       A Go database
-       813 commits, 341 stars, 25 forks
+       813 commits, last change: 2013-06-16 08:21:58, 340 stars, 25 forks
 <!-- PROJECTS_LIST_END -->
