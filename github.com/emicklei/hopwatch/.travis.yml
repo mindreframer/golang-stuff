@@ -1,0 +1,4 @@
+language: go
+before_install: go get -d -v ./... 
+install: go build -v .
+script: go test .

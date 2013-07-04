@@ -1,0 +1,124 @@
+Hopwatch
+debugging tool for Go
+
+Ernest Micklei
+Software Architect, bol.com
+
+http://github.com/emicklei/hopwatch
+
+* What is Hopwatch?
+
+Simple tool that allows you to follow the *execution* and *state* of your program.
+
+.image hopwatch_how.png
+
+
+
+
+* API
+
+Suspend program until "Resume" in browser
+	
+	hopwatch.Break()	
+	
+
+Print a line, fmt-package style
+
+	hopwatch.Printf("var=%v", var)
+		
+
+Pretty print a value with type information (uses go-spew)
+
+	hopwatch.Dump(treeNode)	
+	
+
+Conditional break
+	
+	hopwatch.Printf("i=%v,j=%v",i,j).Break(j > 10)
+		
+
+* Hopwatch demo
+
+
+
+* Internals
+
+	type command struct {
+		Action     string
+		Parameters map[string]string
+	}
+
+Channels for sending/receiving commands
+
+	toBrowserChannel   = make(chan command)
+	fromBrowserChannel = make(chan command)
+	connectChannel     = make(chan command)
+	debuggerMutex      = sync.Mutex{}        // to synchronize command i/o    
+		
+Loops for sending and receiving commands	
+
+	// take command from toBrowserChannel and send over websocket		
+	func sendLoop() {...}
+
+	// receive command from websocket and put on fromBrowserChannel		
+	func receiveLoop() {...}
+
+
+* HTML and Javascript wrapped in Go 
+
+	func html(w http.ResponseWriter, req *http.Request) {
+		io.WriteString(w,
+			`<!DOCTYPE html>
+	<meta charset="utf-8" />
+	<title>Hopwatch Debugger</title>
+	<head>
+	...
+
+Route assets to functions
+
+	http.HandleFunc("/hopwatch.html", html)
+	http.HandleFunc("/hopwatch.css", css)
+	http.HandleFunc("/hopwatch.js", js)
+
+Hopwatch is self-contained; no need to setup path for static content
+
+
+
+
+
+
+
+
+* Hopwatch flags to override defaults
+
+disable hopwatch
+
+	-hopwatch=false
+	
+do not automatically open a browser for the hopwatch page
+
+	-hopwatch.open=false
+		
+do not suspend the program if Break(..) is called
+
+	-hopwatch.break=false
+	
+tell the debugger to accepts connections on
+
+	-hopwatch.host=server.test.company.nl
+	-hopwatch.port=23456
+
+
+* Hopwatch limitations
+
+- Requires program modification (import + Dump & Break calls)
+- No stepping
+- Unable to change state
+
+
+* Hopwatch benefits
+
+- Easy to use
+- Highlights source on Break()
+- Capture history of printed state and stack in browser page
+- Remote access
