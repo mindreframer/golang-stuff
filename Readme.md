@@ -147,6 +147,10 @@ Basics:
       Map, Reduce, Filter, De/Multiplex, etc. for the Go language.
        12 commits, last change: 2012-12-19 09:57:14, 22 stars, 2 forks
 
+    emicklei/hopwatch:
+      webbased debugging for Go programs
+       71 commits, last change: 2013-04-25 23:11:47, 73 stars, 4 forks
+
     frrad/project-euler:
       Solutions to some Project Euler problem in Go
        216 commits, last change: , 0 stars, 0 forks
