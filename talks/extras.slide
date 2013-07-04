@@ -1,0 +1,82 @@
+Hopwatch
+debugging tool for Go
+
+Ernest Micklei
+Software Architect, bol.com
+
+http://github.com/emicklei/hopwatch
+
+
+* Sending commands to the debugger page
+
+	func sendLoop() {
+		for {
+			next := <-toBrowserChannel
+			if "quit" == next.Action {
+				break
+			}
+			websocket.JSON.Send(currentWebsocket, &next)
+		}		
+	}
+
+
+
+* Receive commands from the debugger page
+
+	func receiveLoop() {
+		for {
+			var cmd command
+			if err := websocket.JSON.Receive(currentWebsocket, &cmd); err != nil {
+				fromBrowserChannel <- command{Action: "quit"}
+				break
+			}
+			if "quit" == cmd.Action {
+				hopwatchEnabled = false
+				currentWebsocket.Close()
+				fromBrowserChannel <- cmd
+				break
+			} else {
+				fromBrowserChannel <- cmd
+			}
+		}
+	}
+
+
+
+* Synchronize channel read/writes
+
+	func channelExchangeCommands(toCmd command) {
+		debuggerMutex.Lock()
+		toBrowserChannel <- toCmd
+		<-fromBrowserChannel
+		debuggerMutex.Unlock()
+	}
+
+
+* Basic usage
+
+.code no_debug.go
+
+
+
+
+
+* debug.go
+
+Control hopwatch behavior from one source file
+
+.code debug.go
+
+
+
+* Simplified usage
+
+.code try_debug.go
+
+.image try_debug.png
+
+
+* Future directions
+
+- Frontend for GDB ?
+- Watches on variables
