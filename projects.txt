@@ -51,3 +51,4 @@ https://github.com/trevex/golem.git
 https://github.com/tumblr/gocircuit.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
 https://github.com/zond/god.git
+https://github.com/emicklei/hopwatch.git
