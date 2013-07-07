@@ -1,0 +1,78 @@
+<html ng-app="app">
+  <head>
+    <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/css/bootstrap-combined.min.css" rel="stylesheet">
+    <link href="assets/css/main.css" rel="stylesheet" media="screen">
+    <script src="assets/js/ext.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.0.7/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.0.7/angular-resource.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js"></script>
+    <script src="assets/js/youski.js"></script>
+    <script src="assets/js/youtube.js"></script>
+    <script type="text/javascript" charset="utf-8">
+      function stateChanged(newState) {
+        if(newState == 0) {
+          var $element = $('div[ng-controller="YouskiCtrl"]');
+          angular.element($element).scope().next();
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div ng-controller="YouskiCtrl" class="container-fluid">
+      <div class="row-fluid">
+        <div class="span4">
+          <div class="well sidebar-nav">
+            <form class="form-search" ng-submit="search(query)">
+              <input class="input-medium search-query" type="text" ng-model="query">
+              <input class="btn" type="submit" value="Search">
+            </form>
+            <ul class="nav nav-list">
+              <li class="nav-header" ng-show="!!entries">Pick the best match</li>
+              <li ng-repeat="entry in entries" ng-click="pick(entry)">
+                <a href="#">{{entry.Title}}</a>
+              </li>
+            </ul>
+            
+            <ul class="nav nav-list">
+              <li class="nav-header" ng-show="!!queue">Up Next</li>
+              <li ng-repeat="video in queue" ng-click="dequeueAndPlay(video)">
+                <a href="#">{{video.Title}}</a>
+              </li>
+            </ul>
+          </div><!--/.well -->
+        </div><!--/span-->
+        <div class="span7">
+          <div id="screen" class="well">
+            <div id="apiplayer">
+            </div>
+            <h1 ng-hide="loaded">
+              Search for songs
+            </h1>
+            <div id="control-panel" ng-show="loaded">
+              <a href="#" class="btn btn-warning btn-large" ng-click="pause()" ng-hide="paused">
+                <i class="icon-pause icon-white"></i>
+                Pause
+              </a>
+              <a href="#" class="btn btn-success btn-large" ng-click="play()" ng-show="paused">
+                <i class="icon-play icon-white"></i>
+                Play!
+              </a>
+              <a href="#" class="btn btn-danger btn-large" ng-click="next()">
+                <i class="icon-step-forward icon-white"></i>
+                Skip
+              </a>
+            </div>
+          </div>
+        </div><!--/span-->
+      </div><!--/row-->
+
+      <hr>
+
+      <footer>
+        <p>&copy; John Amicangelo 2013</p>
+      </footer>
+
+    </div><!--/.fluid-container-->
+  </body>
+</html>
