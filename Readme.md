@@ -179,6 +179,10 @@ Basics:
       Fast GitHub command line client.
        280 commits, last change: 2013-07-02 12:43:27, 210 stars, 15 forks
 
+    JohnAmican/youski:
+      Youtube Radio
+       7 commits, last change: 2013-07-07 12:22:33, 1 stars, 0 forks
+
     jondot/gosigar:
 
        13 commits, last change: 2013-05-25 11:01:05, 1 stars, 11 forks
