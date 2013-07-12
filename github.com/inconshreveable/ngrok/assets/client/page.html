@@ -1,0 +1,149 @@
+<html>
+    <head>
+        <title>ngrok</title>
+        <link href="/static/css/highlight.min.css" rel="stylesheet">
+        <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+        <script src="/static/js/highlight.min.js"></script>
+        <script src="/static/js/vkbeautify.js"></script>
+        <script src="/static/js/jquery-1.9.1.min.js"></script>
+        <script src="/static/js/jquery.timeago.js"></script>
+        <script src="/static/js/angular.js"></script>
+        <script src="/static/js/base64.js"></script>
+        <script src="/static/js/ngrok.js"></script>
+        <script type="text/javascript">
+            window.data = JSON.parse({% . %});
+        </script>
+        <style type="text/css">
+            body { margin-top: 50px; }
+            table.params { font-size: 12px; font-family: Courier, monospace; }
+            .txn-selector tr { cursor: pointer; }
+            .txn-selector tr:hover { background-color: #ddd; }
+            tr.selected, tr.selected:hover { 
+                background-color: #ff9999; 
+                background-color: #000000;
+                color:white;
+
+            }
+        </style>
+    </head>
+
+    <body ng-app="ngrok">
+        <div class="container" ng-controller="HttpTxns">
+            <div class="navbar navbar-inverse navbar-fixed-top">
+                <div class="navbar-inner">
+                    <div class="container">
+                        <a class="brand" href="#">ngrok</a>
+                        <ul class="nav">
+                            <li class="active"><a href="#">Inbound Requests</a></li>
+                            <!--
+                            <li><a href="#">Outbound Requests</a></li>
+                            <li><a href="#">Configuration</a></li>
+                            -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div ng-show="txns.length==0" class="row">
+                <div class="span6 offset3">
+                    <div class="well" style="padding: 20px 50px;">
+                        <h4>No requests to display yet</h4>
+                        <p class="lead">Make a request to <a target="_blank" href="{{ publicUrl }}">{{ publicUrl }}</a> to get started!</p>
+                    </div>
+                </div>
+            </div>
+            <div ng-show="txns.length>0" class="row">
+                <div class="span6">
+                    <h4>All Requests</h4>
+                    <table class="table txn-selector">
+                        <tr ng-controller="TxnNavItem" ng-class="{'selected':isActive()}" ng-repeat="txn in txns" ng-click="makeActive()">
+                            <td>{{ txn.Req.MethodPath }}</td>
+                            <td>{{ txn.Resp.Status }}</td>
+                            <td><span class="pull-right">{{ txn.Duration }}</span></td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="span6" ng-controller="HttpTxn" ng-show="!!Txn">
+                    <div class="row-fluid">
+                        <div class="span4">
+                            <span title="{{ISO8601(Txn.Start)}}" class="muted">
+                                {{TimeFormat(Txn.Start)}}
+                            </span>
+                        </div>
+                        <div class="span4">
+                            <i class="icon-time"></i> Duration 
+                            <span style="margin-left: 8px;" class="muted">{{Txn.Duration}}</span>
+                        </div>
+                        <div  class="span4">
+                            <i class="icon-user"></i> IP 
+                            <span style="margin-left: 8px;" class="muted">{{Txn.Req.Header['X-Real-Ip'][0]}}</span>
+                        </div>
+                    </div>
+                    <hr />
+                    <div ng-show="!!Req" ng-controller="HttpRequest">
+                        <h3>{{ Req.MethodPath }}</h3>
+                        <div onbtnclick="replay()" btn="Replay" tabs="Summary,Headers,Raw,Binary">
+                        </div>
+
+                        <div ng-show="isTab('Summary')">
+                            <keyval title="Query Params" tuples="Req.Params"></keyval>
+                            <div body="Req.Body" binary="Req.Binary"></div>
+                        </div>
+
+                        <div ng-show="isTab('Headers')">
+                            <keyval title="Headers" tuples="Req.Header"></keyval>
+                        </div>
+
+                        <div ng-show="isTab('Raw')">
+                            <pre><code class="http">{{ Req.RawText }}</code></pre>
+                        </div>
+
+                        <div ng-show="isTab('Binary')">
+                            <pre><code>{{ Req.RawBytes }}</code></pre>
+                        </div>
+
+                    </div>
+
+                    <hr style="margin: 40px 0 20px" />
+
+                    <div ng-show="!!Resp" ng-controller="HttpResponse">
+                        <h3 ng-class="Resp.statusClass">{{ Resp.Status }}</h3>
+
+                        <div tabs="Summary,Headers,Raw,Binary"></div>
+                        <div ng-show="isTab('Summary')">
+                            <div body="Resp.Body" binary="Resp.Binary"></div>
+                        </div>
+
+                        <div ng-show="isTab('Headers')">
+                            <keyval title="Headers" tuples="Resp.Header"></keyval>
+                        </div>
+
+                        <div ng-show="isTab('Raw')">
+                            <pre><code class="http">{{ Resp.RawText }}</code></pre>
+                        </div>
+
+                        <div ng-show="isTab('Binary')">
+                            <pre><code>{{ Resp.RawBytes }}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- UserVoice JavaScript SDK (only needed once on a page) -->
+        <script>(function(){var uv=document.createElement('script');uv.type='text/javascript';uv.async=true;uv.src='//widget.uservoice.com/4KUmdF6WZd302MfwoayMw.js';var s=document.getElementsByTagName('script')[0];s.parentNode.insertBefore(uv,s)})()</script>
+
+        <!-- A tab to launch the Classic Widget -->
+        <script>
+        UserVoice = window.UserVoice || [];
+        UserVoice.push(['showTab', 'classic_widget', {
+          mode: 'feedback',
+          primary_color: '#cc6d00',
+          link_color: '#007dbf',
+          forum_id: 211925,
+          tab_label: 'Feedback',
+          tab_color: '#cc6d00',
+          tab_position: 'middle-left',
+          tab_inverted: false
+        }]);
+        </script>
+    </body>
+</html>
