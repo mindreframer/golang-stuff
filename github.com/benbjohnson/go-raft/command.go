@@ -26,7 +26,7 @@ func init() {
 // A command represents an action to be taken on the replicated state machine.
 type Command interface {
 	CommandName() string
-	Apply(server *Server) error
+	Apply(server *Server) (interface{}, error)
 }
 
 //------------------------------------------------------------------------------
@@ -40,7 +40,7 @@ type Command interface {
 //--------------------------------------
 
 // Creates a new instance of a command by name.
-func NewCommand(name string) (Command, error) {
+func newCommand(name string) (Command, error) {
 	// Find the registered command.
 	command := commandTypes[name]
 	if command == nil {
@@ -66,6 +66,7 @@ func RegisterCommand(command Command) {
 		panic(fmt.Sprintf("raft: Cannot register nil"))
 	} else if commandTypes[command.CommandName()] != nil {
 		panic(fmt.Sprintf("raft: Duplicate registration: %s", command.CommandName()))
+		return
 	}
 	commandTypes[command.CommandName()] = command
 }
