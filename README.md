@@ -12,7 +12,7 @@ For questions, suggestions and general topics visit the [group](https://groups.g
 - [Validation](#validation)
 - [Hooks](#hooks)
 - [Basic Example](#basic-example)
-- [Contributors](hood/graphs/contributors)
+- [Contributors](https://github.com/eaigner/hood/contributors)
 
 ## Overview
 
@@ -29,7 +29,7 @@ Hood is a database agnostic ORM for Go developed by [@eaignr](https://twitter.co
 
 Dialects currently implemented
 
-- **Postgres** using [github.com/bmizerany/pq](https://github.com/bmizerany/pq)
+- **Postgres** using [github.com/lib/pq](https://github.com/lib/pq)
 - **MySQL** using [github.com/ziutek/mymysql](https://github.com/ziutek/mymysql) (by [coocood](https://github.com/coocood))
 
 Adding a dialect is simple. Just create a new file named `<dialect_name>.go` and the corresponding struct type, and mixin the `Base` dialect. Then implement the methods that are specific to the new dialect (for an example see `postgres.go`).
