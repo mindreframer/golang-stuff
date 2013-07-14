@@ -3,58 +3,54 @@ package dynamodb
 import (
 	"errors"
 	"fmt"
-  simplejson "github.com/bitly/go-simplejson"
+	simplejson "github.com/bitly/go-simplejson"
 )
 
-
-
 type Table struct {
-	Server                  *Server
-	Name                    string
-	Key                     PrimaryKey
+	Server *Server
+	Name   string
+	Key    PrimaryKey
 }
 
 type AttributeDefinitionT struct {
-	Name                    string
-	Type                    string
+	Name string
+	Type string
 }
 
 type KeySchemaT struct {
-  AttributeName           string
-  KeyType                 string
+	AttributeName string
+	KeyType       string
 }
 
 type ProjectionT struct {
-  ProjectionType          string
+	ProjectionType string
 }
 
 type LocalSecondaryIndexT struct {
-  IndexName               string
-  IndexSizeBytes          int64
-  ItemCount               int64
-  KeySchema               []KeySchemaT
-  Projection              ProjectionT
+	IndexName      string
+	IndexSizeBytes int64
+	ItemCount      int64
+	KeySchema      []KeySchemaT
+	Projection     ProjectionT
 }
 
 type ProvisionedThroughputT struct {
-  NumberOfDecreasesToday  int64
-  ReadCapacityUnits       int64
-  WriteCapacityUnits      int64
+	NumberOfDecreasesToday int64
+	ReadCapacityUnits      int64
+	WriteCapacityUnits     int64
 }
 
 type TableDescriptionT struct {
-  AttributeDefinitions    []AttributeDefinitionT
-  CreationDateTime        float64
-  ItemCount               int64
-  KeySchema               KeySchemaT
-  LocalSecondaryIndexes   []LocalSecondaryIndexT
-  ProvisionedThroughput   ProvisionedThroughputT
-	TableName               string
-  TableSizeBytes          int64
-	TableStatus             string
+	AttributeDefinitions  []AttributeDefinitionT
+	CreationDateTime      float64
+	ItemCount             int64
+	KeySchema             KeySchemaT
+	LocalSecondaryIndexes []LocalSecondaryIndexT
+	ProvisionedThroughput ProvisionedThroughputT
+	TableName             string
+	TableSizeBytes        int64
+	TableStatus           string
 }
-
-
 
 func (s *Server) NewTable(name string, key PrimaryKey) *Table {
 	return &Table{s, name, key}

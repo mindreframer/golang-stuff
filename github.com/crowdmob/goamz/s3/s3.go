@@ -14,9 +14,9 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"github.com/crowdmob/goamz/aws"
 	"io"
 	"io/ioutil"
-	"github.com/crowdmob/goamz/aws"
 	"log"
 	"net"
 	"net/http"
@@ -181,12 +181,12 @@ func (b *Bucket) Exists(path string) (exists bool, err error) {
 	}
 	for attempt := attempts.Start(); attempt.Next(); {
 		resp, err := b.S3.run(req, nil)
-    
-    // We can treat a 403 or 404 as non existance
-    if (*err.(*Error)).StatusCode == 403 || (*err.(*Error)).StatusCode == 404 {
-      return false, nil
-    }
-    
+
+		// We can treat a 403 or 404 as non existance
+		if (*err.(*Error)).StatusCode == 403 || (*err.(*Error)).StatusCode == 404 {
+			return false, nil
+		}
+
 		if shouldRetry(err) && attempt.HasNext() {
 			continue
 		}
@@ -266,9 +266,6 @@ type Key struct {
 	StorageClass string
 	Owner        Owner
 }
-
-
-
 
 // List returns information about objects in an S3 bucket.
 //
@@ -352,7 +349,6 @@ func (b *Bucket) List(prefix, delim, marker string, max int) (result *ListResp, 
 	return result, nil
 }
 
-
 // The VersionsResp type holds the results of a list bucket Versions operation.
 type VersionsResp struct {
 	Name            string
@@ -382,18 +378,18 @@ type Version struct {
 
 func (b *Bucket) Versions(prefix, delim, keyMarker string, versionIdMarker string, max int) (result *VersionsResp, err error) {
 	params := map[string][]string{
-    "versions":           {""},
-		"prefix":             {prefix},
-		"delimiter":          {delim},
+		"versions":  {""},
+		"prefix":    {prefix},
+		"delimiter": {delim},
 	}
-  
-  if len(versionIdMarker) != 0 {
-    params["version-id-marker"] = []string{versionIdMarker}
-  }
-  if len(keyMarker) != 0 {
-    params["key-marker"] = []string{keyMarker}
-  }
-  
+
+	if len(versionIdMarker) != 0 {
+		params["version-id-marker"] = []string{versionIdMarker}
+	}
+	if len(keyMarker) != 0 {
+		params["key-marker"] = []string{keyMarker}
+	}
+
 	if max != 0 {
 		params["max-keys"] = []string{strconv.FormatInt(int64(max), 10)}
 	}
@@ -413,7 +409,6 @@ func (b *Bucket) Versions(prefix, delim, keyMarker string, versionIdMarker strin
 	}
 	return result, nil
 }
-
 
 // URL returns a non-signed URL that allows retriving the
 // object at path. It only works if the object is publicly
@@ -582,11 +577,11 @@ func (s3 *S3) run(req *request, resp interface{}) (*http.Response, error) {
 	if resp != nil {
 		err = xml.NewDecoder(hresp.Body).Decode(resp)
 		hresp.Body.Close()
-    
-    if debug {
-      log.Printf("goamz.s3> decoded xml into %#v", resp)
-    }
-    
+
+		if debug {
+			log.Printf("goamz.s3> decoded xml into %#v", resp)
+		}
+
 	}
 	return hresp, err
 }

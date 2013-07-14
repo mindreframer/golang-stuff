@@ -1,206 +1,215 @@
 package dynamodb
 
 import (
-  "reflect"
-  "fmt"
-  "strconv"
-  "encoding/base64"
-  "encoding/json"
-  "math"
-  "sync"
-  "strings"
-  "unicode"
-  "sort"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"math"
+	"reflect"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"unicode"
 )
 
 func MarshalAttributes(m interface{}) ([]Attribute, error) {
-  v := reflect.ValueOf(m).Elem()
-  
-  builder := &attributeBuilder{}
-  builder.buffer = []Attribute{}
-  for _, f := range cachedTypeFields(v.Type()) { // loop on each field
-  	fv := fieldByIndex(v, f.index)
-  	if !fv.IsValid() || isEmptyValue(fv) {
-  		continue
-  	}
-    
-  	err := builder.reflectToDynamoDBAttribute(f.name, fv)
-    if err != nil { return builder.buffer, err }
-  }
-  
-  return builder.buffer, nil
+	v := reflect.ValueOf(m).Elem()
+
+	builder := &attributeBuilder{}
+	builder.buffer = []Attribute{}
+	for _, f := range cachedTypeFields(v.Type()) { // loop on each field
+		fv := fieldByIndex(v, f.index)
+		if !fv.IsValid() || isEmptyValue(fv) {
+			continue
+		}
+
+		err := builder.reflectToDynamoDBAttribute(f.name, fv)
+		if err != nil {
+			return builder.buffer, err
+		}
+	}
+
+	return builder.buffer, nil
 }
 
 func UnmarshalAttributes(attributesRef *map[string]*Attribute, m interface{}) error {
-  rv := reflect.ValueOf(m)
-  if rv.Kind() != reflect.Ptr || rv.IsNil() {
-  	return fmt.Errorf("InvalidUnmarshalError reflect.ValueOf(v): %#v, m interface{}: %#v", rv, reflect.TypeOf(m))
-  }
-  
-  v := reflect.ValueOf(m).Elem()
-  
-  attributes := *attributesRef
-  for _, f := range cachedTypeFields(v.Type()) { // loop on each field
-    fv := fieldByIndex(v, f.index)
-    correlatedAttribute := attributes[f.name]
-    if correlatedAttribute == nil { continue }
-    err := unmarshallAttribute(correlatedAttribute, fv)
-    if err != nil { return err }
-  }
-  
-  return nil
+	rv := reflect.ValueOf(m)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return fmt.Errorf("InvalidUnmarshalError reflect.ValueOf(v): %#v, m interface{}: %#v", rv, reflect.TypeOf(m))
+	}
+
+	v := reflect.ValueOf(m).Elem()
+
+	attributes := *attributesRef
+	for _, f := range cachedTypeFields(v.Type()) { // loop on each field
+		fv := fieldByIndex(v, f.index)
+		correlatedAttribute := attributes[f.name]
+		if correlatedAttribute == nil {
+			continue
+		}
+		err := unmarshallAttribute(correlatedAttribute, fv)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-
 type attributeBuilder struct {
-	buffer  []Attribute
+	buffer []Attribute
 }
 
 func (builder *attributeBuilder) Push(attribute *Attribute) {
-  builder.buffer = append(builder.buffer, *attribute)
+	builder.buffer = append(builder.buffer, *attribute)
 }
-
-
 
 func unmarshallAttribute(a *Attribute, v reflect.Value) error {
 	switch v.Kind() {
-  case reflect.Bool:
-  	n, err := strconv.ParseInt(a.Value, 10, 64)
-  	if err != nil {
-      return fmt.Errorf("UnmarshalTypeError (bool) %#v: %#v", a.Value, err)
-  	}
-    v.SetBool(n != 0)
-   
-  case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-  	n, err := strconv.ParseInt(a.Value, 10, 64)
-  	if err != nil || v.OverflowInt(n) {
-      return fmt.Errorf("UnmarshalTypeError (number) %#v: %#v", a.Value, err)
-  	}
-  	v.SetInt(n)
-  
-  case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-  	n, err := strconv.ParseUint(a.Value, 10, 64)
-  	if err != nil || v.OverflowUint(n) {
-      return fmt.Errorf("UnmarshalTypeError (number) %#v: %#v", a.Value, err)
-  	}
-  	v.SetUint(n)
-  
-  case reflect.Float32, reflect.Float64:
-  	n, err := strconv.ParseFloat(a.Value, v.Type().Bits())
-  	if err != nil || v.OverflowFloat(n) {
-      return fmt.Errorf("UnmarshalTypeError (number) %#v: %#v", a.Value, err)
-  	}
-  	v.SetFloat(n)
-    
-  case reflect.String:
-    v.SetString(a.Value)
-    
-  case reflect.Slice:
-		if v.Type().Elem().Kind() == reflect.Uint8 { // byte arrays are a special case
-      b := make([]byte, base64.StdEncoding.DecodedLen(len(a.Value)))
-      n, err := base64.StdEncoding.Decode(b, []byte(a.Value))
-      if err != nil {
-        return fmt.Errorf("UnmarshalTypeError (byte) %#v: %#v", a.Value, err)
-      }
-      v.Set(reflect.ValueOf(b[0:n]))
-      break
+	case reflect.Bool:
+		n, err := strconv.ParseInt(a.Value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("UnmarshalTypeError (bool) %#v: %#v", a.Value, err)
 		}
-    
-    if a.SetType() { // Special NS and SS types should be correctly handled
-      nativeSetCreated := false
-      switch v.Type().Elem().Kind() {
-      case reflect.Bool:
-        nativeSetCreated = true
-        arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
-        for i, aval := range a.SetValues {
-        	n, err := strconv.ParseInt(aval, 10, 64)
-        	if err != nil {
-            return fmt.Errorf("UnmarshalSetTypeError (bool) %#v: %#v", aval, err)
-        	}
-          arry.Index(i).SetBool(n != 0)
-        }
-        v.Set(arry)
-   
-      case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-        nativeSetCreated = true
-        arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
-        for i, aval := range a.SetValues {
-        	n, err := strconv.ParseInt(aval, 10, 64)
-        	if err != nil || arry.Index(i).OverflowInt(n) {
-            return fmt.Errorf("UnmarshalSetTypeError (number) %#v: %#v", aval, err)
-        	}
-          arry.Index(i).SetInt(n)
-        }
-        v.Set(arry)
-        
-      case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-        nativeSetCreated = true
-        arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
-        for i, aval := range a.SetValues {
-        	n, err := strconv.ParseUint(aval, 10, 64)
-        	if err != nil || arry.Index(i).OverflowUint(n) {
-            return fmt.Errorf("UnmarshalSetTypeError (number) %#v: %#v", aval, err)
-        	}
-          arry.Index(i).SetUint(n)
-        }
-        v.Set(arry)
+		v.SetBool(n != 0)
 
-      case reflect.Float32, reflect.Float64:
-        nativeSetCreated = true
-        arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
-        for i, aval := range a.SetValues {
-        	n, err := strconv.ParseFloat(aval, arry.Index(i).Type().Bits())
-        	if err != nil || arry.Index(i).OverflowFloat(n) {
-            return fmt.Errorf("UnmarshalSetTypeError (number) %#v: %#v", aval, err)
-        	}
-        	arry.Index(i).SetFloat(n)
-        }
-        v.Set(arry)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n, err := strconv.ParseInt(a.Value, 10, 64)
+		if err != nil || v.OverflowInt(n) {
+			return fmt.Errorf("UnmarshalTypeError (number) %#v: %#v", a.Value, err)
+		}
+		v.SetInt(n)
 
-      case reflect.String:
-        nativeSetCreated = true
-        arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
-        for i, aval := range a.SetValues {
-          arry.Index(i).SetString(aval)
-        }
-        v.Set(arry)
-      }
-    
-      if nativeSetCreated {
-        break
-      }
-    }
-  
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		n, err := strconv.ParseUint(a.Value, 10, 64)
+		if err != nil || v.OverflowUint(n) {
+			return fmt.Errorf("UnmarshalTypeError (number) %#v: %#v", a.Value, err)
+		}
+		v.SetUint(n)
+
+	case reflect.Float32, reflect.Float64:
+		n, err := strconv.ParseFloat(a.Value, v.Type().Bits())
+		if err != nil || v.OverflowFloat(n) {
+			return fmt.Errorf("UnmarshalTypeError (number) %#v: %#v", a.Value, err)
+		}
+		v.SetFloat(n)
+
+	case reflect.String:
+		v.SetString(a.Value)
+
+	case reflect.Slice:
+		if v.Type().Elem().Kind() == reflect.Uint8 { // byte arrays are a special case
+			b := make([]byte, base64.StdEncoding.DecodedLen(len(a.Value)))
+			n, err := base64.StdEncoding.Decode(b, []byte(a.Value))
+			if err != nil {
+				return fmt.Errorf("UnmarshalTypeError (byte) %#v: %#v", a.Value, err)
+			}
+			v.Set(reflect.ValueOf(b[0:n]))
+			break
+		}
+
+		if a.SetType() { // Special NS and SS types should be correctly handled
+			nativeSetCreated := false
+			switch v.Type().Elem().Kind() {
+			case reflect.Bool:
+				nativeSetCreated = true
+				arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
+				for i, aval := range a.SetValues {
+					n, err := strconv.ParseInt(aval, 10, 64)
+					if err != nil {
+						return fmt.Errorf("UnmarshalSetTypeError (bool) %#v: %#v", aval, err)
+					}
+					arry.Index(i).SetBool(n != 0)
+				}
+				v.Set(arry)
+
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				nativeSetCreated = true
+				arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
+				for i, aval := range a.SetValues {
+					n, err := strconv.ParseInt(aval, 10, 64)
+					if err != nil || arry.Index(i).OverflowInt(n) {
+						return fmt.Errorf("UnmarshalSetTypeError (number) %#v: %#v", aval, err)
+					}
+					arry.Index(i).SetInt(n)
+				}
+				v.Set(arry)
+
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				nativeSetCreated = true
+				arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
+				for i, aval := range a.SetValues {
+					n, err := strconv.ParseUint(aval, 10, 64)
+					if err != nil || arry.Index(i).OverflowUint(n) {
+						return fmt.Errorf("UnmarshalSetTypeError (number) %#v: %#v", aval, err)
+					}
+					arry.Index(i).SetUint(n)
+				}
+				v.Set(arry)
+
+			case reflect.Float32, reflect.Float64:
+				nativeSetCreated = true
+				arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
+				for i, aval := range a.SetValues {
+					n, err := strconv.ParseFloat(aval, arry.Index(i).Type().Bits())
+					if err != nil || arry.Index(i).OverflowFloat(n) {
+						return fmt.Errorf("UnmarshalSetTypeError (number) %#v: %#v", aval, err)
+					}
+					arry.Index(i).SetFloat(n)
+				}
+				v.Set(arry)
+
+			case reflect.String:
+				nativeSetCreated = true
+				arry := reflect.MakeSlice(v.Type(), len(a.SetValues), len(a.SetValues))
+				for i, aval := range a.SetValues {
+					arry.Index(i).SetString(aval)
+				}
+				v.Set(arry)
+			}
+
+			if nativeSetCreated {
+				break
+			}
+		}
+
 		// Slices can be marshalled as nil, but otherwise are handled
 		// as arrays.
 		fallthrough
 	case reflect.Array, reflect.Struct, reflect.Map, reflect.Interface, reflect.Ptr:
-    unmarshalled := reflect.New(v.Type())
-    err := json.Unmarshal([]byte(a.Value), unmarshalled.Interface())
-    if err != nil { return err }
-    v.Set(unmarshalled.Elem())
+		unmarshalled := reflect.New(v.Type())
+		err := json.Unmarshal([]byte(a.Value), unmarshalled.Interface())
+		if err != nil {
+			return err
+		}
+		v.Set(unmarshalled.Elem())
 
 	default:
-    return fmt.Errorf("UnsupportedTypeError %#v", v.Type())
-  }
-  
-  return nil
+		return fmt.Errorf("UnsupportedTypeError %#v", v.Type())
+	}
+
+	return nil
 }
 
 // reflectValueQuoted writes the value in v to the output.
 // If quoted is true, the serialization is wrapped in a JSON string.
 func (e *attributeBuilder) reflectToDynamoDBAttribute(name string, v reflect.Value) error {
-	if !v.IsValid() { return nil } // don't build
-  
+	if !v.IsValid() {
+		return nil
+	} // don't build
+
 	switch v.Kind() {
 	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr, reflect.Float32, reflect.Float64:
-    rv, err := numericReflectedValueString(v)
-    if err != nil { return err }
-    e.Push(NewNumericAttribute(name, rv))
+		rv, err := numericReflectedValueString(v)
+		if err != nil {
+			return err
+		}
+		e.Push(NewNumericAttribute(name, rv))
 
 	case reflect.String:
-    e.Push(NewStringAttribute(name, v.String()))
-  
+		e.Push(NewStringAttribute(name, v.String()))
+
 	case reflect.Slice:
 		if v.IsNil() {
 			break
@@ -210,74 +219,77 @@ func (e *attributeBuilder) reflectToDynamoDBAttribute(name string, v reflect.Val
 			s := v.Bytes()
 			dst := make([]byte, base64.StdEncoding.EncodedLen(len(s)))
 			base64.StdEncoding.Encode(dst, s)
-      e.Push(NewStringAttribute(name, string(dst)))
+			e.Push(NewStringAttribute(name, string(dst)))
 			break
 		}
-    
-    // Special NS and SS types should be correctly handled
-    nativeSetCreated := false
-    switch v.Type().Elem().Kind() {
-      case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr, reflect.Float32, reflect.Float64:
-        nativeSetCreated = true
-        arrystrings := make([]string, v.Len())
-        for i, _ := range arrystrings {
-          var err error
-          arrystrings[i], err = numericReflectedValueString(v.Index(i))
-          if err != nil { return err }
-        }
-        e.Push(NewNumericSetAttribute(name, arrystrings))
-      case reflect.String: // simple copy will suffice
-        nativeSetCreated = true
-        arrystrings := make([]string, v.Len())
-        for i, _ := range arrystrings {
-          arrystrings[i] = v.Index(i).String()
-        }
-        e.Push(NewStringSetAttribute(name, arrystrings))
-    }
-    
-    if nativeSetCreated {
-      break
-    }
-    
+
+		// Special NS and SS types should be correctly handled
+		nativeSetCreated := false
+		switch v.Type().Elem().Kind() {
+		case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr, reflect.Float32, reflect.Float64:
+			nativeSetCreated = true
+			arrystrings := make([]string, v.Len())
+			for i, _ := range arrystrings {
+				var err error
+				arrystrings[i], err = numericReflectedValueString(v.Index(i))
+				if err != nil {
+					return err
+				}
+			}
+			e.Push(NewNumericSetAttribute(name, arrystrings))
+		case reflect.String: // simple copy will suffice
+			nativeSetCreated = true
+			arrystrings := make([]string, v.Len())
+			for i, _ := range arrystrings {
+				arrystrings[i] = v.Index(i).String()
+			}
+			e.Push(NewStringSetAttribute(name, arrystrings))
+		}
+
+		if nativeSetCreated {
+			break
+		}
+
 		// Slices can be marshalled as nil, but otherwise are handled
 		// as arrays.
 		fallthrough
 	case reflect.Array, reflect.Struct, reflect.Map, reflect.Interface, reflect.Ptr:
-    jsonVersion, err := json.Marshal(v.Interface())
-    if err != nil { return err }
-    e.Push(NewStringAttribute(name, string(jsonVersion)))
+		jsonVersion, err := json.Marshal(v.Interface())
+		if err != nil {
+			return err
+		}
+		e.Push(NewStringAttribute(name, string(jsonVersion)))
 
 	default:
-    return fmt.Errorf("UnsupportedTypeError %#v", v.Type())
+		return fmt.Errorf("UnsupportedTypeError %#v", v.Type())
 	}
 	return nil
 }
-
 
 func numericReflectedValueString(v reflect.Value) (string, error) {
 	switch v.Kind() {
 	case reflect.Bool:
 		x := v.Bool()
 		if x {
-      return "1", nil
+			return "1", nil
 		} else {
-      return "0", nil
+			return "0", nil
 		}
 
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return strconv.FormatInt(v.Int(), 10), nil
-    
+
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return strconv.FormatUint(v.Uint(), 10), nil
-    
+
 	case reflect.Float32, reflect.Float64:
 		f := v.Float()
 		if math.IsInf(f, 0) || math.IsNaN(f) {
 			return "", fmt.Errorf("UnsupportedValueError %#v (formatted float: %s)", v, strconv.FormatFloat(f, 'g', -1, v.Type().Bits()))
 		}
 		return strconv.FormatFloat(f, 'g', -1, v.Type().Bits()), nil
-  }
-  return "", fmt.Errorf("UnsupportedNumericValueError %#v", v.Type())
+	}
+	return "", fmt.Errorf("UnsupportedNumericValueError %#v", v.Type())
 }
 
 // ---------------- Below are copied handy functions from http://golang.org/src/pkg/encoding/json/encode.go --------------------------------
@@ -321,7 +333,6 @@ type field struct {
 	omitEmpty bool
 	quoted    bool
 }
-
 
 // byName sorts field by name, breaking ties with depth,
 // then breaking ties with "name came from json tag", then
@@ -570,10 +581,6 @@ func dominantField(fields []field) (field, bool) {
 	}
 	return fields[0], true
 }
-
-
-
-
 
 var fieldCache struct {
 	sync.RWMutex
