@@ -27,13 +27,21 @@ func (s *stepRun) Run(state map[string]interface{}) multistep.StepAction {
 	driver := state["driver"].(Driver)
 	ui := state["ui"].(packer.Ui)
 	vmxPath := state["vmx_path"].(string)
+	vncPort := state["vnc_port"].(uint)
 
 	// Set the VMX path so that we know we started the machine
 	s.bootTime = time.Now()
 	s.vmxPath = vmxPath
 
 	ui.Say("Starting virtual machine...")
-	if err := driver.Start(vmxPath); err != nil {
+	if config.Headless {
+		ui.Message(fmt.Sprintf(
+			"The VM will be run headless, without a GUI. If you want to\n"+
+				"view the screen of the VM, connect via VNC without a password to\n"+
+				"127.0.0.1:%d", vncPort))
+	}
+
+	if err := driver.Start(vmxPath, config.Headless); err != nil {
 		err := fmt.Errorf("Error starting VM: %s", err)
 		state["error"] = err
 		ui.Error(err.Error())
@@ -41,9 +49,9 @@ func (s *stepRun) Run(state map[string]interface{}) multistep.StepAction {
 	}
 
 	// Wait the wait amount
-	if int64(config.BootWait) > 0 {
-		ui.Say(fmt.Sprintf("Waiting %s for boot...", config.BootWait.String()))
-		time.Sleep(config.BootWait)
+	if int64(config.bootWait) > 0 {
+		ui.Say(fmt.Sprintf("Waiting %s for boot...", config.bootWait.String()))
+		time.Sleep(config.bootWait)
 	}
 
 	return multistep.ActionContinue

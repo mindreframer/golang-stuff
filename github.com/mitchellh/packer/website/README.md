@@ -1,7 +1,6 @@
 # Packer Website
 
 This subdirectory contains the entire source for the [Packer website](http://www.packer.io).
-T
 This is a [Middleman](http://middlemanapp.com) project, which builds a static
 site from these source files.
 
@@ -18,7 +17,7 @@ commands:
 
 ```
 $ bundle
-$ bundle exec middleman server
+$ PACKER_DISABLE_DOWNLOAD_FETCH=true PACKER_VERSION=1.0 bundle exec middleman server
 ```
 
 Then open up `localhost:4567`. Note that some URLs you may need to append

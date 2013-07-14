@@ -59,6 +59,12 @@ func (d *VBox42Driver) IsRunning(name string) (bool, error) {
 		if line == `VMState="stopping"` {
 			return true, nil
 		}
+
+		// We consider "paused" to still be running. We wait for it to
+		// be completely stopped or some other state.
+		if line == `VMState="paused"` {
+			return true, nil
+		}
 	}
 
 	return false, nil
@@ -124,11 +130,14 @@ func (d *VBox42Driver) Version() (string, error) {
 		return "", err
 	}
 
+	versionOutput := strings.TrimSpace(stdout.String())
+	log.Printf("VBoxManage --version output: %s", versionOutput)
 	versionRe := regexp.MustCompile("[^.0-9]")
-	matches := versionRe.Split(stdout.String(), 2)
+	matches := versionRe.Split(versionOutput, 2)
 	if len(matches) == 0 {
-		return "", fmt.Errorf("No version found: %s", stdout.String())
+		return "", fmt.Errorf("No version found: %s", versionOutput)
 	}
 
+	log.Printf("VirtualBox version: %s", matches[0])
 	return matches[0], nil
 }

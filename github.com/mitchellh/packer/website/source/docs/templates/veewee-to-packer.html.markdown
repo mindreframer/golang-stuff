@@ -14,7 +14,7 @@ of templates that can be readily used with Packer by simply converting them.
 
 ## Installation and Usage
 
-Since Veewee itself is a Ruby project, so to is the veewee-to-packer
+Since Veewee itself is a Ruby project, so too is the veewee-to-packer
 application so that it can read the Veewee configurations. Install it using RubyGems:
 
 ```
@@ -22,7 +22,7 @@ $ gem install veewee-to-packer
 ...
 ```
 
-Once installed, usage is easy! Just point call `veewee-to-packer` pointed
+Once installed, usage is easy! Just point `veewee-to-packer`
 at the `definition.rb` file of any template. The converter will output
 any warnings or messages about the conversion. The example below converts
 a CentOS template:
@@ -49,7 +49,7 @@ specific builder configurations.
 
 None, really. The tool will tell you if it can't convert a part of a
 template, and whether that is a critical error or just a warning.
-Most of Veewees functions translate perfectly over to Packer. There are
+Most of Veewee's functions translate perfectly over to Packer. There are
 still a couple missing features in Packer, but they're minimal.
 
 ## Bugs

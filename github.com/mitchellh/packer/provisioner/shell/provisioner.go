@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"text/template"
 )
@@ -24,6 +25,9 @@ type config struct {
 	// An inline script to execute. Multiple strings are all executed
 	// in the context of a single shell.
 	Inline []string
+
+	// The shebang value used when running inline scripts.
+	InlineShebang string `mapstructure:"inline_shebang"`
 
 	// The local path of the shell script to upload and execute.
 	Script string
@@ -55,18 +59,48 @@ type ExecuteCommandTemplate struct {
 }
 
 func (p *Provisioner) Prepare(raws ...interface{}) error {
+	var md mapstructure.Metadata
+	decoderConfig := &mapstructure.DecoderConfig{
+		Metadata: &md,
+		Result:   &p.config,
+	}
+
+	decoder, err := mapstructure.NewDecoder(decoderConfig)
+	if err != nil {
+		return err
+	}
+
 	for _, raw := range raws {
-		if err := mapstructure.Decode(raw, &p.config); err != nil {
+		err := decoder.Decode(raw)
+		if err != nil {
 			return err
 		}
 	}
 
+	// Accumulate any errors
+	errs := make([]error, 0)
+
+	// Unused keys are errors
+	if len(md.Unused) > 0 {
+		sort.Strings(md.Unused)
+		for _, unused := range md.Unused {
+			if unused != "type" && !strings.HasPrefix(unused, "packer_") {
+				errs = append(
+					errs, fmt.Errorf("Unknown configuration key: %s", unused))
+			}
+		}
+	}
+
 	if p.config.ExecuteCommand == "" {
-		p.config.ExecuteCommand = "{{.Vars}} sh {{.Path}}"
+		p.config.ExecuteCommand = "chmod +x {{.Path}}; {{.Vars}} {{.Path}}"
 	}
 
 	if p.config.Inline != nil && len(p.config.Inline) == 0 {
 		p.config.Inline = nil
+	}
+
+	if p.config.InlineShebang == "" {
+		p.config.InlineShebang = "/bin/sh"
 	}
 
 	if p.config.RemotePath == "" {
@@ -80,8 +114,6 @@ func (p *Provisioner) Prepare(raws ...interface{}) error {
 	if p.config.Vars == nil {
 		p.config.Vars = make([]string, 0)
 	}
-
-	errs := make([]error, 0)
 
 	if p.config.Script != "" && len(p.config.Scripts) > 0 {
 		errs = append(errs, errors.New("Only one of script or scripts can be specified."))
@@ -136,6 +168,7 @@ func (p *Provisioner) Provision(ui packer.Ui, comm packer.Communicator) error {
 
 		// Write our contents to it
 		writer := bufio.NewWriter(tf)
+		writer.WriteString(fmt.Sprintf("#!%s\n", p.config.InlineShebang))
 		for _, command := range p.config.Inline {
 			if _, err := writer.WriteString(command + "\n"); err != nil {
 				return fmt.Errorf("Error preparing shell script: %s", err)
@@ -157,12 +190,16 @@ func (p *Provisioner) Provision(ui packer.Ui, comm packer.Communicator) error {
 		if err != nil {
 			return fmt.Errorf("Error opening shell script: %s", err)
 		}
+		defer f.Close()
 
 		log.Printf("Uploading %s => %s", path, p.config.RemotePath)
 		err = comm.Upload(p.config.RemotePath, f)
 		if err != nil {
 			return fmt.Errorf("Error uploading shell script: %s", err)
 		}
+
+		// Close the original file since we copied it
+		f.Close()
 
 		// Flatten the environment variables
 		flattendVars := strings.Join(p.config.Vars, " ")

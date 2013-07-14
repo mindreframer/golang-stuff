@@ -1,9 +1,11 @@
 package packer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
+	"sort"
 )
 
 // The rawTemplate struct represents the structure of a template read
@@ -14,7 +16,7 @@ type rawTemplate struct {
 	Builders       []map[string]interface{}
 	Hooks          map[string][]string
 	Provisioners   []map[string]interface{}
-	PostProcessors []interface{} `json:"post-processors"`
+	PostProcessors []interface{} `mapstructure:"post-processors"`
 }
 
 // The Template struct represents a parsed template, parsed into the most
@@ -62,10 +64,62 @@ type rawProvisionerConfig struct {
 // and checking for this can be useful, if you wish to format it in a certain
 // way.
 func ParseTemplate(data []byte) (t *Template, err error) {
+	var rawTplInterface interface{}
+	err = json.Unmarshal(data, &rawTplInterface)
+	if err != nil {
+		syntaxErr, ok := err.(*json.SyntaxError)
+		if !ok {
+			return
+		}
+
+		// We have a syntax error. Extract out the line number and friends.
+		// https://groups.google.com/forum/#!topic/golang-nuts/fizimmXtVfc
+		newline := []byte{'\x0a'}
+
+		// Calculate the start/end position of the line where the error is
+		start := bytes.LastIndex(data[:syntaxErr.Offset], newline) + 1
+		end := len(data)
+		if idx := bytes.Index(data[start:], newline); idx >= 0 {
+			end = start + idx
+		}
+
+		// Count the line number we're on plus the offset in the line
+		line := bytes.Count(data[:start], newline) + 1
+		pos := int(syntaxErr.Offset) - start - 1
+
+		err = fmt.Errorf("Error in line %d, char %d: %s\n%s",
+			line, pos, syntaxErr, data[start:end])
+
+		return
+	}
+
+	// Decode the raw template interface into the actual rawTemplate
+	// structure, checking for any extranneous keys along the way.
+	var md mapstructure.Metadata
 	var rawTpl rawTemplate
-	err = json.Unmarshal(data, &rawTpl)
+	decoderConfig := &mapstructure.DecoderConfig{
+		Metadata: &md,
+		Result:   &rawTpl,
+	}
+
+	decoder, err := mapstructure.NewDecoder(decoderConfig)
 	if err != nil {
 		return
+	}
+
+	err = decoder.Decode(rawTplInterface)
+	if err != nil {
+		return
+	}
+
+	errors := make([]error, 0)
+
+	if len(md.Unused) > 0 {
+		sort.Strings(md.Unused)
+		for _, unused := range md.Unused {
+			errors = append(
+				errors, fmt.Errorf("Unknown root level key in template: '%s'", unused))
+		}
 	}
 
 	t = &Template{}
@@ -73,8 +127,6 @@ func ParseTemplate(data []byte) (t *Template, err error) {
 	t.Hooks = rawTpl.Hooks
 	t.PostProcessors = make([][]rawPostProcessorConfig, len(rawTpl.PostProcessors))
 	t.Provisioners = make([]rawProvisionerConfig, len(rawTpl.Provisioners))
-
-	errors := make([]error, 0)
 
 	// Gather all the builders
 	for i, v := range rawTpl.Builders {
@@ -172,9 +224,14 @@ func ParseTemplate(data []byte) (t *Template, err error) {
 		raw.rawConfig = v
 	}
 
+	if len(t.Builders) == 0 {
+		errors = append(errors, fmt.Errorf("No builders are defined in the template."))
+	}
+
 	// If there were errors, we put it into a MultiError and return
 	if len(errors) > 0 {
 		err = &MultiError{errors}
+		t = nil
 		return
 	}
 

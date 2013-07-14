@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/mitchellh/packer/packer"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -18,6 +17,8 @@ import (
 type VBoxBoxConfig struct {
 	OutputPath          string `mapstructure:"output"`
 	VagrantfileTemplate string `mapstructure:"vagrantfile_template"`
+
+	PackerBuildName string `mapstructure:"packer_build_name"`
 }
 
 type VBoxVagrantfileTemplate struct {
@@ -28,60 +29,53 @@ type VBoxBoxPostProcessor struct {
 	config VBoxBoxConfig
 }
 
-func (p *VBoxBoxPostProcessor) Configure(raw interface{}) error {
-	err := mapstructure.Decode(raw, &p.config)
-	if err != nil {
-		return err
+func (p *VBoxBoxPostProcessor) Configure(raws ...interface{}) error {
+	for _, raw := range raws {
+		err := mapstructure.Decode(raw, &p.config)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (p *VBoxBoxPostProcessor) PostProcess(ui packer.Ui, artifact packer.Artifact) (packer.Artifact, error) {
+func (p *VBoxBoxPostProcessor) PostProcess(ui packer.Ui, artifact packer.Artifact) (packer.Artifact, bool, error) {
 	var err error
 	tplData := &VBoxVagrantfileTemplate{}
 	tplData.BaseMacAddress, err = p.findBaseMacAddress(artifact)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Compile the output path
-	outputPath, err := ProcessOutputPath(p.config.OutputPath, "virtualbox", artifact)
+	outputPath, err := ProcessOutputPath(p.config.OutputPath,
+		p.config.PackerBuildName, "virtualbox", artifact)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// Create a temporary directory for us to build the contents of the box in
 	dir, err := ioutil.TempDir("", "packer")
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer os.RemoveAll(dir)
 
 	// Copy all of the original contents into the temporary directory
 	for _, path := range artifact.Files() {
 		ui.Message(fmt.Sprintf("Copying: %s", path))
-		src, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		defer src.Close()
 
-		dst, err := os.Create(filepath.Join(dir, filepath.Base(path)))
-		if err != nil {
-			return nil, err
-		}
-		defer dst.Close()
-
-		if _, err := io.Copy(dst, src); err != nil {
-			return nil, err
+		dstPath := filepath.Join(dir, filepath.Base(path))
+		if err := CopyContents(dstPath, path); err != nil {
+			return nil, false, err
 		}
 	}
 
 	// Create the Vagrantfile from the template
 	vf, err := os.Create(filepath.Join(dir, "Vagrantfile"))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer vf.Close()
 
@@ -89,13 +83,13 @@ func (p *VBoxBoxPostProcessor) PostProcess(ui packer.Ui, artifact packer.Artifac
 	if p.config.VagrantfileTemplate != "" {
 		f, err := os.Open(p.config.VagrantfileTemplate)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		defer f.Close()
 
 		contents, err := ioutil.ReadAll(f)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		vagrantfileContents = string(contents)
@@ -108,16 +102,22 @@ func (p *VBoxBoxPostProcessor) PostProcess(ui packer.Ui, artifact packer.Artifac
 	// Create the metadata
 	metadata := map[string]string{"provider": "virtualbox"}
 	if err := WriteMetadata(dir, metadata); err != nil {
-		return nil, err
+		return nil, false, err
+	}
+
+	// Rename the OVF file to box.ovf, as required by Vagrant
+	ui.Message("Renaming the OVF to box.ovf...")
+	if err := p.renameOVF(dir); err != nil {
+		return nil, false, err
 	}
 
 	// Compress the directory to the given output path
 	ui.Message(fmt.Sprintf("Compressing box..."))
 	if err := DirToBox(outputPath, dir); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return NewArtifact("virtualbox", outputPath), nil
+	return NewArtifact("virtualbox", outputPath), false, nil
 }
 
 func (p *VBoxBoxPostProcessor) findBaseMacAddress(a packer.Artifact) (string, error) {
@@ -156,8 +156,23 @@ func (p *VBoxBoxPostProcessor) findBaseMacAddress(a packer.Artifact) (string, er
 	return string(matches[1]), nil
 }
 
+func (p *VBoxBoxPostProcessor) renameOVF(dir string) error {
+	log.Println("Looking for OVF to rename...")
+	matches, err := filepath.Glob(filepath.Join(dir, "*.ovf"))
+	if err != nil {
+		return err
+	}
+
+	if len(matches) > 1 {
+		return errors.New("More than one OVF file in VirtualBox artifact.")
+	}
+
+	log.Printf("Renaming: '%s' => box.ovf", matches[0])
+	return os.Rename(matches[0], filepath.Join(dir, "box.ovf"))
+}
+
 var defaultVBoxVagrantfile = `
 Vagrant.configure("2") do |config|
-  config.vm.base_mac = "{{ .BaseMacAddress }}"
+config.vm.base_mac = "{{ .BaseMacAddress }}"
 end
 `
