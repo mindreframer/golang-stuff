@@ -110,15 +110,18 @@ func main() {
 		}()
 	}
 
-	metrics.RegisterRuntimeMemStats(r)
-	metrics.CaptureRuntimeMemStats(r, 5)
+	metrics.RegisterDebugGCStats(r)
+	go metrics.CaptureDebugGCStats(r, 5e9)
 
-	metrics.Log(r, 60, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
+	metrics.RegisterRuntimeMemStats(r)
+	go metrics.CaptureRuntimeMemStats(r, 5e9)
+
+	metrics.Log(r, 60e9, log.New(os.Stderr, "metrics: ", log.Lmicroseconds))
 
 	/*
-	w, err := syslog.Dial("unixgram", "/dev/log", syslog.LOG_INFO, "metrics")
-	if nil != err { log.Fatalln(err) }
-	metrics.Syslog(r, 60, w)
+		w, err := syslog.Dial("unixgram", "/dev/log", syslog.LOG_INFO, "metrics")
+		if nil != err { log.Fatalln(err) }
+		metrics.Syslog(r, 60e9, w)
 	*/
 
 }
