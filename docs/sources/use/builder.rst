@@ -15,10 +15,18 @@ steps and commit them along the way, giving you a final image.
 1. Usage
 ========
 
-To use Docker Builder, assemble the steps into a text file (commonly referred to
-as a Dockerfile) and supply this to `docker build` on STDIN, like so:
+To build an image from a source repository, create a description file called `Dockerfile`
+at the root of your repository. This file will describe the steps to assemble
+the image.
 
-    ``docker build - < Dockerfile``
+Then call `docker build` with the path of your source repository as argument:
+
+    ``docker build .``
+
+You can specify a repository and tag at which to save the new image if the
+build succeeds:
+
+    ``docker build -t shykes/myapp .``
 
 Docker will run your steps one-by-one, committing the result if necessary, 
 before finally outputting the ID of your new image.
@@ -40,12 +48,12 @@ Docker will ignore lines in Dockerfiles prefixed with "`#`", so you may add
 comment lines. A comment marker in the rest of the line will be treated as an
 argument.
 
-2. Instructions
+3. Instructions
 ===============
 
 Docker builder comes with a set of instructions, described below.
 
-2.1 FROM
+3.1 FROM
 --------
 
     ``FROM <image>``
@@ -57,7 +65,7 @@ a valid Dockerfile must have it as its first instruction.
 create multiple images. Simply make a note of the last image id output by the 
 commit before each new `FROM` command.
 
-2.2 MAINTAINER
+3.2 MAINTAINER
 --------------
 
     ``MAINTAINER <name>``
@@ -65,7 +73,7 @@ commit before each new `FROM` command.
 The `MAINTAINER` instruction allows you to set the Author field of the generated 
 images.
 
-2.3 RUN
+3.3 RUN
 -------
 
     ``RUN <command>``
@@ -78,7 +86,7 @@ Layering `RUN` instructions and generating commits conforms to the
 core concepts of Docker where commits are cheap and containers can be created
 from any point in an image's history, much like source control.
 
-2.4 CMD
+3.4 CMD
 -------
 
     ``CMD <command>``
@@ -92,7 +100,7 @@ This is functionally equivalent to running
     the result; `CMD` does not execute anything at build time, but specifies the
     intended command for the image.
 
-2.5 EXPOSE
+3.5 EXPOSE
 ----------
 
     ``EXPOSE <port> [<port>...]``
@@ -101,7 +109,7 @@ The `EXPOSE` instruction sets ports to be publicly exposed when running the
 image. This is functionally equivalent to running 
 `docker commit -run '{"PortSpecs": ["<port>", "<port2>"]}'` outside the builder.
 
-2.6 ENV
+3.6 ENV
 -------
 
     ``ENV <key> <value>``
@@ -113,28 +121,53 @@ functionally equivalent to prefixing the command with `<key>=<value>`
 .. note::
     The environment variables will persist when a container is run from the resulting image.
 
-2.7 INSERT
-----------
-
-    ``INSERT <file url> <path>``
-
-The `INSERT` instruction will download the file from the given url to the given
-path within the image. It is similar to `RUN curl -o <path> <url>`, assuming 
-curl was installed within the image.
-
-.. note::
-    The path must include the file name.
-
-2.8 ADD
+3.7 ADD
 -------
 
     ``ADD <src> <dest>``
 
-The `ADD` instruction will insert the files from the `<src>` path of the context into `<dest>` path 
-of the container.
-The context must be set in order to use this instruction. (see examples)
+The `ADD` instruction will copy new files from <src> and add them to the container's filesystem at path `<dest>`.
 
-3. Dockerfile Examples
+`<src>` must be the path to a file or directory relative to the source directory being built (also called the
+context of the build) or a remote file URL.
+
+`<dest>` is the path at which the source will be copied in the destination container.
+
+The copy obeys the following rules:
+
+If `<src>` is a directory, the entire directory is copied, including filesystem metadata.
+
+If `<src>` is a tar archive in a recognized compression format (identity, gzip, bzip2 or xz), it
+is unpacked as a directory.
+
+When a directory is copied or unpacked, it has the same behavior as 'tar -x': the result is the union of
+a) whatever existed at the destination path and b) the contents of the source tree, with conflicts resolved
+in favor of b on a file-by-file basis.
+
+If `<src>` is any other kind of file, it is copied individually along with its metadata. In this case,
+if `<dst>` ends with a trailing slash '/', it will be considered a directory and the contents of `<src>`
+will be written at `<dst>/base(<src>)`.
+If `<dst>` does not end with a trailing slash, it will be considered a regular file and the contents
+of `<src>` will be written at `<dst>`.
+
+If `<dest>` doesn't exist, it is created along with all missing directories in its path. All new
+files and directories are created with mode 0700, uid and gid 0.
+
+3.8 ENTRYPOINT
+-------------
+
+    ``ENTRYPOINT /bin/echo``
+
+The `ENTRYPOINT` instruction adds an entry command that will not be overwritten when arguments are passed to docker run, unlike the behavior of `CMD`.  This allows arguments to be passed to the entrypoint.  i.e. `docker run <image> -d` will pass the "-d" argument to the entrypoint.
+
+3.9 VOLUME
+----------
+
+    ``VOLUME ["/data"]``
+
+The `VOLUME` instruction will add one or more new volumes to any container created from the image.
+
+4. Dockerfile Examples
 ======================
 
 .. code-block:: bash
@@ -151,7 +184,6 @@ The context must be set in order to use this instruction. (see examples)
     RUN apt-get update
     
     RUN apt-get install -y inotify-tools nginx apache2 openssh-server
-    INSERT https://raw.github.com/creack/docker-vps/master/nginx-wrapper.sh /usr/sbin/nginx-wrapper
 
 .. code-block:: bash
 

@@ -7,15 +7,96 @@ import (
 	"fmt"
 	"github.com/dotcloud/docker/auth"
 	"github.com/dotcloud/docker/utils"
-	"github.com/shin-/cookiejar"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
 var ErrAlreadyExists = errors.New("Image already exists")
+var ErrInvalidRepositoryName = errors.New("Invalid repository name (ex: \"registry.domain.tld/myrepos\")")
+
+func pingRegistryEndpoint(endpoint string) error {
+	if endpoint == auth.IndexServerAddress() {
+		// Skip the check, we now this one is valid
+		// (and we never want to fallback to http in case of error)
+		return nil
+	}
+	resp, err := http.Get(endpoint + "_ping")
+	if err != nil {
+		return err
+	}
+	if resp.Header.Get("X-Docker-Registry-Version") == "" {
+		return errors.New("This does not look like a Registry server (\"X-Docker-Registry-Version\" header not found in the response)")
+	}
+	return nil
+}
+
+func validateRepositoryName(repositoryName string) error {
+	var (
+		namespace string
+		name      string
+	)
+	nameParts := strings.SplitN(repositoryName, "/", 2)
+	if len(nameParts) < 2 {
+		namespace = "library"
+		name = nameParts[0]
+	} else {
+		namespace = nameParts[0]
+		name = nameParts[1]
+	}
+	validNamespace := regexp.MustCompile(`^([a-z0-9_]{4,30})$`)
+	if !validNamespace.MatchString(namespace) {
+		return fmt.Errorf("Invalid namespace name (%s), only [a-z0-9_] are allowed, size between 4 and 30", namespace)
+	}
+	validRepo := regexp.MustCompile(`^([a-zA-Z0-9-_.]+)$`)
+	if !validRepo.MatchString(name) {
+		return fmt.Errorf("Invalid repository name (%s), only [a-zA-Z0-9-_.] are allowed", name)
+	}
+	return nil
+}
+
+// Resolves a repository name to a endpoint + name
+func ResolveRepositoryName(reposName string) (string, string, error) {
+	if strings.Contains(reposName, "://") {
+		// It cannot contain a scheme!
+		return "", "", ErrInvalidRepositoryName
+	}
+	nameParts := strings.SplitN(reposName, "/", 2)
+	if !strings.Contains(nameParts[0], ".") && !strings.Contains(nameParts[0], ":") {
+		// This is a Docker Index repos (ex: samalba/hipache or ubuntu)
+		err := validateRepositoryName(reposName)
+		return auth.IndexServerAddress(), reposName, err
+	}
+	if len(nameParts) < 2 {
+		// There is a dot in repos name (and no registry address)
+		// Is it a Registry address without repos name?
+		return "", "", ErrInvalidRepositoryName
+	}
+	hostname := nameParts[0]
+	reposName = nameParts[1]
+	if strings.Contains(hostname, "index.docker.io") {
+		return "", "", fmt.Errorf("Invalid repository name, try \"%s\" instead", reposName)
+	}
+	if err := validateRepositoryName(reposName); err != nil {
+		return "", "", err
+	}
+	endpoint := fmt.Sprintf("https://%s/v1/", hostname)
+	if err := pingRegistryEndpoint(endpoint); err != nil {
+		utils.Debugf("Registry %s does not work (%s), falling back to http", endpoint, err)
+		endpoint = fmt.Sprintf("http://%s/v1/", hostname)
+		if err = pingRegistryEndpoint(endpoint); err != nil {
+			//TODO: triggering highland build can be done there without "failing"
+			return "", "", errors.New("Invalid Registry endpoint: " + err.Error())
+		}
+	}
+	err := validateRepositoryName(reposName)
+	return endpoint, reposName, err
+}
 
 func doWithCookies(c *http.Client, req *http.Request) (*http.Response, error) {
 	for _, cookie := range c.Jar.Cookies(req.URL) {
@@ -26,8 +107,8 @@ func doWithCookies(c *http.Client, req *http.Request) (*http.Response, error) {
 
 // Retrieve the history of a given image from the Registry.
 // Return a list of the parent's json (requested image included)
-func (r *Registry) GetRemoteHistory(imgId, registry string, token []string) ([]string, error) {
-	req, err := http.NewRequest("GET", registry+"/images/"+imgId+"/ancestry", nil)
+func (r *Registry) GetRemoteHistory(imgID, registry string, token []string) ([]string, error) {
+	req, err := http.NewRequest("GET", registry+"images/"+imgID+"/ancestry", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +116,7 @@ func (r *Registry) GetRemoteHistory(imgId, registry string, token []string) ([]s
 	res, err := r.client.Do(req)
 	if err != nil || res.StatusCode != 200 {
 		if res != nil {
-			return nil, fmt.Errorf("Internal server error: %d trying to fetch remote history for %s", res.StatusCode, imgId)
+			return nil, fmt.Errorf("Internal server error: %d trying to fetch remote history for %s", res.StatusCode, imgID)
 		}
 		return nil, err
 	}
@@ -55,91 +136,61 @@ func (r *Registry) GetRemoteHistory(imgId, registry string, token []string) ([]s
 }
 
 // Check if an image exists in the Registry
-func (r *Registry) LookupRemoteImage(imgId, registry string, authConfig *auth.AuthConfig) bool {
+func (r *Registry) LookupRemoteImage(imgID, registry string, token []string) bool {
 	rt := &http.Transport{Proxy: http.ProxyFromEnvironment}
 
-	req, err := http.NewRequest("GET", registry+"/images/"+imgId+"/json", nil)
+	req, err := http.NewRequest("GET", registry+"images/"+imgID+"/json", nil)
 	if err != nil {
 		return false
 	}
-	req.SetBasicAuth(authConfig.Username, authConfig.Password)
 	res, err := rt.RoundTrip(req)
 	if err != nil {
 		return false
 	}
 	res.Body.Close()
-	return res.StatusCode == 307
-}
-
-func (r *Registry) getImagesInRepository(repository string, authConfig *auth.AuthConfig) ([]map[string]string, error) {
-	u := auth.IndexServerAddress() + "/repositories/" + repository + "/images"
-	req, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-	if authConfig != nil && len(authConfig.Username) > 0 {
-		req.SetBasicAuth(authConfig.Username, authConfig.Password)
-	}
-	res, err := r.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	// Repository doesn't exist yet
-	if res.StatusCode == 404 {
-		return nil, nil
-	}
-
-	jsonData, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	imageList := []map[string]string{}
-	if err := json.Unmarshal(jsonData, &imageList); err != nil {
-		utils.Debugf("Body: %s (%s)\n", res.Body, u)
-		return nil, err
-	}
-
-	return imageList, nil
+	return res.StatusCode == 200
 }
 
 // Retrieve an image from the Registry.
-// Returns the Image object as well as the layer as an Archive (io.Reader)
-func (r *Registry) GetRemoteImageJSON(imgId, registry string, token []string) ([]byte, error) {
+func (r *Registry) GetRemoteImageJSON(imgID, registry string, token []string) ([]byte, int, error) {
 	// Get the JSON
-	req, err := http.NewRequest("GET", registry+"/images/"+imgId+"/json", nil)
+	req, err := http.NewRequest("GET", registry+"images/"+imgID+"/json", nil)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to download json: %s", err)
+		return nil, -1, fmt.Errorf("Failed to download json: %s", err)
 	}
 	req.Header.Set("Authorization", "Token "+strings.Join(token, ", "))
 	res, err := r.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to download json: %s", err)
+		return nil, -1, fmt.Errorf("Failed to download json: %s", err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("HTTP code %d", res.StatusCode)
+		return nil, -1, fmt.Errorf("HTTP code %d", res.StatusCode)
 	}
+
+	imageSize, err := strconv.Atoi(res.Header.Get("X-Docker-Size"))
+	if err != nil {
+		return nil, -1, err
+	}
+
 	jsonString, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse downloaded json: %s (%s)", err, jsonString)
+		return nil, -1, fmt.Errorf("Failed to parse downloaded json: %s (%s)", err, jsonString)
 	}
-	return jsonString, nil
+	return jsonString, imageSize, nil
 }
 
-func (r *Registry) GetRemoteImageLayer(imgId, registry string, token []string) (io.ReadCloser, int, error) {
-	req, err := http.NewRequest("GET", registry+"/images/"+imgId+"/layer", nil)
+func (r *Registry) GetRemoteImageLayer(imgID, registry string, token []string) (io.ReadCloser, error) {
+	req, err := http.NewRequest("GET", registry+"images/"+imgID+"/layer", nil)
 	if err != nil {
-		return nil, -1, fmt.Errorf("Error while getting from the server: %s\n", err)
+		return nil, fmt.Errorf("Error while getting from the server: %s\n", err)
 	}
 	req.Header.Set("Authorization", "Token "+strings.Join(token, ", "))
 	res, err := r.client.Do(req)
 	if err != nil {
-		return nil, -1, err
+		return nil, err
 	}
-	return res.Body, int(res.ContentLength), nil
+	return res.Body, nil
 }
 
 func (r *Registry) GetRemoteTags(registries []string, repository string, token []string) (map[string]string, error) {
@@ -149,17 +200,18 @@ func (r *Registry) GetRemoteTags(registries []string, repository string, token [
 		repository = "library/" + repository
 	}
 	for _, host := range registries {
-		endpoint := fmt.Sprintf("https://%s/v1/repositories/%s/tags", host, repository)
-		req, err := http.NewRequest("GET", endpoint, nil)
+		endpoint := fmt.Sprintf("%srepositories/%s/tags", host, repository)
+		req, err := r.opaqueRequest("GET", endpoint, nil)
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Set("Authorization", "Token "+strings.Join(token, ", "))
 		res, err := r.client.Do(req)
-		utils.Debugf("Got status code %d from %s", res.StatusCode, endpoint)
 		if err != nil {
 			return nil, err
 		}
+
+		utils.Debugf("Got status code %d from %s", res.StatusCode, endpoint)
 		defer res.Body.Close()
 
 		if res.StatusCode != 200 && res.StatusCode != 404 {
@@ -181,10 +233,10 @@ func (r *Registry) GetRemoteTags(registries []string, repository string, token [
 	return nil, fmt.Errorf("Could not reach any registry endpoint")
 }
 
-func (r *Registry) GetRepositoryData(remote string) (*RepositoryData, error) {
-	repositoryTarget := auth.IndexServerAddress() + "/repositories/" + remote + "/images"
+func (r *Registry) GetRepositoryData(indexEp, remote string) (*RepositoryData, error) {
+	repositoryTarget := fmt.Sprintf("%srepositories/%s/images", indexEp, remote)
 
-	req, err := http.NewRequest("GET", repositoryTarget, nil)
+	req, err := r.opaqueRequest("GET", repositoryTarget, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -213,8 +265,12 @@ func (r *Registry) GetRepositoryData(remote string) (*RepositoryData, error) {
 	}
 
 	var endpoints []string
+	var urlScheme = indexEp[:strings.Index(indexEp, ":")]
 	if res.Header.Get("X-Docker-Endpoints") != "" {
-		endpoints = res.Header["X-Docker-Endpoints"]
+		// The Registry's URL scheme has to match the Index'
+		for _, ep := range res.Header["X-Docker-Endpoints"] {
+			endpoints = append(endpoints, fmt.Sprintf("%s://%s/v1/", urlScheme, ep))
+		}
 	} else {
 		return nil, fmt.Errorf("Index response didn't contain any endpoints")
 	}
@@ -243,9 +299,8 @@ func (r *Registry) GetRepositoryData(remote string) (*RepositoryData, error) {
 
 // Push a local image to the registry
 func (r *Registry) PushImageJSONRegistry(imgData *ImgData, jsonRaw []byte, registry string, token []string) error {
-	registry = "https://" + registry + "/v1"
 	// FIXME: try json with UTF8
-	req, err := http.NewRequest("PUT", registry+"/images/"+imgData.ID+"/json", strings.NewReader(string(jsonRaw)))
+	req, err := http.NewRequest("PUT", registry+"images/"+imgData.ID+"/json", strings.NewReader(string(jsonRaw)))
 	if err != nil {
 		return err
 	}
@@ -278,9 +333,8 @@ func (r *Registry) PushImageJSONRegistry(imgData *ImgData, jsonRaw []byte, regis
 	return nil
 }
 
-func (r *Registry) PushImageLayerRegistry(imgId string, layer io.Reader, registry string, token []string) error {
-	registry = "https://" + registry + "/v1"
-	req, err := http.NewRequest("PUT", registry+"/images/"+imgId+"/layer", layer)
+func (r *Registry) PushImageLayerRegistry(imgID string, layer io.Reader, registry string, token []string) error {
+	req, err := http.NewRequest("PUT", registry+"images/"+imgID+"/layer", layer)
 	if err != nil {
 		return err
 	}
@@ -303,14 +357,22 @@ func (r *Registry) PushImageLayerRegistry(imgId string, layer io.Reader, registr
 	return nil
 }
 
+func (r *Registry) opaqueRequest(method, urlStr string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, urlStr, body)
+	if err != nil {
+		return nil, err
+	}
+	req.URL.Opaque = strings.Replace(urlStr, req.URL.Scheme+":", "", 1)
+	return req, err
+}
+
 // push a tag on the registry.
 // Remote has the format '<user>/<repo>
 func (r *Registry) PushRegistryTag(remote, revision, tag, registry string, token []string) error {
 	// "jsonify" the string
 	revision = "\"" + revision + "\""
-	registry = "https://" + registry + "/v1"
 
-	req, err := http.NewRequest("PUT", registry+"/repositories/"+remote+"/tags/"+tag, strings.NewReader(revision))
+	req, err := r.opaqueRequest("PUT", registry+"repositories/"+remote+"/tags/"+tag, strings.NewReader(revision))
 	if err != nil {
 		return err
 	}
@@ -328,7 +390,7 @@ func (r *Registry) PushRegistryTag(remote, revision, tag, registry string, token
 	return nil
 }
 
-func (r *Registry) PushImageJSONIndex(remote string, imgList []*ImgData, validate bool) (*RepositoryData, error) {
+func (r *Registry) PushImageJSONIndex(indexEp, remote string, imgList []*ImgData, validate bool, regs []string) (*RepositoryData, error) {
 	imgListJSON, err := json.Marshal(imgList)
 	if err != nil {
 		return nil, err
@@ -338,15 +400,19 @@ func (r *Registry) PushImageJSONIndex(remote string, imgList []*ImgData, validat
 		suffix = "images"
 	}
 
+	u := fmt.Sprintf("%srepositories/%s/%s", indexEp, remote, suffix)
+	utils.Debugf("PUT %s", u)
 	utils.Debugf("Image list pushed to index:\n%s\n", imgListJSON)
-
-	req, err := http.NewRequest("PUT", auth.IndexServerAddress()+"/repositories/"+remote+"/"+suffix, bytes.NewReader(imgListJSON))
+	req, err := r.opaqueRequest("PUT", u, bytes.NewReader(imgListJSON))
 	if err != nil {
 		return nil, err
 	}
 	req.SetBasicAuth(r.authConfig.Username, r.authConfig.Password)
 	req.ContentLength = int64(len(imgListJSON))
 	req.Header.Set("X-Docker-Token", "true")
+	if validate {
+		req.Header["X-Docker-Endpoints"] = regs
+	}
 
 	res, err := r.client.Do(req)
 	if err != nil {
@@ -357,14 +423,16 @@ func (r *Registry) PushImageJSONIndex(remote string, imgList []*ImgData, validat
 	// Redirect if necessary
 	for res.StatusCode >= 300 && res.StatusCode < 400 {
 		utils.Debugf("Redirected to %s\n", res.Header.Get("Location"))
-		req, err = http.NewRequest("PUT", res.Header.Get("Location"), bytes.NewReader(imgListJSON))
+		req, err = r.opaqueRequest("PUT", res.Header.Get("Location"), bytes.NewReader(imgListJSON))
 		if err != nil {
 			return nil, err
 		}
 		req.SetBasicAuth(r.authConfig.Username, r.authConfig.Password)
 		req.ContentLength = int64(len(imgListJSON))
 		req.Header.Set("X-Docker-Token", "true")
-
+		if validate {
+			req.Header["X-Docker-Endpoints"] = regs
+		}
 		res, err = r.client.Do(req)
 		if err != nil {
 			return nil, err
@@ -373,6 +441,7 @@ func (r *Registry) PushImageJSONIndex(remote string, imgList []*ImgData, validat
 	}
 
 	var tokens, endpoints []string
+	var urlScheme = indexEp[:strings.Index(indexEp, ":")]
 	if !validate {
 		if res.StatusCode != 200 && res.StatusCode != 201 {
 			errBody, err := ioutil.ReadAll(res.Body)
@@ -389,7 +458,10 @@ func (r *Registry) PushImageJSONIndex(remote string, imgList []*ImgData, validat
 		}
 
 		if res.Header.Get("X-Docker-Endpoints") != "" {
-			endpoints = res.Header["X-Docker-Endpoints"]
+			// The Registry's URL scheme has to match the Index'
+			for _, ep := range res.Header["X-Docker-Endpoints"] {
+				endpoints = append(endpoints, fmt.Sprintf("%s://%s/v1/", urlScheme, ep))
+			}
 		} else {
 			return nil, fmt.Errorf("Index response didn't contain any endpoints")
 		}
@@ -411,7 +483,7 @@ func (r *Registry) PushImageJSONIndex(remote string, imgList []*ImgData, validat
 }
 
 func (r *Registry) SearchRepositories(term string) (*SearchResults, error) {
-	u := auth.IndexServerAddress() + "/search?q=" + url.QueryEscape(term)
+	u := auth.IndexServerAddress() + "search?q=" + url.QueryEscape(term)
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -431,11 +503,6 @@ func (r *Registry) SearchRepositories(term string) (*SearchResults, error) {
 	result := new(SearchResults)
 	err = json.Unmarshal(rawData, result)
 	return result, err
-}
-
-func (r *Registry) ResetClient(authConfig *auth.AuthConfig) {
-	r.authConfig = authConfig
-	r.client.Jar = cookiejar.NewCookieJar()
 }
 
 func (r *Registry) GetAuthConfig(withPasswd bool) *auth.AuthConfig {
@@ -473,21 +540,18 @@ type Registry struct {
 	authConfig *auth.AuthConfig
 }
 
-func NewRegistry(root string) *Registry {
-	// If the auth file does not exist, keep going
-	authConfig, _ := auth.LoadConfig(root)
-
+func NewRegistry(root string, authConfig *auth.AuthConfig) (r *Registry, err error) {
 	httpTransport := &http.Transport{
 		DisableKeepAlives: true,
-		Proxy: http.ProxyFromEnvironment,
+		Proxy:             http.ProxyFromEnvironment,
 	}
 
-	r := &Registry{
+	r = &Registry{
 		authConfig: authConfig,
 		client: &http.Client{
 			Transport: httpTransport,
 		},
 	}
-	r.client.Jar = cookiejar.NewCookieJar()
-	return r
+	r.client.Jar, err = cookiejar.New(nil)
+	return r, err
 }

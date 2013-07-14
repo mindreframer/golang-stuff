@@ -10,6 +10,7 @@ import (
 	"index/suffixarray"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -70,23 +71,23 @@ type progressReader struct {
 	readProgress int           // How much has been read so far (bytes)
 	lastUpdate   int           // How many bytes read at least update
 	template     string        // Template to print. Default "%v/%v (%v)"
-	sf *StreamFormatter
+	sf           *StreamFormatter
 }
 
 func (r *progressReader) Read(p []byte) (n int, err error) {
 	read, err := io.ReadCloser(r.reader).Read(p)
 	r.readProgress += read
 
-	updateEvery := 4096
+	updateEvery := 1024 * 512 //512kB
 	if r.readTotal > 0 {
-		// Only update progress for every 1% read
-		if increment := int(0.01 * float64(r.readTotal)); increment > updateEvery {
+		// Update progress for every 1% read if 1% < 512kB
+		if increment := int(0.01 * float64(r.readTotal)); increment < updateEvery {
 			updateEvery = increment
 		}
 	}
 	if r.readProgress-r.lastUpdate > updateEvery || err != nil {
 		if r.readTotal > 0 {
-			fmt.Fprintf(r.output, r.template, r.readProgress, r.readTotal, fmt.Sprintf("%.0f%%", float64(r.readProgress)/float64(r.readTotal)*100))
+			fmt.Fprintf(r.output, r.template, HumanSize(int64(r.readProgress)), HumanSize(int64(r.readTotal)), fmt.Sprintf("%.0f%%", float64(r.readProgress)/float64(r.readTotal)*100))
 		} else {
 			fmt.Fprintf(r.output, r.template, r.readProgress, "?", "n/a")
 		}
@@ -103,9 +104,9 @@ func (r *progressReader) Close() error {
 	return io.ReadCloser(r.reader).Close()
 }
 func ProgressReader(r io.ReadCloser, size int, output io.Writer, template []byte, sf *StreamFormatter) *progressReader {
-      	tpl := string(template)
+	tpl := string(template)
 	if tpl == "" {
-		tpl = string(sf.FormatProgress("", "%v/%v (%v)"))
+		tpl = string(sf.FormatProgress("", "%8v/%v (%v)"))
 	}
 	return &progressReader{r, NewWriteFlusher(output), size, 0, 0, tpl, sf}
 }
@@ -132,7 +133,21 @@ func HumanDuration(d time.Duration) string {
 	} else if hours < 24*365*2 {
 		return fmt.Sprintf("%d months", hours/24/30)
 	}
-	return fmt.Sprintf("%d years", d.Hours()/24/365)
+	return fmt.Sprintf("%f years", d.Hours()/24/365)
+}
+
+// HumanSize returns a human-readable approximation of a size
+// using SI standard (eg. "44kB", "17MB")
+func HumanSize(size int64) string {
+	i := 0
+	var sizef float64
+	sizef = float64(size)
+	units := []string{"B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"}
+	for sizef >= 1000.0 {
+		sizef = sizef / 1000.0
+		i++
+	}
+	return fmt.Sprintf("%.4g %s", sizef, units[i])
 }
 
 func Trunc(s string, maxlen int) string {
@@ -155,10 +170,9 @@ func SelfPath() string {
 	return path
 }
 
-type NopWriter struct {
-}
+type NopWriter struct{}
 
-func (w *NopWriter) Write(buf []byte) (int, error) {
+func (*NopWriter) Write(buf []byte) (int, error) {
 	return len(buf), nil
 }
 
@@ -173,10 +187,10 @@ func NopWriteCloser(w io.Writer) io.WriteCloser {
 }
 
 type bufReader struct {
+	sync.Mutex
 	buf    *bytes.Buffer
 	reader io.Reader
 	err    error
-	l      sync.Mutex
 	wait   sync.Cond
 }
 
@@ -185,7 +199,7 @@ func NewBufReader(r io.Reader) *bufReader {
 		buf:    &bytes.Buffer{},
 		reader: r,
 	}
-	reader.wait.L = &reader.l
+	reader.wait.L = &reader.Mutex
 	go reader.drain()
 	return reader
 }
@@ -194,14 +208,14 @@ func (r *bufReader) drain() {
 	buf := make([]byte, 1024)
 	for {
 		n, err := r.reader.Read(buf)
-		r.l.Lock()
+		r.Lock()
 		if err != nil {
 			r.err = err
 		} else {
 			r.buf.Write(buf[0:n])
 		}
 		r.wait.Signal()
-		r.l.Unlock()
+		r.Unlock()
 		if err != nil {
 			break
 		}
@@ -209,8 +223,8 @@ func (r *bufReader) drain() {
 }
 
 func (r *bufReader) Read(p []byte) (n int, err error) {
-	r.l.Lock()
-	defer r.l.Unlock()
+	r.Lock()
+	defer r.Unlock()
 	for {
 		n, err = r.buf.Read(p)
 		if n > 0 {
@@ -221,7 +235,6 @@ func (r *bufReader) Read(p []byte) (n int, err error) {
 		}
 		r.wait.Wait()
 	}
-	panic("unreachable")
 }
 
 func (r *bufReader) Close() error {
@@ -233,27 +246,27 @@ func (r *bufReader) Close() error {
 }
 
 type WriteBroadcaster struct {
-	mu      sync.Mutex
+	sync.Mutex
 	writers map[io.WriteCloser]struct{}
 }
 
 func (w *WriteBroadcaster) AddWriter(writer io.WriteCloser) {
-	w.mu.Lock()
+	w.Lock()
 	w.writers[writer] = struct{}{}
-	w.mu.Unlock()
+	w.Unlock()
 }
 
 // FIXME: Is that function used?
 // FIXME: This relies on the concrete writer type used having equality operator
 func (w *WriteBroadcaster) RemoveWriter(writer io.WriteCloser) {
-	w.mu.Lock()
+	w.Lock()
 	delete(w.writers, writer)
-	w.mu.Unlock()
+	w.Unlock()
 }
 
 func (w *WriteBroadcaster) Write(p []byte) (n int, err error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Lock()
+	defer w.Unlock()
 	for writer := range w.writers {
 		if n, err := writer.Write(p); err != nil || n != len(p) {
 			// On error, evict the writer
@@ -264,8 +277,8 @@ func (w *WriteBroadcaster) Write(p []byte) (n int, err error) {
 }
 
 func (w *WriteBroadcaster) CloseWriters() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Lock()
+	defer w.Unlock()
 	for writer := range w.writers {
 		writer.Close()
 	}
@@ -514,7 +527,9 @@ func GetKernelVersion() (*KernelVersionInfo, error) {
 	}
 
 	if len(tmp2) > 2 {
-		minor, err = strconv.Atoi(tmp2[2])
+		// Removes "+" because git kernels might set it
+		minorUnparsed := strings.Trim(tmp2[2], "+")
+		minor, err = strconv.Atoi(minorUnparsed)
 		if err != nil {
 			return nil, err
 		}
@@ -534,6 +549,7 @@ func GetKernelVersion() (*KernelVersionInfo, error) {
 	}, nil
 }
 
+// FIXME: this is deprecated by CopyWithTar in archive.go
 func CopyDirectory(source, dest string) error {
 	if output, err := exec.Command("cp", "-ra", source, dest).CombinedOutput(); err != nil {
 		return fmt.Errorf("Error copy: %s (%s)", err, output)
@@ -585,7 +601,7 @@ func (sf *StreamFormatter) FormatStatus(format string, a ...interface{}) []byte 
 	sf.used = true
 	str := fmt.Sprintf(format, a...)
 	if sf.json {
-		b, err := json.Marshal(&JSONMessage{Status:str});
+		b, err := json.Marshal(&JSONMessage{Status: str})
 		if err != nil {
 			return sf.FormatError(err)
 		}
@@ -597,7 +613,7 @@ func (sf *StreamFormatter) FormatStatus(format string, a ...interface{}) []byte 
 func (sf *StreamFormatter) FormatError(err error) []byte {
 	sf.used = true
 	if sf.json {
-		if b, err := json.Marshal(&JSONMessage{Error:err.Error()}); err == nil {
+		if b, err := json.Marshal(&JSONMessage{Error: err.Error()}); err == nil {
 			return b
 		}
 		return []byte("{\"error\":\"format error\"}")
@@ -608,10 +624,10 @@ func (sf *StreamFormatter) FormatError(err error) []byte {
 func (sf *StreamFormatter) FormatProgress(action, str string) []byte {
 	sf.used = true
 	if sf.json {
-		b, err := json.Marshal(&JSONMessage{Status: action, Progress:str})
+		b, err := json.Marshal(&JSONMessage{Status: action, Progress: str})
 		if err != nil {
-                        return nil
-                }
+			return nil
+		}
 		return b
 	}
 	return []byte(action + " " + str + "\r")
@@ -619,4 +635,68 @@ func (sf *StreamFormatter) FormatProgress(action, str string) []byte {
 
 func (sf *StreamFormatter) Used() bool {
 	return sf.used
+}
+
+func IsURL(str string) bool {
+	return strings.HasPrefix(str, "http://") || strings.HasPrefix(str, "https://")
+}
+
+func IsGIT(str string) bool {
+	return strings.HasPrefix(str, "git://") || strings.HasPrefix(str, "github.com/")
+}
+
+func CheckLocalDns() bool {
+	resolv, err := ioutil.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		Debugf("Error openning resolv.conf: %s", err)
+		return false
+	}
+	for _, ip := range []string{
+		"127.0.0.1",
+		"127.0.1.1",
+	} {
+		if strings.Contains(string(resolv), ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func ParseHost(host string, port int, addr string) string {
+	if strings.HasPrefix(addr, "unix://") {
+		return addr
+	}
+	if strings.HasPrefix(addr, "tcp://") {
+		addr = strings.TrimPrefix(addr, "tcp://")
+	}
+	if strings.Contains(addr, ":") {
+		hostParts := strings.Split(addr, ":")
+		if len(hostParts) != 2 {
+			log.Fatal("Invalid bind address format.")
+			os.Exit(-1)
+		}
+		if hostParts[0] != "" {
+			host = hostParts[0]
+		}
+		if p, err := strconv.Atoi(hostParts[1]); err == nil {
+			port = p
+		}
+	} else {
+		host = addr
+	}
+	return fmt.Sprintf("tcp://%s:%d", host, port)
+}
+
+// Get a repos name and returns the right reposName + tag
+// The tag can be confusing because of a port in a repository name.
+//     Ex: localhost.localdomain:5000/samalba/hipache:latest
+func ParseRepositoryTag(repos string) (string, string) {
+	n := strings.LastIndex(repos, ":")
+	if n < 0 {
+		return repos, ""
+	}
+	if tag := repos[n+1:]; !strings.Contains(tag, "/") {
+		return repos[:n], tag
+	}
+	return repos, ""
 }

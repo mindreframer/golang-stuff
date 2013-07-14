@@ -7,13 +7,19 @@ import (
 	"github.com/dotcloud/docker/utils"
 	"github.com/gorilla/mux"
 	"io"
+	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
 
-const APIVERSION = 1.1
+const APIVERSION = 1.3
+const DEFAULTHTTPHOST string = "127.0.0.1"
+const DEFAULTHTTPPORT int = 4243
 
 func hijackServer(w http.ResponseWriter) (io.ReadCloser, io.Writer, error) {
 	conn, _, err := w.(http.Hijacker).Hijack()
@@ -41,15 +47,22 @@ func parseMultipartForm(r *http.Request) error {
 }
 
 func httpError(w http.ResponseWriter, err error) {
+	statusCode := http.StatusInternalServerError
 	if strings.HasPrefix(err.Error(), "No such") {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		statusCode = http.StatusNotFound
 	} else if strings.HasPrefix(err.Error(), "Bad parameter") {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		statusCode = http.StatusBadRequest
+	} else if strings.HasPrefix(err.Error(), "Conflict") {
+		statusCode = http.StatusConflict
 	} else if strings.HasPrefix(err.Error(), "Impossible") {
-		http.Error(w, err.Error(), http.StatusNotAcceptable)
-	} else {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		statusCode = http.StatusNotAcceptable
+	} else if strings.HasPrefix(err.Error(), "Wrong login/password") {
+		statusCode = http.StatusUnauthorized
+	} else if strings.Contains(err.Error(), "hasn't been activated") {
+		statusCode = http.StatusForbidden
 	}
+	utils.Debugf("[error %d] %s", statusCode, err)
+	http.Error(w, err.Error(), statusCode)
 }
 
 func writeJSON(w http.ResponseWriter, b []byte) {
@@ -57,20 +70,22 @@ func writeJSON(w http.ResponseWriter, b []byte) {
 	w.Write(b)
 }
 
-// FIXME: Use stvconv.ParseBool() instead?
 func getBoolParam(value string) (bool, error) {
-	if value == "1" || strings.ToLower(value) == "true" {
-		return true, nil
-	}
-	if value == "" || value == "0" || strings.ToLower(value) == "false" {
+	if value == "" {
 		return false, nil
 	}
-	return false, fmt.Errorf("Bad parameter")
+	ret, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("Bad parameter")
+	}
+	return ret, nil
 }
 
 func getAuth(srv *Server, version float64, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	// FIXME: Handle multiple login at once
-	// FIXME: return specific error code if config file missing?
+	if version > 1.1 {
+		w.WriteHeader(http.StatusNotFound)
+		return nil
+	}
 	authConfig, err := auth.LoadConfig(srv.runtime.root)
 	if err != nil {
 		if err != auth.ErrConfigFileMissing {
@@ -87,29 +102,34 @@ func getAuth(srv *Server, version float64, w http.ResponseWriter, r *http.Reques
 }
 
 func postAuth(srv *Server, version float64, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	// FIXME: Handle multiple login at once
-	config := &auth.AuthConfig{}
-	if err := json.NewDecoder(r.Body).Decode(config); err != nil {
+	authConfig := &auth.AuthConfig{}
+	err := json.NewDecoder(r.Body).Decode(authConfig)
+	if err != nil {
 		return err
 	}
-
-	authConfig, err := auth.LoadConfig(srv.runtime.root)
-	if err != nil {
-		if err != auth.ErrConfigFileMissing {
+	status := ""
+	if version > 1.1 {
+		status, err = auth.Login(authConfig, false)
+		if err != nil {
 			return err
 		}
-		authConfig = &auth.AuthConfig{}
-	}
-	if config.Username == authConfig.Username {
-		config.Password = authConfig.Password
-	}
+	} else {
+		localAuthConfig, err := auth.LoadConfig(srv.runtime.root)
+		if err != nil {
+			if err != auth.ErrConfigFileMissing {
+				return err
+			}
+		}
+		if authConfig.Username == localAuthConfig.Username {
+			authConfig.Password = localAuthConfig.Password
+		}
 
-	newAuthConfig := auth.NewAuthConfig(config.Username, config.Password, config.Email, srv.runtime.root)
-	status, err := auth.Login(newAuthConfig)
-	if err != nil {
-		return err
+		newAuthConfig := auth.NewAuthConfig(authConfig.Username, authConfig.Password, authConfig.Email, srv.runtime.root)
+		status, err = auth.Login(newAuthConfig, true)
+		if err != nil {
+			return err
+		}
 	}
-
 	if status != "" {
 		b, err := json.Marshal(&APIAuth{Status: status})
 		if err != nil {
@@ -151,7 +171,7 @@ func getContainersExport(srv *Server, version float64, w http.ResponseWriter, r 
 	name := vars["name"]
 
 	if err := srv.ContainerExport(name, w); err != nil {
-		utils.Debugf("%s", err.Error())
+		utils.Debugf("%s", err)
 		return err
 	}
 	return nil
@@ -231,11 +251,32 @@ func getContainersChanges(srv *Server, version float64, w http.ResponseWriter, r
 	return nil
 }
 
+func getContainersTop(srv *Server, version float64, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	if vars == nil {
+		return fmt.Errorf("Missing parameter")
+	}
+	name := vars["name"]
+	procsStr, err := srv.ContainerTop(name)
+	if err != nil {
+		return err
+	}
+	b, err := json.Marshal(procsStr)
+	if err != nil {
+		return err
+	}
+	writeJSON(w, b)
+	return nil
+}
+
 func getContainersJSON(srv *Server, version float64, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := parseForm(r); err != nil {
 		return err
 	}
 	all, err := getBoolParam(r.Form.Get("all"))
+	if err != nil {
+		return err
+	}
+	size, err := getBoolParam(r.Form.Get("size"))
 	if err != nil {
 		return err
 	}
@@ -246,7 +287,7 @@ func getContainersJSON(srv *Server, version float64, w http.ResponseWriter, r *h
 		n = -1
 	}
 
-	outs := srv.Containers(all, n, since, before)
+	outs := srv.Containers(all, size, n, since, before)
 	b, err := json.Marshal(outs)
 	if err != nil {
 		return err
@@ -283,7 +324,7 @@ func postCommit(srv *Server, version float64, w http.ResponseWriter, r *http.Req
 	}
 	config := &Config{}
 	if err := json.NewDecoder(r.Body).Decode(config); err != nil {
-		utils.Debugf("%s", err.Error())
+		utils.Debugf("%s", err)
 	}
 	repo := r.Form.Get("repo")
 	tag := r.Form.Get("tag")
@@ -319,8 +360,7 @@ func postImagesCreate(srv *Server, version float64, w http.ResponseWriter, r *ht
 	}
 	sf := utils.NewStreamFormatter(version > 1.0)
 	if image != "" { //pull
-		registry := r.Form.Get("registry")
-		if err := srv.ImagePull(image, tag, registry, w, sf); err != nil {
+		if err := srv.ImagePull(image, tag, w, sf, &auth.AuthConfig{}); err != nil {
 			if sf.Used() {
 				w.Write(sf.FormatError(err))
 				return nil
@@ -388,10 +428,21 @@ func postImagesInsert(srv *Server, version float64, w http.ResponseWriter, r *ht
 }
 
 func postImagesPush(srv *Server, version float64, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	authConfig := &auth.AuthConfig{}
+	if version > 1.1 {
+		if err := json.NewDecoder(r.Body).Decode(authConfig); err != nil {
+			return err
+		}
+	} else {
+		localAuthConfig, err := auth.LoadConfig(srv.runtime.root)
+		if err != nil && err != auth.ErrConfigFileMissing {
+			return err
+		}
+		authConfig = localAuthConfig
+	}
 	if err := parseForm(r); err != nil {
 		return err
 	}
-	registry := r.Form.Get("registry")
 
 	if vars == nil {
 		return fmt.Errorf("Missing parameter")
@@ -401,7 +452,7 @@ func postImagesPush(srv *Server, version float64, w http.ResponseWriter, r *http
 		w.Header().Set("Content-Type", "application/json")
 	}
 	sf := utils.NewStreamFormatter(version > 1.0)
-	if err := srv.ImagePush(name, registry, w, sf); err != nil {
+	if err := srv.ImagePush(name, w, sf, authConfig); err != nil {
 		if sf.Used() {
 			w.Write(sf.FormatError(err))
 			return nil
@@ -413,17 +464,23 @@ func postImagesPush(srv *Server, version float64, w http.ResponseWriter, r *http
 
 func postContainersCreate(srv *Server, version float64, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	config := &Config{}
+	out := &APIRun{}
+
 	if err := json.NewDecoder(r.Body).Decode(config); err != nil {
 		return err
 	}
+
+	if len(config.Dns) == 0 && len(srv.runtime.Dns) == 0 && utils.CheckLocalDns() {
+		out.Warnings = append(out.Warnings, fmt.Sprintf("Docker detected local DNS server on resolv.conf. Using default external servers: %v", defaultDns))
+		config.Dns = defaultDns
+	}
+
 	id, err := srv.ContainerCreate(config)
 	if err != nil {
 		return err
 	}
+	out.ID = id
 
-	out := &APIRun{
-		ID: id,
-	}
 	if config.Memory > 0 && !srv.runtime.capabilities.MemoryLimit {
 		log.Println("WARNING: Your kernel does not support memory limit capabilities. Limitation discarded.")
 		out.Warnings = append(out.Warnings, "Your kernel does not support memory limit capabilities. Limitation discarded.")
@@ -432,6 +489,7 @@ func postContainersCreate(srv *Server, version float64, w http.ResponseWriter, r
 		log.Println("WARNING: Your kernel does not support swap limit capabilities. Limitation discarded.")
 		out.Warnings = append(out.Warnings, "Your kernel does not support memory swap capabilities. Limitation discarded.")
 	}
+
 	b, err := json.Marshal(out)
 	if err != nil {
 		return err
@@ -481,23 +539,50 @@ func deleteContainers(srv *Server, version float64, w http.ResponseWriter, r *ht
 }
 
 func deleteImages(srv *Server, version float64, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	if err := parseForm(r); err != nil {
+		return err
+	}
 	if vars == nil {
 		return fmt.Errorf("Missing parameter")
 	}
 	name := vars["name"]
-	if err := srv.ImageDelete(name); err != nil {
+	imgs, err := srv.ImageDelete(name, version > 1.1)
+	if err != nil {
 		return err
 	}
-	w.WriteHeader(http.StatusNoContent)
+	if imgs != nil {
+		if len(imgs) != 0 {
+			b, err := json.Marshal(imgs)
+			if err != nil {
+				return err
+			}
+			writeJSON(w, b)
+		} else {
+			return fmt.Errorf("Conflict, %s wasn't deleted", name)
+		}
+	} else {
+		w.WriteHeader(http.StatusNoContent)
+	}
 	return nil
 }
 
 func postContainersStart(srv *Server, version float64, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	hostConfig := &HostConfig{}
+
+	// allow a nil body for backwards compatibility
+	if r.Body != nil {
+		if r.Header.Get("Content-Type") == "application/json" {
+			if err := json.NewDecoder(r.Body).Decode(hostConfig); err != nil {
+				return err
+			}
+		}
+	}
+
 	if vars == nil {
 		return fmt.Errorf("Missing parameter")
 	}
 	name := vars["name"]
-	if err := srv.ContainerStart(name); err != nil {
+	if err := srv.ContainerStart(name, hostConfig); err != nil {
 		return err
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -602,7 +687,20 @@ func postContainersAttach(srv *Server, version float64, w http.ResponseWriter, r
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() {
+		if tcpc, ok := in.(*net.TCPConn); ok {
+			tcpc.CloseWrite()
+		} else {
+			in.Close()
+		}
+	}()
+	defer func() {
+		if tcpc, ok := out.(*net.TCPConn); ok {
+			tcpc.CloseWrite()
+		} else if closer, ok := out.(io.Closer); ok {
+			closer.Close()
+		}
+	}()
 
 	fmt.Fprintf(out, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.docker.raw-stream\r\n\r\n")
 	if err := srv.ContainerAttach(name, logs, stream, stdin, stdout, stderr, in, out); err != nil {
@@ -671,34 +769,65 @@ func postImagesGetCache(srv *Server, version float64, w http.ResponseWriter, r *
 }
 
 func postBuild(srv *Server, version float64, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	if err := r.ParseMultipartForm(4096); err != nil {
-		return err
+	if version < 1.3 {
+		return fmt.Errorf("Multipart upload for build is no longer supported. Please upgrade your docker client.")
 	}
-	remote := r.FormValue("t")
+	remoteURL := r.FormValue("remote")
+	repoName := r.FormValue("t")
 	tag := ""
-	if strings.Contains(remote, ":") {
-		remoteParts := strings.Split(remote, ":")
+	if strings.Contains(repoName, ":") {
+		remoteParts := strings.Split(repoName, ":")
 		tag = remoteParts[1]
-		remote = remoteParts[0]
+		repoName = remoteParts[0]
 	}
 
-	dockerfile, _, err := r.FormFile("Dockerfile")
-	if err != nil {
-		return err
-	}
+	var context io.Reader
 
-	context, _, err := r.FormFile("Context")
-	if err != nil {
-		if err != http.ErrMissingFile {
+	if remoteURL == "" {
+		context = r.Body
+	} else if utils.IsGIT(remoteURL) {
+		if !strings.HasPrefix(remoteURL, "git://") {
+			remoteURL = "https://" + remoteURL
+		}
+		root, err := ioutil.TempDir("", "docker-build-git")
+		if err != nil {
 			return err
 		}
-	}
+		defer os.RemoveAll(root)
 
+		if output, err := exec.Command("git", "clone", remoteURL, root).CombinedOutput(); err != nil {
+			return fmt.Errorf("Error trying to use git: %s (%s)", err, output)
+		}
+
+		c, err := Tar(root, Bzip2)
+		if err != nil {
+			return err
+		}
+		context = c
+	} else if utils.IsURL(remoteURL) {
+		f, err := utils.Download(remoteURL, ioutil.Discard)
+		if err != nil {
+			return err
+		}
+		defer f.Body.Close()
+		dockerFile, err := ioutil.ReadAll(f.Body)
+		if err != nil {
+			return err
+		}
+		c, err := mkBuildContext(string(dockerFile), nil)
+		if err != nil {
+			return err
+		}
+		context = c
+	}
 	b := NewBuildFile(srv, utils.NewWriteFlusher(w))
-	if id, err := b.Build(dockerfile, context); err != nil {
+	id, err := b.Build(context)
+	if err != nil {
 		fmt.Fprintf(w, "Error build: %s\n", err)
-	} else if remote != "" {
-		srv.runtime.repositories.Set(remote, tag, id, false)
+		return err
+	}
+	if repoName != "" {
+		srv.runtime.repositories.Set(repoName, tag, id, false)
 	}
 	return nil
 }
@@ -731,6 +860,7 @@ func createRouter(srv *Server, logging bool) (*mux.Router, error) {
 			"/containers/{name:.*}/export":  getContainersExport,
 			"/containers/{name:.*}/changes": getContainersChanges,
 			"/containers/{name:.*}/json":    getContainersByName,
+			"/containers/{name:.*}/top":     getContainersTop,
 		},
 		"POST": {
 			"/auth":                         postAuth,
@@ -767,7 +897,8 @@ func createRouter(srv *Server, logging bool) (*mux.Router, error) {
 			localMethod := method
 			localFct := fct
 			f := func(w http.ResponseWriter, r *http.Request) {
-				utils.Debugf("Calling %s %s", localMethod, localRoute)
+				utils.Debugf("Calling %s %s from %s", localMethod, localRoute, r.RemoteAddr)
+
 				if logging {
 					log.Println(r.Method, r.RequestURI)
 				}
@@ -788,6 +919,7 @@ func createRouter(srv *Server, logging bool) (*mux.Router, error) {
 					w.WriteHeader(http.StatusNotFound)
 					return
 				}
+
 				if err := localFct(srv, version, w, r, mux.Vars(r)); err != nil {
 					httpError(w, err)
 				}
@@ -804,12 +936,21 @@ func createRouter(srv *Server, logging bool) (*mux.Router, error) {
 	return r, nil
 }
 
-func ListenAndServe(addr string, srv *Server, logging bool) error {
-	log.Printf("Listening for HTTP on %s\n", addr)
+func ListenAndServe(proto, addr string, srv *Server, logging bool) error {
+	log.Printf("Listening for HTTP on %s (%s)\n", addr, proto)
 
 	r, err := createRouter(srv, logging)
 	if err != nil {
 		return err
 	}
-	return http.ListenAndServe(addr, r)
+	l, e := net.Listen(proto, addr)
+	if e != nil {
+		return e
+	}
+	//as the daemon is launched as root, change to permission of the socket to allow non-root to connect
+	if proto == "unix" {
+		os.Chmod(addr, 0777)
+	}
+	httpSrv := http.Server{Addr: addr, Handler: r}
+	return httpSrv.Serve(l)
 }

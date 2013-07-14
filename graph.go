@@ -90,6 +90,15 @@ func (graph *Graph) Get(name string) (*Image, error) {
 		return nil, fmt.Errorf("Image stored at '%s' has wrong id '%s'", id, img.ID)
 	}
 	img.graph = graph
+	if img.Size == 0 {
+		root, err := img.root()
+		if err != nil {
+			return nil, err
+		}
+		if err := StoreSize(img, root); err != nil {
+			return nil, err
+		}
+	}
 	graph.lockSumMap.Lock()
 	defer graph.lockSumMap.Unlock()
 	if _, exists := graph.checksumLock[img.ID]; !exists {
@@ -153,7 +162,7 @@ func (graph *Graph) Register(layerData Archive, store bool, img *Image) error {
 //   The archive is stored on disk and will be automatically deleted as soon as has been read.
 //   If output is not nil, a human-readable progress bar will be written to it.
 //   FIXME: does this belong in Graph? How about MktempFile, let the caller use it for archives?
-func (graph *Graph) TempLayerArchive(id string, compression Compression, output io.Writer) (*TempArchive, error) {
+func (graph *Graph) TempLayerArchive(id string, compression Compression, sf *utils.StreamFormatter, output io.Writer) (*TempArchive, error) {
 	image, err := graph.Get(id)
 	if err != nil {
 		return nil, err
@@ -166,7 +175,6 @@ func (graph *Graph) TempLayerArchive(id string, compression Compression, output 
 	if err != nil {
 		return nil, err
 	}
-	sf := utils.NewStreamFormatter(false)
 	return NewTempArchive(utils.ProgressReader(ioutil.NopCloser(archive), 0, output, sf.FormatProgress("Buffering to disk", "%v/%v (%v)"), sf), tmp.Root)
 }
 
@@ -180,7 +188,7 @@ func (graph *Graph) Mktemp(id string) (string, error) {
 		return "", fmt.Errorf("Couldn't create temp: %s", err)
 	}
 	if tmp.Exists(id) {
-		return "", fmt.Errorf("Image %d already exists", id)
+		return "", fmt.Errorf("Image %s already exists", id)
 	}
 	return tmp.imageRoot(id), nil
 }

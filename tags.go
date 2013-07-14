@@ -70,11 +70,11 @@ func (store *TagStore) LookupImage(name string) (*Image, error) {
 	if err != nil {
 		// FIXME: standardize on returning nil when the image doesn't exist, and err for everything else
 		// (so we can pass all errors here)
-		repoAndTag := strings.SplitN(name, ":", 2)
-		if len(repoAndTag) == 1 {
-			repoAndTag = append(repoAndTag, DEFAULTTAG)
+		repos, tag := utils.ParseRepositoryTag(name)
+		if tag == "" {
+			tag = DEFAULTTAG
 		}
-		if i, err := store.GetImage(repoAndTag[0], repoAndTag[1]); err != nil {
+		if i, err := store.GetImage(repos, tag); err != nil {
 			return nil, err
 		} else if i == nil {
 			return nil, fmt.Errorf("Image does not exist: %s", name)
@@ -110,6 +110,52 @@ func (store *TagStore) ImageName(id string) string {
 	return utils.TruncateID(id)
 }
 
+func (store *TagStore) DeleteAll(id string) error {
+	names, exists := store.ByID()[id]
+	if !exists || len(names) == 0 {
+		return nil
+	}
+	for _, name := range names {
+		if strings.Contains(name, ":") {
+			nameParts := strings.Split(name, ":")
+			if _, err := store.Delete(nameParts[0], nameParts[1]); err != nil {
+				return err
+			}
+		} else {
+			if _, err := store.Delete(name, ""); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (store *TagStore) Delete(repoName, tag string) (bool, error) {
+	deleted := false
+	if err := store.Reload(); err != nil {
+		return false, err
+	}
+	if r, exists := store.Repositories[repoName]; exists {
+		if tag != "" {
+			if _, exists2 := r[tag]; exists2 {
+				delete(r, tag)
+				if len(r) == 0 {
+					delete(store.Repositories, repoName)
+				}
+				deleted = true
+			} else {
+				return false, fmt.Errorf("No such tag: %s:%s", repoName, tag)
+			}
+		} else {
+			delete(store.Repositories, repoName)
+			deleted = true
+		}
+	} else {
+		fmt.Errorf("No such repository: %s", repoName)
+	}
+	return deleted, store.Save()
+}
+
 func (store *TagStore) Set(repoName, tag, imageName string, force bool) error {
 	img, err := store.LookupImage(imageName)
 	if err != nil {
@@ -133,7 +179,7 @@ func (store *TagStore) Set(repoName, tag, imageName string, force bool) error {
 	} else {
 		repo = make(map[string]string)
 		if old, exists := store.Repositories[repoName]; exists && !force {
-			return fmt.Errorf("Tag %s:%s is already set to %s", repoName, tag, old)
+			return fmt.Errorf("Conflict: Tag %s:%s is already set to %s", repoName, tag, old)
 		}
 		store.Repositories[repoName] = repo
 	}
@@ -151,15 +197,21 @@ func (store *TagStore) Get(repoName string) (Repository, error) {
 	return nil, nil
 }
 
-func (store *TagStore) GetImage(repoName, tag string) (*Image, error) {
+func (store *TagStore) GetImage(repoName, tagOrID string) (*Image, error) {
 	repo, err := store.Get(repoName)
 	if err != nil {
 		return nil, err
 	} else if repo == nil {
 		return nil, nil
 	}
-	if revision, exists := repo[tag]; exists {
+	if revision, exists := repo[tagOrID]; exists {
 		return store.graph.Get(revision)
+	}
+	// If no matching tag is found, search through images for a matching image id
+	for _, revision := range repo {
+		if strings.HasPrefix(revision, tagOrID) {
+			return store.graph.Get(revision)
+		}
 	}
 	return nil, nil
 }
@@ -168,9 +220,6 @@ func (store *TagStore) GetImage(repoName, tag string) (*Image, error) {
 func validateRepoName(name string) error {
 	if name == "" {
 		return fmt.Errorf("Repository name can't be empty")
-	}
-	if strings.Contains(name, ":") {
-		return fmt.Errorf("Illegal repository name: %s", name)
 	}
 	return nil
 }

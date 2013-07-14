@@ -1,21 +1,21 @@
 :title: Working With Repositories
-:description: Generally, there are two types of repositories: Top-level repositories which are controlled by the people behind Docker, and user repositories.
+:description: Repositories allow users to share images.
 :keywords: repo, repositiores, usage, pull image, push image, image, documentation
 
 .. _working_with_the_repository:
 
-Working with the Repository
-===========================
+Working with Repositories
+=========================
 
 
 Top-level repositories and user repositories
 --------------------------------------------
 
-Generally, there are two types of repositories: Top-level repositories which are controlled by the people behind
-Docker, and user repositories.
+Generally, there are two types of repositories: Top-level repositories
+which are controlled by the people behind Docker, and user
+repositories.
 
-* Top-level repositories can easily be recognized by not having a ``/`` (slash) in their name. These repositories can
-  generally be trusted.
+* Top-level repositories can easily be recognized by not having a ``/`` (slash) in their name. These repositories can  generally be trusted.
 * User repositories always come in the form of ``<username>/<repo_name>``. This is what your published images will look like.
 * User images are not checked, it is therefore up to you whether or not you trust the creator of this image.
 
@@ -76,4 +76,29 @@ Now you can commit this image to the repository
 
     # for example docker push dhrp/kickassapp
     docker push <image-name>
+
+
+Changing the server to connect to
+----------------------------------
+
+When you are running your own index and/or registry, You can change the server the docker client will connect to.
+
+Variable
+^^^^^^^^
+
+.. code-block:: sh
+
+    DOCKER_INDEX_URL
+
+Setting this environment variable on the docker server will change the URL docker index.
+This address is used in commands such as ``docker login``, ``docker push`` and ``docker pull``.
+The docker daemon doesn't need to be restarted for this parameter to take effect.
+
+Example
+^^^^^^^
+
+.. code-block:: sh
+
+    docker -d &
+    export DOCKER_INDEX_URL="https://index.docker.io"
 
