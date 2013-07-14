@@ -17,10 +17,13 @@
 package goapp
 
 import (
-	"appengine"
+	"encoding/base64"
+	"net/url"
 	"time"
 
+	"appengine"
 	"appengine/datastore"
+	"appengine/taskqueue"
 )
 
 type User struct {
@@ -29,7 +32,15 @@ type User struct {
 	Email    string    `datastore:"e,noindex"`
 	Messages []string  `datastore:"m,noindex"`
 	Read     time.Time `datastore:"r,noindex"`
+	Options  string    `datastore:"o,noindex"`
+	Account  int       `datastore:"a,noindex"`
 }
+
+const (
+	AFree = iota
+	ADev
+	APaid
+)
 
 func (u *User) String() string {
 	return u.Email
@@ -47,41 +58,72 @@ type UserData struct {
 type Read map[string][]string
 
 type Feed struct {
-	_kind      string    `goon:"kind,F"`
-	Url        string    `datastore:"-" goon:"id"`
-	Title      string    `datastore:"t,noindex"`
-	Updated    time.Time `datastore:"u,noindex"`
-	Date       time.Time `datastore:"d,noindex"`
-	Checked    time.Time `datastore:"c,noindex"`
-	NextUpdate time.Time `datastore:"n"`
-	Link       string    `datastore:"l,noindex"`
-	Errors     int       `datastore:"e,noindex"`
-	Image      string    `datastore:"i,noindex"`
+	_kind      string        `goon:"kind,F"`
+	Url        string        `datastore:"-" goon:"id"`
+	Title      string        `datastore:"t,noindex"`
+	Updated    time.Time     `datastore:"u,noindex"`
+	Date       time.Time     `datastore:"d,noindex"`
+	Checked    time.Time     `datastore:"c,noindex"`
+	NextUpdate time.Time     `datastore:"n"`
+	Link       string        `datastore:"l,noindex"`
+	Errors     int           `datastore:"e,noindex"`
+	Image      string        `datastore:"i,noindex"`
+	Subscribed time.Time     `datastore:"s,noindex"`
+	Average    time.Duration `datastore:"a,noindex"`
+}
+
+func (f Feed) Subscribe(c appengine.Context) {
+	if !f.IsSubscribed() {
+		t := taskqueue.NewPOSTTask(routeUrl("subscribe-feed"), url.Values{
+			"feed": {f.Url},
+		})
+		if _, err := taskqueue.Add(c, t, "update-manual"); err != nil {
+			c.Errorf("taskqueue error: %v", err.Error())
+		} else {
+			c.Warningf("subscribe feed: %v", f.Url)
+		}
+	}
+}
+
+func (f Feed) IsSubscribed() bool {
+	return !ENABLE_PUBSUBHUBBUB || time.Now().Before(f.Subscribed)
+}
+
+func (f Feed) PubSubURL() string {
+	b := base64.URLEncoding.EncodeToString([]byte(f.Url))
+	ru, _ := router.Get("subscribe-callback").URL("feed", b)
+	ru.Scheme = "http"
+	ru.Host = PUBSUBHUBBUB_HOST
+	return ru.String()
 }
 
 // parent: Feed, key: story ID
 type Story struct {
-	_kind     string         `goon:"kind,S"`
-	Id        string         `datastore:"-" goon:"id"`
-	Parent    *datastore.Key `datastore:"-" goon:"parent" json:"-"`
-	Title     string         `datastore:"t,noindex"`
-	Link      string         `datastore:"l,noindex"`
-	Created   time.Time      `datastore:"c,noindex" json:"-"`
-	Published time.Time      `datastore:"p" json:"-"`
-	Updated   time.Time      `datastore:"u,noindex" json:"-"`
-	Date      int64          `datastore:"e,noindex"`
-	Author    string         `datastore:"a,noindex"`
-	Summary   string         `datastore:"s,noindex"`
+	_kind        string         `goon:"kind,S"`
+	Id           string         `datastore:"-" goon:"id"`
+	Parent       *datastore.Key `datastore:"-" goon:"parent" json:"-"`
+	Title        string         `datastore:"t,noindex"`
+	Link         string         `datastore:"l,noindex"`
+	Created      time.Time      `datastore:"c" json:"-"`
+	Published    time.Time      `datastore:"p,noindex" json:"-"`
+	Updated      time.Time      `datastore:"u,noindex" json:"-"`
+	Date         int64          `datastore:"e,noindex"`
+	Author       string         `datastore:"a,noindex" json:",omitempty"`
+	Summary      string         `datastore:"s,noindex"`
+	MediaContent string         `datastore:"m,noindex" json:",omitempty"`
 
 	content string
 }
 
+const IDX_COL = "c"
+
 // parent: Story, key: 1
 type StoryContent struct {
-	_kind   string         `goon:"kind,SC"`
-	Id      int64          `datastore:"-" goon:"id"`
-	Parent  *datastore.Key `datastore:"-" goon:"parent"`
-	Content string         `datastore:"c,noindex"`
+	_kind      string         `goon:"kind,SC"`
+	Id         int64          `datastore:"-" goon:"id"`
+	Parent     *datastore.Key `datastore:"-" goon:"parent"`
+	Content    string         `datastore:"c,noindex"`
+	Compressed []byte         `datastore:"z,noindex"`
 }
 
 type OpmlOutline struct {
@@ -100,8 +142,9 @@ type Opml struct {
 }
 
 type DateFormat struct {
-	Id    string `datastore:"-" goon:"id"`
-	_kind string `goon:"kind,DF"`
+	Id     string         `datastore:"-" goon:"id"`
+	_kind  string         `goon:"kind,DF"`
+	Parent *datastore.Key `datastore:"-" goon:"parent"`
 }
 
 type Image struct {

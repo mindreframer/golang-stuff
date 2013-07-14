@@ -2,37 +2,30 @@ package goapp
 
 import (
 	"appengine"
-	"code.google.com/p/goauth2/oauth"
+	"time"
 )
 
 var (
-	GOOGLE_CLIENT_ID     string
-	GOOGLE_CLIENT_SECRET string
-	GOOGLE_REDIRECT      string
-	oauth_conf           *oauth.Config
+	ENABLE_PUBSUBHUBBUB bool = !appengine.IsDevAppServer()
+	STRIPE_PLANS             = []Plan{}
 )
 
 const (
-	GOOGLE_ANALYTICS_ID = ""
+	GOOGLE_ANALYTICS_ID   = ""
+	GOOGLE_ANALYTICS_HOST = ""
+	PUBSUBHUBBUB_HUB      = "http://pubsubhubbub.appspot.com"
+	PUBSUBHUBBUB_HOST     = "" // e.g., "www.goread.io"
+	STRIPE_KEY            = ""
+	STRIPE_SECRET         = ""
+	STRIPE_PLAN           = ""
 )
 
-func init() {
-	if appengine.IsDevAppServer() {
-		GOOGLE_CLIENT_ID = ""
-		GOOGLE_CLIENT_SECRET = ""
-		GOOGLE_REDIRECT = "http://localhost:8080/oauth2callback"
-	} else {
-		GOOGLE_CLIENT_ID = ""
-		GOOGLE_CLIENT_SECRET = ""
-		GOOGLE_REDIRECT = "http://go-read.appspot.com/oauth2callback"
-	}
-
-	oauth_conf = &oauth.Config{
-		ClientId:     GOOGLE_CLIENT_ID,
-		ClientSecret: GOOGLE_CLIENT_SECRET,
-		Scope:        "https://www.google.com/reader/api/",
-		AuthURL:      "https://accounts.google.com/o/oauth2/auth",
-		TokenURL:     "https://accounts.google.com/o/oauth2/token",
-		RedirectURL:  GOOGLE_REDIRECT,
-	}
-}
+const (
+	UpdateMin         = time.Minute * 20
+	UpdateMax         = time.Hour * 12
+	UpdateDefault     = time.Hour * 3
+	UpdateFraction    = 0.5
+	UpdateJitter      = time.Minute * 3
+	UpdateLongFactor  = 20
+	NewIntervalWeight = 0.2
+)

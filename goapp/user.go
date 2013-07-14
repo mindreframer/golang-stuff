@@ -18,6 +18,9 @@ package goapp
 
 import (
 	"appengine"
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -25,14 +28,15 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
+	"appengine/blobstore"
 	"appengine/datastore"
 	"appengine/taskqueue"
-	"appengine/urlfetch"
 	"appengine/user"
-	"code.google.com/p/goauth2/oauth"
 	mpg "github.com/MiniProfiler/go/miniprofiler_gae"
 	"github.com/mjibson/goon"
 )
@@ -78,8 +82,28 @@ func ImportOpml(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 
 	if file, _, err := r.FormFile("file"); err == nil {
 		if fdata, err := ioutil.ReadAll(file); err == nil {
+			buf := bytes.NewReader(fdata)
+			// attempt to extract from google reader takeout zip
+			if zb, zerr := zip.NewReader(buf, int64(len(fdata))); zerr == nil {
+				for _, f := range zb.File {
+					if strings.HasSuffix(f.FileHeader.Name, "Reader/subscriptions.xml") {
+						if rc, rerr := f.Open(); rerr == nil {
+							if fb, ferr := ioutil.ReadAll(rc); ferr == nil {
+								fdata = fb
+								break
+							}
+						}
+					}
+				}
+			}
+
+			bk, err := saveFile(c, fdata)
+			if err != nil {
+				serveError(w, err)
+				return
+			}
 			task := taskqueue.NewPOSTTask(routeUrl("import-opml-task"), url.Values{
-				"data": {string(fdata)},
+				"key":  {string(bk)},
 				"user": {cu.ID},
 			})
 			taskqueue.Add(c, task, "import-reader")
@@ -106,44 +130,23 @@ func AddSubscription(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	gn.Get(&ud)
 	mergeUserOpml(&ud, o)
 	gn.Put(&ud)
+	if r.Method == "GET" {
+		http.Redirect(w, r, routeUrl("main"), http.StatusFound)
+	}
 }
 
-func ImportReader(c mpg.Context, w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, oauth_conf.AuthCodeURL(""), http.StatusFound)
-}
-
-func Oauth2Callback(c mpg.Context, w http.ResponseWriter, r *http.Request) {
-	cu := user.Current(c)
-	gn := goon.FromContext(c)
-	u := User{Id: cu.ID}
-	if err := gn.Get(&u); err != nil {
-		serveError(w, err)
-		return
-	}
-	u.Messages = append(u.Messages,
-		"Reader import is happening. It can take a minute.",
-		"Refresh at will - you'll continue to see this page until it's done.",
-	)
-	gn.Put(&u)
-
-	t := &oauth.Transport{
-		Config:    oauth_conf,
-		Transport: &urlfetch.Transport{Context: c},
-	}
-	t.Exchange(r.FormValue("code"))
-	cl := t.Client()
-	resp, err := cl.Get("https://www.google.com/reader/api/0/subscription/list?output=json")
+func saveFile(c appengine.Context, b []byte) (appengine.BlobKey, error) {
+	w, err := blobstore.Create(c, "application/json")
 	if err != nil {
-		serveError(w, err)
-		return
+		return "", err
 	}
-	b, _ := ioutil.ReadAll(resp.Body)
-	task := taskqueue.NewPOSTTask(routeUrl("import-reader-task"), url.Values{
-		"data": {string(b)},
-		"user": {cu.ID},
-	})
-	taskqueue.Add(c, task, "import-reader")
-	http.Redirect(w, r, routeUrl("main"), http.StatusFound)
+	if _, err := w.Write(b); err != nil {
+		return "", err
+	}
+	if err := w.Close(); err != nil {
+		return "", err
+	}
+	return w.Key()
 }
 
 func ListFeeds(c mpg.Context, w http.ResponseWriter, r *http.Request) {
@@ -161,6 +164,7 @@ func ListFeeds(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	})
 	var feeds []*Feed
 	opmlMap := make(map[string]*OpmlOutline)
+	var merr error
 	c.Step("fetch feeds", func() {
 		for _, outline := range uf.Outline {
 			if outline.XmlUrl == "" {
@@ -173,7 +177,7 @@ func ListFeeds(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 				opmlMap[outline.XmlUrl] = outline
 			}
 		}
-		gn.GetMulti(feeds)
+		merr = gn.GetMulti(feeds)
 	})
 	lock := sync.Mutex{}
 	fl := make(map[string][]*Story)
@@ -181,20 +185,20 @@ func ListFeeds(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	hasStories := false
 	updatedLinks := false
 	icons := make(map[string]string)
+	now := time.Now()
+
 	c.Step("feed fetch + wait", func() {
+		queue := make(chan *Feed)
 		wg := sync.WaitGroup{}
-		wg.Add(len(feeds))
-		for _i := range feeds {
-			go func(i int) {
-				f := feeds[i]
+		feedProc := func() {
+			for f := range queue {
 				defer wg.Done()
-				ufeed := feeds[i]
 				var newStories []*Story
 
 				if u.Read.Before(f.Date) {
-					c.Debugf("query for %v", feeds[i].Url)
-					fk := gn.Key(feeds[i])
-					sq := q.Ancestor(fk).Filter("p >", u.Read).KeysOnly()
+					c.Debugf("query for %v", f.Url)
+					fk := gn.Key(f)
+					sq := q.Ancestor(fk).Filter(IDX_COL+" >", u.Read).KeysOnly().Order("-" + IDX_COL)
 					keys, _ := gn.GetAll(sq, nil)
 					stories := make([]*Story, len(keys))
 					for j, key := range keys {
@@ -206,7 +210,7 @@ func ListFeeds(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 					gn.GetMulti(stories)
 					for _, st := range stories {
 						found := false
-						for _, s := range read[ufeed.Url] {
+						for _, s := range read[f.Url] {
 							if s == st.Id {
 								found = true
 								break
@@ -217,23 +221,43 @@ func ListFeeds(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
-				if ufeed.Link != opmlMap[ufeed.Url].HtmlUrl {
+				if f.Link != opmlMap[f.Url].HtmlUrl {
 					updatedLinks = true
-					c.Debugf("fixing link %v, %v -> %v", ufeed.Url, opmlMap[ufeed.Url].HtmlUrl, ufeed.Link)
-					opmlMap[ufeed.Url].HtmlUrl = ufeed.Link
+					opmlMap[f.Url].HtmlUrl = f.Link
 				}
+				if f.Errors == 0 && f.NextUpdate.Before(now) {
+					t := taskqueue.NewPOSTTask(routeUrl("update-feed"), url.Values{
+						"feed": {f.Url},
+					})
+					if _, err := taskqueue.Add(c, t, "update-manual"); err != nil {
+						c.Errorf("taskqueue error: %v", err.Error())
+					} else {
+						c.Warningf("manual feed update: %v", f.Url)
+					}
+				}
+				f.Subscribe(c)
 				lock.Lock()
-				fl[ufeed.Url] = newStories
+				fl[f.Url] = newStories
 				if len(newStories) > 0 {
 					hasStories = true
 				}
-				if ufeed.Image != "" {
-					icons[ufeed.Url] = ufeed.Image
+				if f.Image != "" {
+					icons[f.Url] = f.Image
 				}
 				lock.Unlock()
-			}(_i)
+			}
 		}
-
+		for i := 0; i < 20; i++ {
+			go feedProc()
+		}
+		for i, f := range feeds {
+			if goon.NotFound(merr, i) {
+				continue
+			}
+			wg.Add(1)
+			queue <- f
+		}
+		close(queue)
 		wg.Wait()
 	})
 	if !hasStories {
@@ -255,25 +279,67 @@ func ListFeeds(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 		gn.Put(ud)
 	}
 	c.Step("json marshal", func() {
-		b, _ := json.Marshal(struct {
+		o := struct {
 			Opml    []*OpmlOutline
 			Stories map[string][]*Story
 			Icons   map[string]string
+			Options string
 		}{
 			Opml:    uf.Outline,
 			Stories: fl,
 			Icons:   icons,
-		})
+			Options: u.Options,
+		}
+		b, err := json.Marshal(o)
+		if err != nil {
+			c.Errorf("cleaning")
+			for _, v := range fl {
+				for _, s := range v {
+					n := cleanNonUTF8(s.Summary)
+					if n != s.Summary {
+						s.Summary = n
+						c.Errorf("cleaned %v", s.Id)
+						gn.Put(s)
+					}
+				}
+			}
+			b, _ = json.Marshal(o)
+		}
 		w.Write(b)
 	})
+	_ = utf8.RuneError
+}
+
+func cleanNonUTF8(s string) string {
+	b := &bytes.Buffer{}
+	for i := 0; i < len(s); i++ {
+		c, size := utf8.DecodeRuneInString(s[i:])
+		if c != utf8.RuneError || size != 1 {
+			b.WriteRune(c)
+		}
+	}
+	return b.String()
 }
 
 func MarkRead(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	cu := user.Current(c)
 	gn := goon.FromContext(c)
 	read := make(Read)
-	feed := r.FormValue("feed")
-	story := r.FormValue("story")
+
+	type readStory struct {
+		Feed, Story string
+	}
+	var stories []readStory
+	if r.FormValue("stories") != "" {
+		json.Unmarshal([]byte(r.FormValue("stories")), &stories)
+	}
+	if r.FormValue("feed") != "" {
+		stories = append(stories, readStory{
+			Feed:  r.FormValue("feed"),
+			Story: r.FormValue("story"),
+		})
+	}
+
 	gn.RunInTransaction(func(gn *goon.Goon) error {
 		u := &User{Id: cu.ID}
 		ud := &UserData{
@@ -282,7 +348,9 @@ func MarkRead(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 		}
 		gn.Get(ud)
 		json.Unmarshal(ud.Read, &read)
-		read[feed] = append(read[feed], story)
+		for _, s := range stories {
+			read[s.Feed] = append(read[s.Feed], s.Story)
+		}
 		b, _ := json.Marshal(&read)
 		ud.Read = b
 		_, err := gn.Put(ud)
@@ -299,7 +367,7 @@ func MarkAllRead(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	gn.RunInTransaction(func(gn *goon.Goon) error {
 		gn.GetMulti([]interface{}{u, ud})
 		if ilast, err := strconv.ParseInt(last, 10, 64); err == nil && ilast > 0 && false {
-			u.Read = time.Unix(ilast, 0)
+			u.Read = time.Unix(ilast/1000, 0)
 		} else {
 			u.Read = time.Now()
 		}
@@ -314,6 +382,7 @@ func GetContents(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 		Feed  string
 		Story string
 	}
+	defer r.Body.Close()
 	b, _ := ioutil.ReadAll(r.Body)
 	if err := json.Unmarshal(b, &reqs); err != nil {
 		serveError(w, err)
@@ -329,7 +398,18 @@ func GetContents(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	gn.GetMulti(scs)
 	ret := make([]string, len(reqs))
 	for i, sc := range scs {
-		ret[i] = sc.Content
+		if len(sc.Compressed) > 0 {
+			buf := bytes.NewReader(sc.Compressed)
+			if gz, err := gzip.NewReader(buf); err == nil {
+				if b, _ = ioutil.ReadAll(gz); err == nil {
+					ret[i] = string(b)
+				}
+				gz.Close()
+			}
+		}
+		if len(ret[i]) == 0 {
+			ret[i] = sc.Content
+		}
 	}
 	b, _ = json.Marshal(&ret)
 	w.Write(b)
@@ -396,8 +476,97 @@ func ExportOpml(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	gn.Get(&ud)
 	opml := Opml{}
 	json.Unmarshal(ud.Opml, &opml)
-	b, _ := xml.Marshal(&opml)
+	b, _ := xml.MarshalIndent(&opml, "", "\t")
 	w.Header().Add("Content-Type", "text/xml")
 	w.Header().Add("Content-Disposition", "attachment; filename=subscriptions.opml")
 	fmt.Fprint(w, `<?xml version="1.0" encoding="UTF-8"?>`, string(b))
+}
+
+func UploadOpml(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	opml := Opml{}
+	if err := json.Unmarshal([]byte(r.FormValue("opml")), &opml.Outline); err != nil {
+		serveError(w, err)
+		return
+	}
+	cu := user.Current(c)
+	gn := goon.FromContext(c)
+	u := User{Id: cu.ID}
+	ud := UserData{Id: "data", Parent: gn.Key(&User{Id: cu.ID})}
+	if err := gn.Get(&u); err != nil {
+		serveError(w, err)
+		return
+	}
+	gn.Get(&ud)
+	ud.Opml, _ = json.Marshal(&opml)
+	gn.Put(&ud)
+}
+
+func SaveOptions(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	cu := user.Current(c)
+	gn := goon.FromContext(c)
+	gn.RunInTransaction(func(gn *goon.Goon) error {
+		u := User{Id: cu.ID}
+		if err := gn.Get(&u); err != nil {
+			serveError(w, err)
+			return nil
+		}
+		u.Options = r.FormValue("options")
+		_, err := gn.Put(&u)
+		return err
+	}, nil)
+}
+
+func GetFeed(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	gn := goon.FromContext(c)
+	f := Feed{Url: r.FormValue("f")}
+	fk := gn.Key(&f)
+	q := datastore.NewQuery(gn.Key(&Story{}).Kind()).Ancestor(fk).KeysOnly()
+	q = q.Order("-" + IDX_COL)
+	if c := r.FormValue("c"); c != "" {
+		if dc, err := datastore.DecodeCursor(c); err == nil {
+			q = q.Start(dc)
+		}
+	}
+	iter := gn.Run(q)
+	var stories []*Story
+	for i := 0; i < 20; i++ {
+		if k, err := iter.Next(nil); err == nil {
+			stories = append(stories, &Story{
+				Id:     k.StringID(),
+				Parent: k.Parent(),
+			})
+		} else if err == datastore.Done {
+			break
+		} else {
+			serveError(w, err)
+			return
+		}
+	}
+	cursor := ""
+	if ic, err := iter.Cursor(); err == nil {
+		cursor = ic.String()
+	}
+	gn.GetMulti(&stories)
+	b, _ := json.Marshal(struct {
+		Cursor  string
+		Stories []*Story
+	}{
+		Cursor:  cursor,
+		Stories: stories,
+	})
+	w.Write(b)
+}
+
+func DeleteAccount(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	cu := user.Current(c)
+	gn := goon.FromContext(c)
+	u := User{Id: cu.ID}
+	ud := UserData{Id: "data", Parent: gn.Key(&u)}
+	if err := gn.Get(&u); err != nil {
+		serveError(w, err)
+		return
+	}
+	gn.Delete(gn.Key(&ud))
+	gn.Delete(ud.Parent)
+	http.Redirect(w, r, routeUrl("logout"), http.StatusFound)
 }
