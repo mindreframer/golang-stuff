@@ -2,7 +2,7 @@
 
 ![gh](http://owenou.com/gh/images/gangnamtocat.png)
 
-Fast GitHub command line client. Current version is [0.6.0](https://drone.io/github.com/jingweno/gh/files).
+Fast GitHub command line client implemented in Go. Current version is [0.15.0](http://bit.ly/go-gh).
 
 ## Overview
 
@@ -31,21 +31,23 @@ gh is fully implemented in the Go language and is designed to run across operati
 
 **Easy installation**
 
-There're no pre-requirements to run gh. Download the [binary](https://drone.io/github.com/jingweno/gh/files) and go!
-
-**Unix**
-
-gh commands are single, unhyphenated words that map to their Unix ancestors’ names and flags where applicable.
+There're no pre-requirements to run gh. Download the [binary](http://bit.ly/go-gh) and go!
 
 ## Installation
 
-There are [compiled binary forms of gh](https://drone.io/github.com/jingweno/gh/files) for Darwin, Linux and Windows.
 
-To install gh on OSX with [Homebrew](https://github.com/mxcl/homebrew), run:
+### Homebrew
+
+Installing on OSX is easiest with [Homebrew](https://github.com/mxcl/homebrew):
 
     $ brew install https://raw.github.com/jingweno/gh/master/homebrew/gh.rb
 
-## Compilation
+### Standalone
+
+`gh` is easily installed as an executable.
+Download the [compiled binary forms of gh](http://bit.ly/go-gh) for Darwin, Linux and Windows.
+
+### Source
 
 To compile gh from source, you need to have a [Go development environment](http://golang.org/doc/install), version 1.1 or better, and run:
 
@@ -57,47 +59,117 @@ Please make sure you have git and hg installed.
 ## Upgrade
 
 Since gh is under heavy development, I roll out new releases often.
-Please take a look at the [CI server](https://drone.io/github.com/jingweno/gh/files) for the latest built binaries.
+Please take a look at the [built binaries](http://bit.ly/go-gh) for the latest built binaries.
 I plan to implement automatic upgrade in the future.
+
+### Homebrew
 
 To upgrade gh on OSX with Homebrew, run:
 
     $ brew upgrade https://raw.github.com/jingweno/gh/master/homebrew/gh.rb
 
+### Source
+
 To upgrade gh from source, run:
 
     $ go get -u github.com/jingweno/gh
+
+## Aliasing
+
+It's best to use `gh` by aliasing it to `git`.
+All git commands will still work with `gh` adding some sugar.
+
+`gh alias` displays instructions for the current shell. With the `-s` flag,
+it outputs a script suitable for `eval`.
+
+You should place this command in your `.bash_profile` or other startup
+script:
+
+    eval "$(gh alias -s)"
+
+For more details, run `gh help alias`.
 
 ## Usage
 
 ### gh help
     
     $ gh help
-    Usage: gh [command] [options] [arguments]
+    [display help for all commands]
+    $ gh help pull-request
+    [display help for pull-request]
 
-    Commands:
+### gh init
 
-        pull              Open a pull request on GitHub
-        fork              Make a fork of a remote repository on GitHub and add as remote
-        ci                Show CI status of a commit
-        browse            Open a GitHub page in the default browser
-        compare           Open a compare page on GitHub
-        help              Show help
-        version           Show gh version
+    $ gh init -g
+    > git init
+    > git remote add origin git@github.com:YOUR_USER/REPO.git
 
-    See 'gh help [command]' for more information about a command.
+### gh checkout
 
-### gh pull
+    $ gh checkout https://github.com/jingweno/gh/pull/35
+    > git remote add -f -t feature git://github:com/foo/gh.git
+    > git checkout --track -B foo-feature foo/feature
+
+    $ gh checkout https://github.com/jingweno/gh/pull/35 custom-branch-name
+
+### gh merge
+
+    $ gh merge https://github.com/jingweno/gh/pull/73
+    > git fetch git://github.com/jingweno/gh.git +refs/heads/feature:refs/remotes/jingweno/feature
+    > git merge jingweno/feature --no-ff -m 'Merge pull request #73 from jingweno/feature...'
+
+### gh clone
+
+    $ gh clone jingweno/gh
+    > git clone git://github.com/jingweno/gh
+
+    $ gh clone -p jingweno/gh
+    > git clone git@github.com:jingweno/gh.git
+
+    $ gh clone jekyll_and_hype
+    > git clone git://github.com/YOUR_LOGIN/jekyll_and_hype.
+
+    $ gh clone -p jekyll_and_hype
+    > git clone git@github.com:YOUR_LOGIN/jekyll_and_hype.git
+
+### gh fetch
+
+    $ gh fetch jingweno
+    > git remote add jingweno git://github.com/jingweno/REPO.git
+    > git fetch jingweno
+
+    $ git fetch jingweno,foo
+    > git remote add jingweno ...
+    > git remote add foo ...
+    > git fetch --multiple jingweno foo
+
+    $ git fetch --multiple jingweno foo
+    > git remote add jingweno ...
+    > git remote add foo ...
+    > git fetch --multiple jingweno foo
+
+### gh remote
+
+    $ gh remote add jingweno
+    > git remote add -f jingweno git://github.com/jingweno/CURRENT_REPO.git
+
+    $ gh remote add -p jingweno
+    > git remote add -f jingweno git@github.com:jingweno/CURRENT_REPO.git
+
+    $ gh remote add origin
+    > git remote add -f YOUR_USER git://github.com/YOUR_USER/CURRENT_REPO.git    
+
+### gh pull-request
 
     # while on a topic branch called "feature":
-    $ gh pull
+    $ gh pull-request
     [ opens text editor to edit title & body for the request ]
     [ opened pull request on GitHub for "YOUR_USER:feature" ]
 
     # explicit pull base & head:
-    $ gh pull -b jingweno:master -h jingweno:feature
+    $ gh pull-request -b jingweno:master -h jingweno:feature
 
-    $ gh pull -i 123
+    $ gh pull-request -i 123
     [ attached pull request to issue #123 ]
 
 ### gh fork
@@ -109,26 +181,40 @@ To upgrade gh from source, run:
     $ gh fork --no-remote
     [ repo forked on GitHub ]
 
-### gh ci
+### gh create
 
-    $ gh ci
+    $ gh create
+    ... create repo on github ...
+    > git remote add -f origin git@github.com:YOUR_USER/CURRENT_REPO.git
+
+    # with description:
+    $ gh create -d 'It shall be mine, all mine!'
+
+    $ gh create recipes
+    [ repo created on GitHub ]
+    > git remote add origin git@github.com:YOUR_USER/recipes.git
+
+    $ gh create sinatra/recipes
+    [ repo created in GitHub organization ]
+    > git remote add origin git@github.com:sinatra/recipes.git
+
+### gh ci-status
+
+    $ gh ci-status
     > (prints CI state of HEAD and exits with appropriate code)
-    > One of: success (0), error (1), failure (1), pending (2), no
-    > status (3)
+    > One of: success (0), error (1), failure (1), pending (2), no status (3)
 
-    $ gh ci BRANCH
+    $ gh ci-status BRANCH
     > (prints CI state of BRANCH and exits with appropriate code)
-    > One of: success (0), error (1), failure (1), pending (2), no
-    > status (3)
+    > One of: success (0), error (1), failure (1), pending (2), no status (3)
 
-    $ gh ci SHA
+    $ gh ci-status SHA
     > (prints CI state of SHA and exits with appropriate code)
-    > One of: success (0), error (1), failure (1), pending (2), no
-    > status (3)
-
+    > One of: success (0), error (1), failure (1), pending (2), no status (3)
+    
 ### gh browse
 
-    gh browse
+    $ gh browse
     > open https://github.com/YOUR_USER/CURRENT_REPO
 
     $ gh browse commit/SHA
@@ -143,10 +229,10 @@ To upgrade gh from source, run:
     $ gh browse -u jingweno -r gh commit/SHA
     > open https://github.com/jingweno/gh/commit/SHA
 
-    $ git browse -r resque
+    $ gh browse -r resque
     > open https://github.com/YOUR_USER/resque
 
-    $ git browse -r resque network
+    $ gh browse -r resque network
     > open https://github.com/YOUR_USER/resque/network
 
 ### gh compare
@@ -162,46 +248,11 @@ To upgrade gh from source, run:
 
 ## Release Notes
 
-* **0.6.0** June 11, 2013
-  * Implement `fork`
-* **0.5.2** June 8, 2013
-  * Extract GitHub API related code to [`octokat`](https://github.com/jingweno/octokat)
-* **0.5.1** June 7, 2013
-  * Remove `-p` flag from `browse`
-* **0.5.0** June 5, 2013
-  * Rename `pull-request` to `pull`
-  * Rename `ci-status` to `ci`
-* **0.4.1** June 2, 2013
-  * Add Rake task to bump version
-* **0.4.0** June 2, 2013
-  * Implement `compare`
-  * Fix bugs on `browse`
-* **0.0.3** June 1, 2013
-  * Implement `browse`
-* **0.0.2** May 29, 2013
-  * Implement `ci`
-* **0.0.1** May 22, 2013
-  * Implement `pull-request`
+See [Releases](https://github.com/jingweno/gh/releases).
 
 ## Roadmap
 
-* authentication (done)
-* gh pull-request (done)
-* gh ci-status (done)
-* gh browse (done)
-* gh compare (done)
-* gh fork (done)
-* gh clone (in progress)
-* gh remote add
-* gh fetch
-* gh cherry-pick
-* gh am, gh apply
-* gh check
-* gh merge
-* gh create
-* gh init
-* gh push
-* gh submodule
+See [Issues](https://github.com/jingweno/gh/issues?labels=feature&page=1&state=open).
 
 ## Contributing
 
@@ -210,6 +261,10 @@ To upgrade gh from source, run:
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
+
+## Contributors
+
+See [Contributors](https://github.com/jingweno/gh/graphs/contributors).
 
 ## License
 

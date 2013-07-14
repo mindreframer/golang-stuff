@@ -21,14 +21,32 @@ func init() {
 	cmdFork.Flag.BoolVar(&flagForkNoRemote, "no-remote", false, "")
 }
 
-func fork(cmd *Command, args []string) {
+/*
+  $ gh fork
+  [ repo forked on GitHub ]
+  > git remote add -f YOUR_USER git@github.com:YOUR_USER/CURRENT_REPO.git
+
+  $ gh fork --no-remote
+  [ repo forked on GitHub ]
+*/
+func fork(cmd *Command, args *Args) {
 	gh := github.New()
 	project := gh.Project
 
-	newRemote, err := gh.ForkRepository(project.Name, project.Owner, flagForkNoRemote)
-	utils.Check(err)
+	var forkURL string
+	if args.Noop {
+		args.Before(fmt.Sprintf("Would request a fork to %s:%s", project.Owner, project.Name), "")
+		forkURL = "FORK_URL"
+	} else {
+		repo, err := gh.ForkRepository(project.Name, project.Owner, flagForkNoRemote)
+		utils.Check(err)
 
-	if !flagForkNoRemote && newRemote != "" {
-		fmt.Printf("New remote: %s\n", newRemote)
+		forkURL = repo.SshURL
+	}
+
+	if !flagForkNoRemote {
+		newRemote := gh.Config.User
+		args.Replace("git", "remote", "add", "-f", newRemote, forkURL)
+		args.After("echo", fmt.Sprintf("New remote: %s", newRemote))
 	}
 }

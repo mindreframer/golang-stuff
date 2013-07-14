@@ -8,15 +8,14 @@ import (
 	"github.com/jingweno/gh/github"
 	"github.com/jingweno/gh/utils"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"strings"
 )
 
-var cmdPull = &Command{
-	Run:   pull,
-	Usage: "pull [-f] [TITLE|-i ISSUE] [-b BASE] [-h HEAD]",
+var cmdPullRequest = &Command{
+	Run:   pullRequest,
+	Usage: "pull-request [-f] [-i ISSUE] [-b BASE] [-d HEAD] [TITLE]",
 	Short: "Open a pull request on GitHub",
 	Long: `Opens a pull request on GitHub for the project that the "origin" remote
 points to. The default head of the pull request is the current branch.
@@ -38,59 +37,98 @@ of title you can paste a full URL to an issue on GitHub.
 var flagPullRequestBase, flagPullRequestHead, flagPullRequestIssue string
 
 func init() {
-	cmdPull.Flag.StringVar(&flagPullRequestBase, "b", "master", "BASE")
-	cmdPull.Flag.StringVar(&flagPullRequestHead, "h", "", "HEAD")
-	cmdPull.Flag.StringVar(&flagPullRequestIssue, "i", "", "ISSUE")
+	cmdPullRequest.Flag.StringVar(&flagPullRequestBase, "b", "master", "BASE")
+	cmdPullRequest.Flag.StringVar(&flagPullRequestHead, "d", "", "HEAD")
+	cmdPullRequest.Flag.StringVar(&flagPullRequestIssue, "i", "", "ISSUE")
 }
 
-func pull(cmd *Command, args []string) {
-	var title, body string
-	if len(args) == 1 {
-		title = args[0]
+/*
+  # while on a topic branch called "feature":
+  $ gh pull-request
+  [ opens text editor to edit title & body for the request ]
+  [ opened pull request on GitHub for "YOUR_USER:feature" ]
+
+  # explicit pull base & head:
+  $ gh pull-request -b jingweno:master -h jingweno:feature
+
+  $ gh pull-request -i 123
+  [ attached pull request to issue #123 ]
+*/
+func pullRequest(cmd *Command, args *Args) {
+	var (
+		title, body string
+		err         error
+	)
+	if args.ParamsSize() == 1 {
+		title = args.RemoveParam(0)
 	}
 
 	gh := github.New()
 	repo := gh.Project.LocalRepoWith(flagPullRequestBase, flagPullRequestHead)
 	if title == "" && flagPullRequestIssue == "" {
-		messageFile, err := git.PullReqMsgFile()
-		utils.Check(err)
-
-		err = writePullRequestChanges(repo, messageFile)
-		utils.Check(err)
-
-		editorPath, err := git.EditorPath()
-		utils.Check(err)
-
-		err = editTitleAndBody(editorPath, messageFile)
-		utils.Check(err)
-
-		title, body, err = readTitleAndBody(messageFile)
-		utils.Check(err)
+		title, body, err = writePullRequestTitleAndBody(repo)
 	}
 
 	if title == "" && flagPullRequestIssue == "" {
-		log.Fatal("Aborting due to empty pull request title")
+		utils.Check(fmt.Errorf("Aborting due to empty pull request title"))
 	}
 
 	var pullRequestURL string
-	var err error
-	if title != "" {
-		pullRequestURL, err = gh.CreatePullRequest(repo.Base, repo.Head, title, body)
-	}
-	if flagPullRequestIssue != "" {
-		pullRequestURL, err = gh.CreatePullRequestForIssue(repo.Base, repo.Head, flagPullRequestIssue)
+	if args.Noop {
+		args.Before(fmt.Sprintf("Would request a pull request to %s from %s", repo.FullBase(), repo.FullHead()), "")
+		pullRequestURL = "PULL_REQUEST_URL"
+	} else {
+		if title != "" {
+			pullRequestURL, err = gh.CreatePullRequest(repo.Base, repo.Head, title, body)
+		}
+		utils.Check(err)
+
+		if flagPullRequestIssue != "" {
+			pullRequestURL, err = gh.CreatePullRequestForIssue(repo.Base, repo.Head, flagPullRequestIssue)
+		}
+		utils.Check(err)
+
 	}
 
-	utils.Check(err)
+	args.Replace("echo", "", pullRequestURL)
+}
 
-	fmt.Println(pullRequestURL)
+func writePullRequestTitleAndBody(repo *github.Repo) (title, body string, err error) {
+	messageFile, err := git.PullReqMsgFile()
+	if err != nil {
+		return
+	}
+
+	err = writePullRequestChanges(repo, messageFile)
+	if err != nil {
+		return
+	}
+
+	editorPath, err := git.EditorPath()
+	if err != nil {
+		return
+	}
+
+	err = editTitleAndBody(editorPath, messageFile)
+	if err != nil {
+		return
+	}
+
+	title, body, err = readTitleAndBody(messageFile)
+	if err != nil {
+		return
+	}
+
+	err = os.Remove(messageFile)
+
+	return
 }
 
 func writePullRequestChanges(repo *github.Repo, messageFile string) error {
 	message := `
 # Requesting a pull to %s from %s
 #
-# Write a message for this pull reuqest. The first block
+# Write a message for this pull request. The first block
 # of the text is the title and the rest is description.%s
 `
 	startRegexp := regexp.MustCompilePOSIX("^")

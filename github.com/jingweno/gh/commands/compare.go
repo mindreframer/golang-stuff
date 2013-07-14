@@ -25,22 +25,37 @@ func init() {
 	cmdCompare.Flag.StringVar(&flagCompareUser, "u", "", "USER")
 }
 
-func compare(command *Command, args []string) {
+/*
+  $ gh compare refactor
+  > open https://github.com/CURRENT_REPO/compare/refactor
+
+  $ gh compare 1.0..1.1
+  > open https://github.com/CURRENT_REPO/compare/1.0...1.1
+
+  $ gh compare -u other-user patch
+  > open https://github.com/other-user/REPO/compare/patch
+*/
+func compare(command *Command, args *Args) {
 	project := github.CurrentProject()
 
 	var r string
-	if len(args) == 0 {
+	if args.IsParamsEmpty() {
 		repo := project.LocalRepo()
 		r = repo.Head
 	} else {
-		r = args[0]
+		r = args.FirstParam()
 	}
 
 	r = transformToTripleDots(r)
 	subpage := utils.ConcatPaths("compare", r)
 	url := project.WebURL("", flagCompareUser, subpage)
-	err := browserCommand(url)
-	utils.Check(err)
+	launcher, err := utils.BrowserLauncher()
+	if err != nil {
+		utils.Check(err)
+	}
+
+	args.Replace(launcher[0], "", launcher[1:]...)
+	args.AppendParams(url)
 }
 
 func transformToTripleDots(r string) string {

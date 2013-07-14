@@ -1,0 +1,8 @@
+{
+  "FormatVersion": "0.8",
+  "BuildConstraints": "darwin",
+  "Resources": {
+    "Include": "INSTALL*,README*,LICENSE*,etc/gh.*",
+    "Exclude": "*.go"
+  }
+}
