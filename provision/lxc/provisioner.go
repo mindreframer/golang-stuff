@@ -192,6 +192,10 @@ func (p *LXCProvisioner) Restart(app provision.App) error {
 	return nil
 }
 
+func (LXCProvisioner) Swap(app1, app2 provision.App) error {
+	return nil
+}
+
 func (p *LXCProvisioner) Deploy(a provision.App, version string, w io.Writer) error {
 	return deploy.Git(p, a, version, w)
 }
@@ -231,7 +235,7 @@ func (*LXCProvisioner) InstallDeps(app provision.App, w io.Writer) error {
 
 func (*LXCProvisioner) ExecuteCommand(stdout, stderr io.Writer, app provision.App, cmd string, args ...string) error {
 	arguments := []string{"-l", "ubuntu", "-q", "-o", "StrictHostKeyChecking no"}
-	arguments = append(arguments, app.ProvisionUnits()[0].GetIp())
+	arguments = append(arguments, app.ProvisionedUnits()[0].GetIp())
 	arguments = append(arguments, cmd)
 	arguments = append(arguments, args...)
 	return executor().Execute("ssh", arguments, nil, stdout, stderr)

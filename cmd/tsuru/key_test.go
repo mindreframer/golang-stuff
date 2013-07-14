@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/globocom/tsuru/cmd"
 	fs_test "github.com/globocom/tsuru/fs/testing"
 	"github.com/globocom/tsuru/testing"
@@ -20,7 +21,7 @@ func (s *S) TestKeyAdd(c *gocheck.C) {
 	u, err := user.Current()
 	c.Assert(err, gocheck.IsNil)
 	p := path.Join(u.HomeDir, ".ssh", "id_rsa.pub")
-	expected := "Key successfully added!\n"
+	expected := fmt.Sprintf("Key %q successfully added!\n", p)
 	context := cmd.Context{
 		Args:   []string{},
 		Stdout: &stdout,
@@ -40,7 +41,7 @@ func (s *S) TestKeyAddSpecifyingKeyFile(c *gocheck.C) {
 	u, err := user.Current()
 	c.Assert(err, gocheck.IsNil)
 	p := path.Join(u.HomeDir, ".ssh", "id_dsa.pub")
-	expected := "Key successfully added!\n"
+	expected := fmt.Sprintf("Key %q successfully added!\n", p)
 	context := cmd.Context{
 		Args:   []string{p},
 		Stdout: &stdout,
@@ -99,7 +100,7 @@ func (s *S) TestKeyRemove(c *gocheck.C) {
 	u, err := user.Current()
 	c.Assert(err, gocheck.IsNil)
 	p := path.Join(u.HomeDir, ".ssh", "id_rsa.pub")
-	expected := "Key successfully removed!\n"
+	expected := fmt.Sprintf("Key %q successfully removed!\n", p)
 	context := cmd.Context{
 		Args:   []string{},
 		Stdout: &stdout,
@@ -119,7 +120,7 @@ func (s *S) TestKeyRemoveSpecifyingKeyFile(c *gocheck.C) {
 	u, err := user.Current()
 	c.Assert(err, gocheck.IsNil)
 	p := path.Join(u.HomeDir, ".ssh", "id_dsa.pub")
-	expected := "Key successfully removed!\n"
+	expected := fmt.Sprintf("Key %q successfully removed!\n", p)
 	context := cmd.Context{
 		Args:   []string{p},
 		Stdout: &stdout,

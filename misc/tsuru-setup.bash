@@ -22,14 +22,25 @@ function install_mongodb() {
     sudo apt-get install mongodb-10gen -y --force-yes
 }
 
+function setup_platforms() {
+    # this function should be called in the provisioner specific installation script
+    # because mongo usually takes some time to startup, and it's not safe to call it from here
+    # so call it after everything runs
+    if [ ! -f platforms-setup.js ]; then
+        curl -O https://raw.github.com/globocom/tsuru/master/misc/platforms-setup.js
+    fi
+    mongo tsuru platforms-setup.js
+}
+
 function install_beanstalkd() {
     echo "Installing beanstalkd"
     sudo apt-get install -y beanstalkd --force-yes
     sudo sed -i s/#START=yes/START=yes/ /etc/default/beanstalkd
+    echo "starting beanstalkd"
+    sudo service beanstalkd start
 }
 
 function install_tsuru() {
-    install_mongodb
     echo "Downloading tsuru binary and copying to /usr/bin"
     curl -sL https://s3.amazonaws.com/tsuru/dist-server/tsr.tar.gz | sudo tar -xz -C /usr/bin
 }

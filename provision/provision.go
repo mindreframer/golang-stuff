@@ -64,14 +64,17 @@ type App interface {
 	// to the Unit `Type` field.
 	GetPlatform() string
 
-	ProvisionUnits() []AppUnit
+	ProvisionedUnits() []AppUnit
 	RemoveUnit(id string) error
 
-	// Run executes the command in app units, sourcing apprc before running the
-	// command.
+	// Run executes the command in app units. Commands executed with this
+	// method should have access to environment variables defined in the
+	// app.
 	Run(cmd string, w io.Writer) error
 
 	Restart(io.Writer) error
+
+	SerializeEnvVars() error
 
 	// Ready marks the app as ready for deployment.
 	Ready() error
@@ -129,6 +132,9 @@ type Provisioner interface {
 	// InstallDeps installs the dependencies required for the application
 	// to run and writes the log in the received writer.
 	InstallDeps(app App, w io.Writer) error
+
+	// Swap change the router between two apps.
+	Swap(App, App) error
 }
 
 var provisioners = make(map[string]Provisioner)

@@ -690,21 +690,6 @@ func (s *S) TestCollectStatusInvalidYAML(c *gocheck.C) {
 	c.Assert(pErr.Err, gocheck.ErrorMatches, `^YAML error:.*$`)
 }
 
-func (s *S) TestLoadBalancerEnabledElb(c *gocheck.C) {
-	p := JujuProvisioner{}
-	p.elb = new(bool)
-	*p.elb = true
-	lb := p.LoadBalancer()
-	c.Assert(lb, gocheck.NotNil)
-}
-
-func (s *S) TestLoadBalancerDisabledElb(c *gocheck.C) {
-	p := JujuProvisioner{}
-	p.elb = new(bool)
-	lb := p.LoadBalancer()
-	c.Assert(lb, gocheck.IsNil)
-}
-
 func (s *S) TestExecWithTimeout(c *gocheck.C) {
 	var data = []struct {
 		cmd     []string
@@ -777,7 +762,7 @@ func (s *S) TestAddr(c *gocheck.C) {
 	p := JujuProvisioner{}
 	addr, err := p.Addr(app)
 	c.Assert(err, gocheck.IsNil)
-	c.Assert(addr, gocheck.Equals, app.ProvisionUnits()[0].GetIp())
+	c.Assert(addr, gocheck.Equals, app.ProvisionedUnits()[0].GetIp())
 }
 
 func (s *S) TestAddrWithoutUnits(c *gocheck.C) {
@@ -801,9 +786,10 @@ func (s *ELBSuite) TestProvisionWithELB(c *gocheck.C) {
 	p := JujuProvisioner{}
 	err := p.Provision(app)
 	c.Assert(err, gocheck.IsNil)
-	lb := p.LoadBalancer()
-	defer lb.Destroy(app)
-	addr, err := lb.Addr(app)
+	router, err := Router()
+	c.Assert(err, gocheck.IsNil)
+	defer router.RemoveBackend(app.GetName())
+	addr, err := router.Addr(app.GetName())
 	c.Assert(err, gocheck.IsNil)
 	c.Assert(addr, gocheck.Not(gocheck.Equals), "")
 	msg, err := getQueue(queueName).Get(1e9)
@@ -827,12 +813,13 @@ func (s *ELBSuite) TestDestroyWithELB(c *gocheck.C) {
 	c.Assert(err, gocheck.IsNil)
 	err = p.Destroy(app)
 	c.Assert(err, gocheck.IsNil)
-	lb := p.LoadBalancer()
-	defer lb.Destroy(app) // sanity
-	addr, err := lb.Addr(app)
+	router, err := Router()
+	c.Assert(err, gocheck.IsNil)
+	defer router.RemoveBackend(app.GetName())
+	addr, err := router.Addr(app.GetName())
 	c.Assert(addr, gocheck.Equals, "")
 	c.Assert(err, gocheck.NotNil)
-	c.Assert(err.Error(), gocheck.Equals, "not found")
+	c.Assert(err, gocheck.ErrorMatches, "^There is no ACTIVE Load Balancer named.*")
 	q := getQueue(queueName)
 	msg, err := q.Get(1e9)
 	c.Assert(err, gocheck.IsNil)
@@ -884,13 +871,15 @@ func (s *ELBSuite) TestRemoveUnitWithELB(c *gocheck.C) {
 		execut = nil
 	}()
 	app := testing.NewFakeApp("radio", "rush", 4)
-	manager := ELBManager{}
-	manager.e = s.client
-	err := manager.Create(app)
+	router, err := Router()
 	c.Assert(err, gocheck.IsNil)
-	defer manager.Destroy(app)
-	err = manager.Register(app, units...)
+	err = router.AddBackend(app.GetName())
 	c.Assert(err, gocheck.IsNil)
+	defer router.RemoveBackend(app.GetName())
+	for _, unit := range units {
+		err = router.AddRoute(app.GetName(), unit.InstanceId)
+		c.Assert(err, gocheck.IsNil)
+	}
 	p := JujuProvisioner{}
 	fUnit := testing.FakeUnit{Name: units[0].Name, InstanceId: units[0].InstanceId}
 	err = p.removeUnit(app, &fUnit)
@@ -906,10 +895,11 @@ func (s *ELBSuite) TestRemoveUnitWithELB(c *gocheck.C) {
 func (s *ELBSuite) TestCollectStatusWithELBAndIDChange(c *gocheck.C) {
 	a := testing.NewFakeApp("symfonia", "symfonia", 0)
 	p := JujuProvisioner{}
-	lb := p.LoadBalancer()
-	err := lb.Create(a)
+	router, err := Router()
 	c.Assert(err, gocheck.IsNil)
-	defer lb.Destroy(a)
+	err = router.AddBackend(a.GetName())
+	c.Assert(err, gocheck.IsNil)
+	defer router.RemoveBackend(a.GetName())
 	id1 := s.server.NewInstance()
 	defer s.server.RemoveInstance(id1)
 	id2 := s.server.NewInstance()
@@ -920,7 +910,10 @@ func (s *ELBSuite) TestCollectStatusWithELBAndIDChange(c *gocheck.C) {
 	defer conn.Close()
 	err = collection.Insert(instance{UnitName: "symfonia/0", InstanceID: id3})
 	c.Assert(err, gocheck.IsNil)
-	err = lb.Register(a, provision.Unit{InstanceId: id3}, provision.Unit{InstanceId: id2})
+	err = router.AddRoute(a.GetName(), id3)
+	c.Assert(err, gocheck.IsNil)
+	err = router.AddRoute(a.GetName(), id2)
+	c.Assert(err, gocheck.IsNil)
 	q := bson.M{"_id": bson.M{"$in": []string{"symfonia/0", "symfonia/1", "symfonia/2", "raise/0"}}}
 	defer collection.Remove(q)
 	output := strings.Replace(simpleCollectOutput, "i-00004444", id1, 1)
@@ -960,15 +953,15 @@ func (s *ELBSuite) TestCollectStatusWithELBAndIDChange(c *gocheck.C) {
 func (s *ELBSuite) TestAddrWithELB(c *gocheck.C) {
 	app := testing.NewFakeApp("jimmy", "who", 0)
 	p := JujuProvisioner{}
-	lb := p.LoadBalancer()
-	err := lb.Create(app)
+	router, err := Router()
 	c.Assert(err, gocheck.IsNil)
-	defer lb.Destroy(app)
+	router.AddBackend(app.GetName())
+	defer router.RemoveBackend(app.GetName())
 	addr, err := p.Addr(app)
 	c.Assert(err, gocheck.IsNil)
-	lAddr, err := lb.Addr(app)
+	elbAddr, err := router.Addr(app.GetName())
 	c.Assert(err, gocheck.IsNil)
-	c.Assert(addr, gocheck.Equals, lAddr)
+	c.Assert(addr, gocheck.Equals, elbAddr)
 }
 
 func (s *ELBSuite) TestAddrWithUnknownELB(c *gocheck.C) {
@@ -977,5 +970,33 @@ func (s *ELBSuite) TestAddrWithUnknownELB(c *gocheck.C) {
 	addr, err := p.Addr(app)
 	c.Assert(addr, gocheck.Equals, "")
 	c.Assert(err, gocheck.NotNil)
-	c.Assert(err.Error(), gocheck.Equals, "not found")
+	c.Assert(err, gocheck.ErrorMatches, "^There is no ACTIVE Load Balancer named.*")
+}
+
+func (s *ELBSuite) TestSwap(c *gocheck.C) {
+	var p JujuProvisioner
+	app1 := testing.NewFakeApp("app1", "python", 1)
+	app2 := testing.NewFakeApp("app2", "python", 1)
+	id1 := s.server.NewInstance()
+	defer s.server.RemoveInstance(id1)
+	id2 := s.server.NewInstance()
+	defer s.server.RemoveInstance(id2)
+	router, err := Router()
+	c.Assert(err, gocheck.IsNil)
+	err = router.AddBackend(app1.GetName())
+	c.Assert(err, gocheck.IsNil)
+	err = router.AddRoute(app1.GetName(), id1)
+	c.Assert(err, gocheck.IsNil)
+	err = router.AddBackend(app2.GetName())
+	c.Assert(err, gocheck.IsNil)
+	err = router.AddRoute(app2.GetName(), id2)
+	c.Assert(err, gocheck.IsNil)
+	err = p.Swap(app1, app2)
+	c.Assert(err, gocheck.IsNil)
+	app2Routes, err := router.Routes(app2.GetName())
+	c.Assert(err, gocheck.IsNil)
+	c.Assert(app2Routes, gocheck.DeepEquals, []string{id1})
+	app1Routes, err := router.Routes(app1.GetName())
+	c.Assert(err, gocheck.IsNil)
+	c.Assert(app1Routes, gocheck.DeepEquals, []string{id2})
 }

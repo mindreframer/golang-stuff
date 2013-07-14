@@ -55,8 +55,9 @@ type FakeApp struct {
 	platform string
 	units    []provision.AppUnit
 	logs     []string
-	Commands []string
 	logMut   sync.Mutex
+	Commands []string
+	commMut  sync.Mutex
 	ready    bool
 }
 
@@ -77,6 +78,32 @@ func NewFakeApp(name, platform string, units int) *FakeApp {
 		}
 	}
 	return &app
+}
+
+func (a *FakeApp) Logs() []string {
+	a.logMut.Lock()
+	defer a.logMut.Unlock()
+	logs := make([]string, len(a.logs))
+	copy(logs, a.logs)
+	return logs
+}
+
+func (a *FakeApp) HasLog(source, message string) bool {
+	log := source + message
+	a.logMut.Lock()
+	defer a.logMut.Unlock()
+	for _, l := range a.logs {
+		if l == log {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *FakeApp) GetCommands() []string {
+	a.commMut.Lock()
+	defer a.commMut.Unlock()
+	return a.Commands
 }
 
 func (a *FakeApp) IsReady() bool {
@@ -103,7 +130,7 @@ func (a *FakeApp) GetPlatform() string {
 	return a.platform
 }
 
-func (a *FakeApp) ProvisionUnits() []provision.AppUnit {
+func (a *FakeApp) ProvisionedUnits() []provision.AppUnit {
 	return a.units
 }
 
@@ -135,13 +162,25 @@ func (a *FakeApp) SetUnitStatus(s provision.Status, index int) {
 	}
 }
 
+func (a *FakeApp) SerializeEnvVars() error {
+	a.commMut.Lock()
+	a.Commands = append(a.Commands, "serialize")
+	a.commMut.Unlock()
+	return nil
+}
+
 func (a *FakeApp) Restart(w io.Writer) error {
+	a.commMut.Lock()
 	a.Commands = append(a.Commands, "restart")
+	a.commMut.Unlock()
+	w.Write([]byte("Restarting app..."))
 	return nil
 }
 
 func (a *FakeApp) Run(cmd string, w io.Writer) error {
+	a.commMut.Lock()
 	a.Commands = append(a.Commands, fmt.Sprintf("ran %s", cmd))
+	a.commMut.Unlock()
 	return nil
 }
 
@@ -277,6 +316,10 @@ func (p *FakeProvisioner) Reset() {
 			return
 		}
 	}
+}
+
+func (FakeProvisioner) Swap(app1, app2 provision.App) error {
+	return nil
 }
 
 func (p *FakeProvisioner) Deploy(app provision.App, version string, w io.Writer) error {

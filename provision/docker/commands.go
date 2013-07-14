@@ -20,36 +20,23 @@ import (
 // deployCmds returns the commands that is used when provisioner
 // deploy an unit.
 func deployCmds(app provision.App, version string) ([]string, error) {
-	docker, err := config.GetString("docker:binary")
-	if err != nil {
-		return nil, err
-	}
 	deployCmd, err := config.GetString("docker:deploy-cmd")
 	if err != nil {
 		return nil, err
 	}
-	imageName := getImage(app)
 	appRepo := repository.ReadOnlyURL(app.GetName())
-	port, err := getPort()
+	user, err := config.GetString("docker:ssh:user")
 	if err != nil {
 		return nil, err
 	}
-	cmds := []string{docker, "run", "-p", port, "-d", imageName, deployCmd, appRepo}
+	cmds := []string{"sudo", "-u", user, deployCmd, appRepo, version}
 	return cmds, nil
 }
 
 // runCmds returns the commands that should be passed when the
 // provisioner will run an unit.
-func runCmds(imageId string) ([]string, error) {
-	docker, err := config.GetString("docker:binary")
-	if err != nil {
-		return nil, err
-	}
+func runCmds() ([]string, error) {
 	runCmd, err := config.GetString("docker:run-cmd:bin")
-	if err != nil {
-		return nil, err
-	}
-	port, err := config.GetString("docker:run-cmd:port")
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +45,8 @@ func runCmds(imageId string) ([]string, error) {
 		return nil, err
 	}
 	sshCmd := strings.Join(ssh, " && ")
-	cmds := []string{docker, "run", "-d", "-t", "-p", port, imageId, "/bin/bash", "-c", runCmd, "&&", sshCmd}
+	cmd := fmt.Sprintf("%s && %s", runCmd, sshCmd)
+	cmds := []string{"/bin/bash", "-c", cmd}
 	return cmds, nil
 }
 

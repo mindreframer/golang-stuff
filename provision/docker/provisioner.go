@@ -6,7 +6,6 @@ package docker
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/globocom/config"
@@ -15,7 +14,6 @@ import (
 	"github.com/globocom/tsuru/exec"
 	"github.com/globocom/tsuru/log"
 	"github.com/globocom/tsuru/provision"
-	"github.com/globocom/tsuru/queue"
 	"github.com/globocom/tsuru/router"
 	_ "github.com/globocom/tsuru/router/hipache"
 	_ "github.com/globocom/tsuru/router/nginx"
@@ -25,6 +23,7 @@ import (
 	"labix.org/v2/mgo"
 	"net"
 	"sync"
+	"time"
 )
 
 func init() {
@@ -45,7 +44,7 @@ func executor() exec.Executor {
 	return execut
 }
 
-func getRouter() (router.Router, error) {
+func Router() (router.Router, error) {
 	r, err := config.GetString("docker:router")
 	if err != nil {
 		return nil, err
@@ -57,7 +56,7 @@ type dockerProvisioner struct{}
 
 // Provision creates a route for the container
 func (p *dockerProvisioner) Provision(app provision.App) error {
-	r, err := getRouter()
+	r, err := Router()
 	if err != nil {
 		log.Printf("Failed to get router: %s", err.Error())
 		return err
@@ -90,29 +89,88 @@ func (p *dockerProvisioner) Restart(app provision.App) error {
 	return nil
 }
 
+func injectEnvsAndRestart(a provision.App) {
+	time.Sleep(5e9)
+	err := a.SerializeEnvVars()
+	if err != nil {
+		log.Printf("Failed to serialize env vars: %s.", err)
+	}
+	var buf bytes.Buffer
+	w := app.LogWriter{App: a, Writer: &buf}
+	err = a.Restart(&w)
+	if err != nil {
+		log.Printf("Failed to restart app %q (%s): %s.", a.GetName(), err, buf.String())
+	}
+}
+
+func startInBackground(a provision.App, c container, imageId string, w io.Writer, started chan bool) {
+	_, err := start(a, imageId, w)
+	if err != nil {
+		log.Printf("error on start the app %s - %s", a, err)
+	}
+	if c.ID != "" {
+		if a.RemoveUnit(c.ID) != nil {
+			removeContainer(&c)
+		}
+	}
+	started <- true
+}
+
+func (dockerProvisioner) Swap(app1, app2 provision.App) error {
+	r, err := Router()
+	if err != nil {
+		log.Printf("Failed to get router: %s", err.Error())
+		return err
+	}
+	app1Routes, err := r.Routes(app1.GetName())
+	if err != nil {
+		return err
+	}
+	app2Routes, err := r.Routes(app2.GetName())
+	if err != nil {
+		return err
+	}
+	for _, route := range app1Routes {
+		err = r.AddRoute(app2.GetName(), route)
+		if err != nil {
+			return err
+		}
+		err = r.RemoveRoute(app1.GetName(), route)
+		if err != nil {
+			return err
+		}
+	}
+	for _, route := range app2Routes {
+		err = r.AddRoute(app1.GetName(), route)
+		if err != nil {
+			return err
+		}
+		err = r.RemoveRoute(app2.GetName(), route)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (p *dockerProvisioner) Deploy(a provision.App, version string, w io.Writer) error {
 	imageId, err := deploy(a, version, w)
 	if err != nil {
 		return err
 	}
-	if containers, err := listAppContainers(a.GetName()); err == nil && len(containers) > 0 {
+	containers, err := listAppContainers(a.GetName())
+	started := make(chan bool, len(containers))
+	if err == nil && len(containers) > 0 {
 		for _, c := range containers {
-			_, err = start(a, imageId, w)
-			if err != nil {
-				return err
-			}
-			if a.RemoveUnit(c.ID) != nil {
-				c.remove()
-			}
+			go startInBackground(a, c, imageId, w, started)
 		}
-	} else if _, err := start(a, imageId, w); err != nil {
-		return err
+	} else {
+		go startInBackground(a, container{}, imageId, w, started)
 	}
-	a.Restart(w)
-	app.Enqueue(queue.Message{
-		Action: app.RegenerateApprcAndStart,
-		Args:   []string{a.GetName()},
-	})
+	if <-started {
+		fmt.Fprint(w, "\n ---> App will be restarted, please check its log for more details...\n\n")
+		go injectEnvsAndRestart(a)
+	}
 	return nil
 }
 
@@ -120,10 +178,10 @@ func (p *dockerProvisioner) Destroy(app provision.App) error {
 	containers, _ := listAppContainers(app.GetName())
 	for _, c := range containers {
 		go func(c container) {
-			c.remove()
+			removeContainer(&c)
 		}(c)
 	}
-	r, err := getRouter()
+	r, err := Router()
 	if err != nil {
 		log.Printf("Failed to get router: %s", err.Error())
 		return err
@@ -132,7 +190,7 @@ func (p *dockerProvisioner) Destroy(app provision.App) error {
 }
 
 func (*dockerProvisioner) Addr(app provision.App) (string, error) {
-	r, err := getRouter()
+	r, err := Router()
 	if err != nil {
 		log.Printf("Failed to get router: %s", err.Error())
 		return "", err
@@ -183,7 +241,22 @@ func (*dockerProvisioner) RemoveUnit(app provision.App, unitName string) error {
 	if container.AppName != app.GetName() {
 		return errors.New("Unit does not belong to this app")
 	}
-	return container.remove()
+	return removeContainer(container)
+}
+
+func removeContainer(c *container) error {
+	err := c.stop()
+	if err != nil {
+		log.Printf("error on stop unit %s - %s", c.ID, err)
+	}
+	err = c.remove()
+	if err != nil {
+		log.Printf("error on remove container %s - %s", c.ID, err)
+	}
+	if c.Image != "" {
+		removeImage(c.Image)
+	}
+	return err
 }
 
 func (*dockerProvisioner) InstallDeps(app provision.App, w io.Writer) error {
@@ -221,23 +294,17 @@ func (p *dockerProvisioner) CollectStatus() ([]provision.Unit, error) {
 	}
 	units := make(chan provision.Unit, len(containers))
 	result := buildResult(len(containers), units)
-	errs := make(chan error, len(containers))
 	for _, container := range containers {
 		containersGroup.Add(1)
-		go collectUnit(container, units, errs, &containersGroup)
+		go collectUnit(container, units, &containersGroup)
 	}
 	containersGroup.Wait()
-	close(errs)
 	close(units)
-	if err, ok := <-errs; ok {
-		return nil, err
-	}
 	return <-result, nil
 }
 
-func collectUnit(container container, units chan<- provision.Unit, errs chan<- error, wg *sync.WaitGroup) {
+func collectUnit(container container, units chan<- provision.Unit, wg *sync.WaitGroup) {
 	defer wg.Done()
-	docker, _ := config.GetString("docker:binary")
 	unit := provision.Unit{
 		Name:    container.ID,
 		AppName: container.AppName,
@@ -251,22 +318,16 @@ func collectUnit(container container, units chan<- provision.Unit, errs chan<- e
 	case "created":
 		return
 	}
-	out, err := runCmd(docker, "inspect", container.ID)
+	dockerContainer, err := dockerCluster().InspectContainer(container.ID)
 	if err != nil {
-		errs <- err
+		log.Printf("error on inspecting [container %s] for collect data", container.ID)
 		return
 	}
-	var c map[string]interface{}
-	err = json.Unmarshal([]byte(out), &c)
-	if err != nil {
-		errs <- err
-		return
-	}
-	unit.Ip = c["NetworkSettings"].(map[string]interface{})["IpAddress"].(string)
+	unit.Ip = dockerContainer.NetworkSettings.IPAddress
 	if hostPort, err := container.hostPort(); err == nil && hostPort != container.HostPort {
 		err = fixContainer(&container, unit.Ip, hostPort)
 		if err != nil {
-			errs <- err
+			log.Printf("error on fix container hostport for [container %s]", container.ID)
 			return
 		}
 	}
@@ -278,6 +339,7 @@ func collectUnit(container container, units chan<- provision.Unit, errs chan<- e
 		conn.Close()
 		unit.Status = provision.StatusStarted
 	}
+	log.Printf("collected data for [container %s] - [app %s]", container.ID, container.AppName)
 	units <- unit
 }
 
@@ -287,6 +349,7 @@ func buildResult(maxSize int, units <-chan provision.Unit) <-chan []provision.Un
 		result := make([]provision.Unit, 0, maxSize)
 		for unit := range units {
 			result = append(result, unit)
+			log.Printf("result for [container %s] - [app %s]", unit.Name, unit.AppName)
 		}
 		ch <- result
 	}()
@@ -294,7 +357,7 @@ func buildResult(maxSize int, units <-chan provision.Unit) <-chan []provision.Un
 }
 
 func fixContainer(container *container, ip, port string) error {
-	router, err := getRouter()
+	router, err := Router()
 	if err != nil {
 		return err
 	}
@@ -309,7 +372,7 @@ func fixContainer(container *container, ip, port string) error {
 }
 
 func (p *dockerProvisioner) SetCName(app provision.App, cname string) error {
-	r, err := getRouter()
+	r, err := Router()
 	if err != nil {
 		return err
 	}
@@ -317,7 +380,7 @@ func (p *dockerProvisioner) SetCName(app provision.App, cname string) error {
 }
 
 func (p *dockerProvisioner) UnsetCName(app provision.App, cname string) error {
-	r, err := getRouter()
+	r, err := Router()
 	if err != nil {
 		return err
 	}
@@ -334,15 +397,4 @@ func collection() *mgo.Collection {
 		log.Printf("Failed to connect to the database: %s", err)
 	}
 	return conn.Collection(name)
-}
-
-func imagesCollection() *mgo.Collection {
-	nameIndex := mgo.Index{Key: []string{"name"}, Unique: true}
-	conn, err := db.Conn()
-	if err != nil {
-		log.Printf("Failed to connect to the database: %s", err)
-	}
-	c := conn.Collection("docker_image")
-	c.EnsureIndex(nameIndex)
-	return c
 }

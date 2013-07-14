@@ -2,6 +2,15 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+define check-service
+    @if [ "$(shell nc -z localhost $2 1>&2 2> /dev/null; echo $$?)" != "0" ]; \
+    then  \
+        echo "\nFATAL: Expected to find $1 running on port $2\n"; \
+        exit 1; \
+    fi
+
+endef
+
 define HG_ERROR
 
 FATAL: you need mercurial (hg) to download tsuru dependencies.
@@ -68,6 +77,11 @@ get-prod:
 		sort | uniq | xargs go get -u >/tmp/.get-prod 2>&1 || (cat /tmp/.get-prod && exit 1)
 	@/bin/echo "ok"
 	@rm -f /tmp/.get-prod
+
+check-test-services:
+	$(call check-service,MongoDB,27017)
+	$(call check-service,Redis,6379)
+	$(call check-service,Beanstalk,11300)
 
 test:
 	@go test -i ./...
