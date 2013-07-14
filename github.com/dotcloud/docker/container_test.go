@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -15,10 +16,7 @@ import (
 )
 
 func TestIDFormat(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container1, err := NewBuilder(runtime).Create(
 		&Config{
@@ -39,10 +37,7 @@ func TestIDFormat(t *testing.T) {
 }
 
 func TestMultipleAttachRestart(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(
 		&Config{
@@ -70,7 +65,8 @@ func TestMultipleAttachRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := container.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 	l1, err := bufio.NewReader(stdout1).ReadString('\n')
@@ -111,7 +107,7 @@ func TestMultipleAttachRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := container.Start(); err != nil {
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,10 +138,7 @@ func TestMultipleAttachRestart(t *testing.T) {
 }
 
 func TestDiff(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 
 	builder := NewBuilder(runtime)
@@ -251,10 +244,7 @@ func TestDiff(t *testing.T) {
 }
 
 func TestCommitAutoRun(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 
 	builder := NewBuilder(runtime)
@@ -306,7 +296,8 @@ func TestCommitAutoRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := container2.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container2.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 	container2.Wait()
@@ -330,10 +321,7 @@ func TestCommitAutoRun(t *testing.T) {
 }
 
 func TestCommitRun(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 
 	builder := NewBuilder(runtime)
@@ -388,7 +376,8 @@ func TestCommitRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := container2.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container2.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 	container2.Wait()
@@ -412,10 +401,7 @@ func TestCommitRun(t *testing.T) {
 }
 
 func TestStart(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(
 		&Config{
@@ -436,7 +422,8 @@ func TestStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := container.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 
@@ -446,7 +433,7 @@ func TestStart(t *testing.T) {
 	if !container.State.Running {
 		t.Errorf("Container should be running")
 	}
-	if err := container.Start(); err == nil {
+	if err := container.Start(hostConfig); err == nil {
 		t.Fatalf("A running containter should be able to be started")
 	}
 
@@ -456,10 +443,7 @@ func TestStart(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(
 		&Config{
@@ -484,10 +468,7 @@ func TestRun(t *testing.T) {
 }
 
 func TestOutput(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(
 		&Config{
@@ -509,10 +490,7 @@ func TestOutput(t *testing.T) {
 }
 
 func TestKillDifferentUser(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(&Config{
 		Image: GetTestImage(runtime).ID,
@@ -528,16 +506,19 @@ func TestKillDifferentUser(t *testing.T) {
 	if container.State.Running {
 		t.Errorf("Container shouldn't be running")
 	}
-	if err := container.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 
-	// Give some time to lxc to spawn the process (setuid might take some time)
-	container.WaitTimeout(500 * time.Millisecond)
+	setTimeout(t, "Waiting for the container to be started timed out", 2*time.Second, func() {
+		for !container.State.Running {
+			time.Sleep(10 * time.Millisecond)
+		}
+	})
 
-	if !container.State.Running {
-		t.Errorf("Container should be running")
-	}
+	// Even if the state is running, lets give some time to lxc to spawn the process
+	container.WaitTimeout(500 * time.Millisecond)
 
 	if err := container.Kill(); err != nil {
 		t.Fatal(err)
@@ -556,15 +537,33 @@ func TestKillDifferentUser(t *testing.T) {
 	}
 }
 
-func TestKill(t *testing.T) {
-	runtime, err := newTestRuntime()
+// Test that creating a container with a volume doesn't crash. Regression test for #995.
+func TestCreateVolume(t *testing.T) {
+	runtime := mkRuntime(t)
+	defer nuke(runtime)
+
+	config, hc, _, err := ParseRun([]string{"-v", "/var/lib/data", GetTestImage(runtime).ID, "echo", "hello", "world"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	c, err := NewBuilder(runtime).Create(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer runtime.Destroy(c)
+	if err := c.Start(hc); err != nil {
+		t.Fatal(err)
+	}
+	c.WaitTimeout(500 * time.Millisecond)
+	c.Wait()
+}
+
+func TestKill(t *testing.T) {
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(&Config{
 		Image: GetTestImage(runtime).ID,
-		Cmd:   []string{"cat", "/dev/zero"},
+		Cmd:   []string{"sleep", "2"},
 	},
 	)
 	if err != nil {
@@ -575,7 +574,8 @@ func TestKill(t *testing.T) {
 	if container.State.Running {
 		t.Errorf("Container shouldn't be running")
 	}
-	if err := container.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 
@@ -602,10 +602,7 @@ func TestKill(t *testing.T) {
 }
 
 func TestExitCode(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 
 	builder := NewBuilder(runtime)
@@ -642,10 +639,7 @@ func TestExitCode(t *testing.T) {
 }
 
 func TestRestart(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(&Config{
 		Image: GetTestImage(runtime).ID,
@@ -675,10 +669,7 @@ func TestRestart(t *testing.T) {
 }
 
 func TestRestartStdin(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(&Config{
 		Image: GetTestImage(runtime).ID,
@@ -700,7 +691,8 @@ func TestRestartStdin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := container.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := io.WriteString(stdin, "hello world"); err != nil {
@@ -730,7 +722,7 @@ func TestRestartStdin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := container.Start(); err != nil {
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := io.WriteString(stdin, "hello world #2"); err != nil {
@@ -753,10 +745,7 @@ func TestRestartStdin(t *testing.T) {
 }
 
 func TestUser(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 
 	builder := NewBuilder(runtime)
@@ -863,17 +852,14 @@ func TestUser(t *testing.T) {
 }
 
 func TestMultipleContainers(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 
 	builder := NewBuilder(runtime)
 
 	container1, err := builder.Create(&Config{
 		Image: GetTestImage(runtime).ID,
-		Cmd:   []string{"cat", "/dev/zero"},
+		Cmd:   []string{"sleep", "2"},
 	},
 	)
 	if err != nil {
@@ -883,7 +869,7 @@ func TestMultipleContainers(t *testing.T) {
 
 	container2, err := builder.Create(&Config{
 		Image: GetTestImage(runtime).ID,
-		Cmd:   []string{"cat", "/dev/zero"},
+		Cmd:   []string{"sleep", "2"},
 	},
 	)
 	if err != nil {
@@ -892,10 +878,11 @@ func TestMultipleContainers(t *testing.T) {
 	defer runtime.Destroy(container2)
 
 	// Start both containers
-	if err := container1.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container1.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
-	if err := container2.Start(); err != nil {
+	if err := container2.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 
@@ -922,10 +909,7 @@ func TestMultipleContainers(t *testing.T) {
 }
 
 func TestStdin(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(&Config{
 		Image: GetTestImage(runtime).ID,
@@ -947,7 +931,8 @@ func TestStdin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := container.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 	defer stdin.Close()
@@ -969,10 +954,7 @@ func TestStdin(t *testing.T) {
 }
 
 func TestTty(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(&Config{
 		Image: GetTestImage(runtime).ID,
@@ -994,7 +976,8 @@ func TestTty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := container.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 	defer stdin.Close()
@@ -1016,14 +999,11 @@ func TestTty(t *testing.T) {
 }
 
 func TestEnv(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	container, err := NewBuilder(runtime).Create(&Config{
 		Image: GetTestImage(runtime).ID,
-		Cmd:   []string{"/usr/bin/env"},
+		Cmd:   []string{"env"},
 	},
 	)
 	if err != nil {
@@ -1036,7 +1016,8 @@ func TestEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stdout.Close()
-	if err := container.Start(); err != nil {
+	hostConfig := &HostConfig{}
+	if err := container.Start(hostConfig); err != nil {
 		t.Fatal(err)
 	}
 	container.Wait()
@@ -1064,6 +1045,29 @@ func TestEnv(t *testing.T) {
 	}
 }
 
+func TestEntrypoint(t *testing.T) {
+	runtime := mkRuntime(t)
+	defer nuke(runtime)
+	container, err := NewBuilder(runtime).Create(
+		&Config{
+			Image:      GetTestImage(runtime).ID,
+			Entrypoint: []string{"/bin/echo"},
+			Cmd:        []string{"-n", "foobar"},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer runtime.Destroy(container)
+	output, err := container.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(output) != "foobar" {
+		t.Error(string(output))
+	}
+}
+
 func grepFile(t *testing.T, path string, pattern string) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -1085,10 +1089,7 @@ func grepFile(t *testing.T, path string, pattern string) {
 }
 
 func TestLXCConfig(t *testing.T) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		t.Fatal(err)
-	}
+	runtime := mkRuntime(t)
 	defer nuke(runtime)
 	// Memory is allocated randomly for testing
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -1121,10 +1122,7 @@ func TestLXCConfig(t *testing.T) {
 }
 
 func BenchmarkRunSequencial(b *testing.B) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		b.Fatal(err)
-	}
+	runtime := mkRuntime(b)
 	defer nuke(runtime)
 	for i := 0; i < b.N; i++ {
 		container, err := NewBuilder(runtime).Create(&Config{
@@ -1150,10 +1148,7 @@ func BenchmarkRunSequencial(b *testing.B) {
 }
 
 func BenchmarkRunParallel(b *testing.B) {
-	runtime, err := newTestRuntime()
-	if err != nil {
-		b.Fatal(err)
-	}
+	runtime := mkRuntime(b)
 	defer nuke(runtime)
 
 	var tasks []chan error
@@ -1172,7 +1167,8 @@ func BenchmarkRunParallel(b *testing.B) {
 				return
 			}
 			defer runtime.Destroy(container)
-			if err := container.Start(); err != nil {
+			hostConfig := &HostConfig{}
+			if err := container.Start(hostConfig); err != nil {
 				complete <- err
 				return
 			}
@@ -1199,5 +1195,37 @@ func BenchmarkRunParallel(b *testing.B) {
 	}
 	if len(errors) > 0 {
 		b.Fatal(errors)
+	}
+}
+
+func tempDir(t *testing.T) string {
+	tmpDir, err := ioutil.TempDir("", "docker-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tmpDir
+}
+
+func TestBindMounts(t *testing.T) {
+	r := mkRuntime(t)
+	defer nuke(r)
+	tmpDir := tempDir(t)
+	defer os.RemoveAll(tmpDir)
+	writeFile(path.Join(tmpDir, "touch-me"), "", t)
+
+	// Test reading from a read-only bind mount
+	stdout, _ := runContainer(r, []string{"-b", fmt.Sprintf("%s:/tmp:ro", tmpDir), "_", "ls", "/tmp"}, t)
+	if !strings.Contains(stdout, "touch-me") {
+		t.Fatal("Container failed to read from bind mount")
+	}
+
+	// test writing to bind mount
+	runContainer(r, []string{"-b", fmt.Sprintf("%s:/tmp:rw", tmpDir), "_", "touch", "/tmp/holla"}, t)
+	readFile(path.Join(tmpDir, "holla"), t) // Will fail if the file doesn't exist
+
+	// test mounting to an illegal destination directory
+	if _, err := runContainer(r, []string{"-b", fmt.Sprintf("%s:.", tmpDir), "ls", "."}, nil); err == nil {
+		t.Fatal("Container bind mounted illegal directory")
+
 	}
 }

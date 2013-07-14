@@ -67,7 +67,11 @@ lxc.cgroup.devices.allow = c 10:200 rwm
 
 
 # standard mount point
+#  WARNING: procfs is a known attack vector and should probably be disabled
+#           if your userspace allows it. eg. see http://blog.zx2c4.com/749
 lxc.mount.entry = proc {{$ROOTFS}}/proc proc nosuid,nodev,noexec 0 0
+#  WARNING: sysfs is a known attack vector and should probably be disabled
+#           if your userspace allows it. eg. see http://bit.ly/T9CkqJ
 lxc.mount.entry = sysfs {{$ROOTFS}}/sys sysfs nosuid,nodev,noexec 0 0
 lxc.mount.entry = devpts {{$ROOTFS}}/dev/pts devpts newinstance,ptmxmode=0666,nosuid,noexec 0 0
 #lxc.mount.entry = varrun {{$ROOTFS}}/var/run tmpfs mode=755,size=4096k,nosuid,nodev,noexec 0 0
@@ -80,12 +84,16 @@ lxc.mount.entry = {{.SysInitPath}} {{$ROOTFS}}/sbin/init none bind,ro 0 0
 # In order to get a working DNS environment, mount bind (ro) the host's /etc/resolv.conf into the container
 lxc.mount.entry = {{.ResolvConfPath}} {{$ROOTFS}}/etc/resolv.conf none bind,ro 0 0
 {{if .Volumes}}
-{{range $virtualPath, $realPath := .GetVolumes}}
-lxc.mount.entry = {{$realPath}} {{$ROOTFS}}/{{$virtualPath}} none bind,rw 0 0
+{{ $rw := .VolumesRW }}
+{{range $virtualPath, $realPath := .Volumes}}
+lxc.mount.entry = {{$realPath}} {{$ROOTFS}}/{{$virtualPath}} none bind,{{ if index $rw $virtualPath }}rw{{else}}ro{{end}} 0 0
 {{end}}
 {{end}}
 
 # drop linux capabilities (apply mainly to the user root in the container)
+#  (Note: 'lxc.cap.keep' is coming soon and should replace this under the
+#         security principle 'deny all unless explicitly permitted', see
+#         http://sourceforge.net/mailarchive/message.php?msg_id=31054627 )
 lxc.cap.drop = audit_control audit_write mac_admin mac_override mknod setfcap setpcap sys_admin sys_boot sys_module sys_nice sys_pacct sys_rawio sys_resource sys_time sys_tty_config
 
 # limits

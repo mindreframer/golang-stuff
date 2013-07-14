@@ -2,6 +2,8 @@ DOCKER_PACKAGE := github.com/dotcloud/docker
 RELEASE_VERSION := $(shell git tag | grep -E "v[0-9\.]+$$" | sort -nr | head -n 1)
 SRCRELEASE := docker-$(RELEASE_VERSION)
 BINRELEASE := docker-$(RELEASE_VERSION).tgz
+BUILD_SRC := build_src
+BUILD_PATH := ${BUILD_SRC}/src/${DOCKER_PACKAGE}
 
 GIT_ROOT := $(shell git rev-parse --show-toplevel)
 BUILD_DIR := $(CURDIR)/.gopath
@@ -17,7 +19,7 @@ endif
 GIT_COMMIT = $(shell git rev-parse --short HEAD)
 GIT_STATUS = $(shell test -n "`git status --porcelain`" && echo "+CHANGES")
 
-BUILD_OPTIONS = -ldflags "-X main.GIT_COMMIT $(GIT_COMMIT)$(GIT_STATUS)"
+BUILD_OPTIONS = -a -ldflags "-X main.GITCOMMIT $(GIT_COMMIT)$(GIT_STATUS) -d -w"
 
 SRC_DIR := $(GOPATH)/src
 
@@ -33,7 +35,7 @@ all: $(DOCKER_BIN)
 
 $(DOCKER_BIN): $(DOCKER_DIR)
 	@mkdir -p  $(dir $@)
-	@(cd $(DOCKER_MAIN); go build $(GO_OPTIONS) $(BUILD_OPTIONS) -o $@)
+	@(cd $(DOCKER_MAIN); CGO_ENABLED=0 go build $(GO_OPTIONS) $(BUILD_OPTIONS) -o $@)
 	@echo $(DOCKER_BIN_RELATIVE) is created.
 
 $(DOCKER_DIR):
@@ -46,6 +48,7 @@ whichrelease:
 
 release: $(BINRELEASE)
 	s3cmd -P put $(BINRELEASE) s3://get.docker.io/builds/`uname -s`/`uname -m`/docker-$(RELEASE_VERSION).tgz
+	s3cmd -P put docker-latest.tgz s3://get.docker.io/builds/`uname -s`/`uname -m`/docker-latest.tgz
 
 srcrelease: $(SRCRELEASE)
 deps: $(DOCKER_DIR)
@@ -60,6 +63,7 @@ $(SRCRELEASE):
 $(BINRELEASE): $(SRCRELEASE)
 	rm -f $(BINRELEASE)
 	cd $(SRCRELEASE); make; cp -R bin docker-$(RELEASE_VERSION); tar -f ../$(BINRELEASE) -zv -c docker-$(RELEASE_VERSION)
+	cd $(SRCRELEASE); cp -R bin docker-latest; tar -f ../docker-latest.tgz -zv -c docker-latest
 
 clean:
 	@rm -rf $(dir $(DOCKER_BIN))
@@ -69,8 +73,16 @@ else ifneq ($(DOCKER_DIR), $(realpath $(DOCKER_DIR)))
 	@rm -f $(DOCKER_DIR)
 endif
 
-test: all
-	@(cd $(DOCKER_DIR); sudo -E go test $(GO_OPTIONS))
+test:
+	# Copy docker source and dependencies for testing
+	rm -rf ${BUILD_SRC}; mkdir -p ${BUILD_PATH}
+	tar --exclude=${BUILD_SRC} -cz . | tar -xz -C ${BUILD_PATH}
+	GOPATH=${CURDIR}/${BUILD_SRC} go get -d
+	# Do the test
+	sudo -E GOPATH=${CURDIR}/${BUILD_SRC} go test ${GO_OPTIONS}
+
+testall: all
+	@(cd $(DOCKER_DIR); sudo -E go test ./... $(GO_OPTIONS))
 
 fmt:
 	@gofmt -s -l -w .

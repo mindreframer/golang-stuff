@@ -23,15 +23,15 @@ happens, for a few reasons:
 
   * *Size*: VMs are very large which makes them impractical to store and transfer.
   * *Performance*: running VMs consumes significant CPU and memory, which makes them impractical in many scenarios, for example local development of multi-tier applications, and
-  	large-scale deployment of cpu and memory-intensive applications on large numbers of machines.
+    large-scale deployment of cpu and memory-intensive applications on large numbers of machines.
   * *Portability*: competing VM environments don't play well with each other. Although conversion tools do exist, they are limited and add even more overhead.
   * *Hardware-centric*: VMs were designed with machine operators in mind, not software developers. As a result, they offer very limited tooling for what developers need most:
-  	building, testing and running their software. For example, VMs offer no facilities for application versioning, monitoring, configuration, logging or service discovery.
+    building, testing and running their software. For example, VMs offer no facilities for application versioning, monitoring, configuration, logging or service discovery.
 
 By contrast, Docker relies on a different sandboxing method known as *containerization*. Unlike traditional virtualization,
 containerization takes place at the kernel level. Most modern operating system kernels now support the primitives necessary
 for containerization, including Linux with [openvz](http://openvz.org), [vserver](http://linux-vserver.org) and more recently [lxc](http://lxc.sourceforge.net),
-	Solaris with [zones](http://docs.oracle.com/cd/E26502_01/html/E29024/preface-1.html#scrolltoc) and FreeBSD with [Jails](http://www.freebsd.org/doc/handbook/jails.html).
+    Solaris with [zones](http://docs.oracle.com/cd/E26502_01/html/E29024/preface-1.html#scrolltoc) and FreeBSD with [Jails](http://www.freebsd.org/doc/handbook/jails.html).
 
 Docker builds on top of these low-level primitives to offer developers a portable format and runtime environment that solves
 all 4 problems. Docker containers are small (and their transfer can be optimized with layers), they have basically zero memory and cpu overhead,
@@ -56,17 +56,17 @@ A common problem for developers is the difficulty of managing all their applicat
 This is usually difficult for several reasons:
 
   * *Cross-platform dependencies*. Modern applications often depend on a combination of system libraries and binaries, language-specific packages, framework-specific modules,
-  	internal components developed for another project, etc. These dependencies live in different "worlds" and require different tools - these tools typically don't work
-	well with each other, requiring awkward custom integrations.
+    internal components developed for another project, etc. These dependencies live in different "worlds" and require different tools - these tools typically don't work
+    well with each other, requiring awkward custom integrations.
 
   * Conflicting dependencies. Different applications may depend on different versions of the same dependency. Packaging tools handle these situations with various degrees of ease -
-  	but they all handle them in different and incompatible ways, which again forces the developer to do extra work.
+    but they all handle them in different and incompatible ways, which again forces the developer to do extra work.
   
-  * Custom dependencies. A developer may need to prepare a custom version of his application's dependency. Some packaging systems can handle custom versions of a dependency,
-  	others can't - and all of them handle it differently.
+  * Custom dependencies. A developer may need to prepare a custom version of their application's dependency. Some packaging systems can handle custom versions of a dependency,
+    others can't - and all of them handle it differently.
 
 
-Docker solves dependency hell by giving the developer a simple way to express *all* his application's dependencies in one place,
+Docker solves dependency hell by giving the developer a simple way to express *all* their application's dependencies in one place,
 and streamline the process of assembling them. If this makes you think of [XKCD 927](http://xkcd.com/927/), don't worry. Docker doesn't
 *replace* your favorite packaging systems. It simply orchestrates their use in a simple and repeatable way. How does it do that? With layers.
 
@@ -97,7 +97,7 @@ Quick install on Ubuntu 12.04 and 12.10
 ---------------------------------------
 
 ```bash
-curl get.docker.io | sh -x
+curl get.docker.io | sudo sh -x
 ```
 
 Binary installs
@@ -108,7 +108,7 @@ Note that some methods are community contributions and not yet officially suppor
 
 * [Ubuntu 12.04 and 12.10 (officially supported)](http://docs.docker.io/en/latest/installation/ubuntulinux/)
 * [Arch Linux](http://docs.docker.io/en/latest/installation/archlinux/)
-* [MacOS X (with Vagrant)](http://docs.docker.io/en/latest/installation/macos/)
+* [Mac OS X (with Vagrant)](http://docs.docker.io/en/latest/installation/vagrant/)
 * [Windows (with Vagrant)](http://docs.docker.io/en/latest/installation/windows/)
 * [Amazon EC2 (with Vagrant)](http://docs.docker.io/en/latest/installation/amazon/)
 
@@ -181,7 +181,7 @@ Running an irc bouncer
 ----------------------
 
 ```bash
-BOUNCER_ID=$(docker run -d -p 6667 -u irc shykes/znc $USER $PASSWORD)
+BOUNCER_ID=$(docker run -d -p 6667 -u irc shykes/znc zncrun $USER $PASSWORD)
 echo "Configure your irc client to connect to port $(docker port $BOUNCER_ID 6667) of this machine"
 ```
 
@@ -216,7 +216,8 @@ PORT=$(docker port $JOB 4444)
 
 # Connect to the public port via the host's public address
 # Please note that because of how routing works connecting to localhost or 127.0.0.1 $PORT will not work.
-IP=$(ifconfig eth0 | perl -n -e 'if (m/inet addr:([\d\.]+)/g) { print $1 }')
+# Replace *eth0* according to your local interface name.
+IP=$(ip -o -4 addr list eth0 | perl -n -e 'if (m{inet\s([\d\.]+)\/\d+\s}xms) { print $1 }')
 echo hello world | nc $IP $PORT
 
 # Verify that the network connection worked
@@ -262,14 +263,14 @@ Setting up a dev environment
 Instructions that have been verified to work on Ubuntu 12.10,
 
 ```bash
-sudo apt-get -y install lxc wget bsdtar curl golang git
+sudo apt-get -y install lxc curl xz-utils golang git
 
 export GOPATH=~/go/
 export PATH=$GOPATH/bin:$PATH
 
 mkdir -p $GOPATH/src/github.com/dotcloud
 cd $GOPATH/src/github.com/dotcloud
-git clone git@github.com:dotcloud/docker.git
+git clone https://github.com/dotcloud/docker.git
 cd docker
 
 go get -v github.com/dotcloud/docker/...
@@ -373,5 +374,8 @@ Standard Container Specification
 
 ### Legal
 
-Transfers Docker shall be in accordance with any applicable export control or other legal requirements.
+Transfers of Docker shall be in accordance with applicable export controls of any country and all other applicable
+legal requirements.  Docker shall not be distributed or downloaded to or in Cuba, Iran, North Korea, Sudan or Syria
+and shall not be distributed or downloaded to any person on the Denied Persons List administered by the U.S.
+Department of Commerce.
 

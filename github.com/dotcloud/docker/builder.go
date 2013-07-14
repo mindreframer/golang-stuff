@@ -2,10 +2,13 @@ package docker
 
 import (
 	"fmt"
+	"github.com/dotcloud/docker/utils"
 	"os"
 	"path"
 	"time"
 )
+
+var defaultDns = []string{"8.8.8.8", "8.8.4.4"}
 
 type Builder struct {
 	runtime      *Runtime
@@ -47,12 +50,23 @@ func (builder *Builder) Create(config *Config) (*Container, error) {
 		config.Hostname = id[:12]
 	}
 
+	var args []string
+	var entrypoint string
+
+	if len(config.Entrypoint) != 0 {
+		entrypoint = config.Entrypoint[0]
+		args = append(config.Entrypoint[1:], config.Cmd...)
+	} else {
+		entrypoint = config.Cmd[0]
+		args = config.Cmd[1:]
+	}
+
 	container := &Container{
 		// FIXME: we should generate the ID here instead of receiving it as an argument
 		ID:              id,
 		Created:         time.Now(),
-		Path:            config.Cmd[0],
-		Args:            config.Cmd[1:], //FIXME: de-duplicate from config
+		Path:            entrypoint,
+		Args:            args, //FIXME: de-duplicate from config
 		Config:          config,
 		Image:           img.ID, // Always use the resolved image id
 		NetworkSettings: &NetworkSettings{},
@@ -66,15 +80,26 @@ func (builder *Builder) Create(config *Config) (*Container, error) {
 		return nil, err
 	}
 
+	if len(config.Dns) == 0 && len(builder.runtime.Dns) == 0 && utils.CheckLocalDns() {
+		//"WARNING: Docker detected local DNS server on resolv.conf. Using default external servers: %v", defaultDns
+		builder.runtime.Dns = defaultDns
+	}
+
 	// If custom dns exists, then create a resolv.conf for the container
-	if len(config.Dns) > 0 {
+	if len(config.Dns) > 0 || len(builder.runtime.Dns) > 0 {
+		var dns []string
+		if len(config.Dns) > 0 {
+			dns = config.Dns
+		} else {
+			dns = builder.runtime.Dns
+		}
 		container.ResolvConfPath = path.Join(container.root, "resolv.conf")
 		f, err := os.Create(container.ResolvConfPath)
 		if err != nil {
 			return nil, err
 		}
 		defer f.Close()
-		for _, dns := range config.Dns {
+		for _, dns := range dns {
 			if _, err := f.Write([]byte("nameserver " + dns + "\n")); err != nil {
 				return nil, err
 			}
