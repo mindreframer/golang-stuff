@@ -27,6 +27,7 @@ https://github.com/garyburd/go-websocket.git
 https://github.com/globocom/gandalf.git
 https://github.com/globocom/tsuru.git
 https://github.com/handcraftsman/GeneticGo.git
+https://github.com/inconshreveable/ngrok.git
 https://github.com/insionng/toropress.git
 https://github.com/jingweno/gh.git
 https://github.com/JohnAmican/youski.git
@@ -53,4 +54,3 @@ https://github.com/trevex/golem.git
 https://github.com/tumblr/gocircuit.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
 https://github.com/zond/god.git
-https://github.com/inconshreveable/ngrok.git
