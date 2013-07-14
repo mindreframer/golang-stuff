@@ -8,14 +8,14 @@ import (
 )
 
 const (
-	testHeartbeatTimeout = 20 * time.Millisecond
-	testElectionTimeout  = 60 * time.Millisecond
+	testHeartbeatTimeout = 5 * time.Millisecond
+	testElectionTimeout  = 20 * time.Millisecond
 )
 
 func init() {
 	RegisterCommand(&joinCommand{})
-	RegisterCommand(&TestCommand1{})
-	RegisterCommand(&TestCommand2{})
+	RegisterCommand(&testCommand1{})
+	RegisterCommand(&testCommand2{})
 }
 
 //------------------------------------------------------------------------------
@@ -44,11 +44,11 @@ func setupLogFile(content string) string {
 
 func setupLog(content string) (*Log, string) {
 	path := setupLogFile(content)
-	log := NewLog()
-	log.ApplyFunc = func(c Command) error {
-		return nil
+	log := newLog()
+	log.ApplyFunc = func(c Command) (interface{}, error) {
+		return nil, nil
 	}
-	if err := log.Open(path); err != nil {
+	if err := log.open(path); err != nil {
 		panic("Unable to open log")
 	}
 	return log, path
@@ -60,7 +60,7 @@ func setupLog(content string) (*Log, string) {
 
 func newTestServer(name string, transporter Transporter) *Server {
 	path, _ := ioutil.TempDir("", "raft-server-")
-	server, _ := NewServer(name, path, transporter, nil)
+	server, _ := NewServer(name, path, transporter, nil, nil)
 	return server
 }
 
@@ -86,7 +86,7 @@ func newTestCluster(names []string, transporter Transporter, lookup map[string]*
 		for _, peer := range servers {
 			server.AddPeer(peer.Name())
 		}
-		server.Start()
+		server.Initialize()
 	}
 	return servers
 }
@@ -96,20 +96,20 @@ func newTestCluster(names []string, transporter Transporter, lookup map[string]*
 //--------------------------------------
 
 type testTransporter struct {
-	sendVoteRequestFunc          func(server *Server, peer *Peer, req *RequestVoteRequest) (*RequestVoteResponse, error)
-	sendAppendEntriesRequestFunc func(server *Server, peer *Peer, req *AppendEntriesRequest) (*AppendEntriesResponse, error)
-	sendSnapshotRequestFunc      func(server *Server, peer *Peer, req *SnapshotRequest) (*SnapshotResponse, error)
+	sendVoteRequestFunc          func(server *Server, peer *Peer, req *RequestVoteRequest) *RequestVoteResponse
+	sendAppendEntriesRequestFunc func(server *Server, peer *Peer, req *AppendEntriesRequest) *AppendEntriesResponse
+	sendSnapshotRequestFunc      func(server *Server, peer *Peer, req *SnapshotRequest) *SnapshotResponse
 }
 
-func (t *testTransporter) SendVoteRequest(server *Server, peer *Peer, req *RequestVoteRequest) (*RequestVoteResponse, error) {
+func (t *testTransporter) SendVoteRequest(server *Server, peer *Peer, req *RequestVoteRequest) *RequestVoteResponse {
 	return t.sendVoteRequestFunc(server, peer, req)
 }
 
-func (t *testTransporter) SendAppendEntriesRequest(server *Server, peer *Peer, req *AppendEntriesRequest) (*AppendEntriesResponse, error) {
+func (t *testTransporter) SendAppendEntriesRequest(server *Server, peer *Peer, req *AppendEntriesRequest) *AppendEntriesResponse {
 	return t.sendAppendEntriesRequestFunc(server, peer, req)
 }
 
-func (t *testTransporter) SendSnapshotRequest(server *Server, peer *Peer, req *SnapshotRequest) (*SnapshotResponse, error) {
+func (t *testTransporter) SendSnapshotRequest(server *Server, peer *Peer, req *SnapshotRequest) *SnapshotResponse {
 	return t.sendSnapshotRequestFunc(server, peer, req)
 }
 
@@ -138,40 +138,40 @@ func (c *joinCommand) CommandName() string {
 	return "test:join"
 }
 
-func (c *joinCommand) Apply(server *Server) error {
+func (c *joinCommand) Apply(server *Server) (interface{}, error) {
 	err := server.AddPeer(c.Name)
-	return err
+	return nil, err
 }
 
 //--------------------------------------
 // Command1
 //--------------------------------------
 
-type TestCommand1 struct {
+type testCommand1 struct {
 	Val string `json:"val"`
 	I   int    `json:"i"`
 }
 
-func (c TestCommand1) CommandName() string {
+func (c *testCommand1) CommandName() string {
 	return "cmd_1"
 }
 
-func (c TestCommand1) Apply(server *Server) error {
-	return nil
+func (c *testCommand1) Apply(server *Server) (interface{}, error) {
+	return nil, nil
 }
 
 //--------------------------------------
 // Command2
 //--------------------------------------
 
-type TestCommand2 struct {
+type testCommand2 struct {
 	X int `json:"x"`
 }
 
-func (c TestCommand2) CommandName() string {
+func (c *testCommand2) CommandName() string {
 	return "cmd_2"
 }
 
-func (c TestCommand2) Apply(server *Server) error {
-	return nil
+func (c *testCommand2) Apply(server *Server) (interface{}, error) {
+	return nil, nil
 }

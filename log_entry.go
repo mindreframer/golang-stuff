@@ -19,9 +19,10 @@ import (
 // A log entry stores a single item in the log.
 type LogEntry struct {
 	log     *Log
-	Index   uint64  `json:"index"`
-	Term    uint64  `json:"term"`
-	Command Command `json:"command"`
+	Index   uint64    `json:"index"`
+	Term    uint64    `json:"term"`
+	Command Command   `json:"command"`
+	commit  chan bool `json:"-"`
 }
 
 // A temporary interface used for unmarshaling log entries.
@@ -39,12 +40,13 @@ type logEntryRawMessage struct {
 //------------------------------------------------------------------------------
 
 // Creates a new log entry associated with a log.
-func NewLogEntry(log *Log, index uint64, term uint64, command Command) *LogEntry {
+func newLogEntry(log *Log, index uint64, term uint64, command Command) *LogEntry {
 	return &LogEntry{
 		log:     log,
 		Index:   index,
 		Term:    term,
 		Command: command,
+		commit:  make(chan bool, 5),
 	}
 }
 
@@ -59,7 +61,7 @@ func NewLogEntry(log *Log, index uint64, term uint64, command Command) *LogEntry
 //--------------------------------------
 
 // Encodes the log entry to a buffer.
-func (e *LogEntry) Encode(w io.Writer) error {
+func (e *LogEntry) encode(w io.Writer) error {
 	if w == nil {
 		return errors.New("raft.LogEntry: Writer required to encode")
 	}
@@ -84,7 +86,7 @@ func (e *LogEntry) Encode(w io.Writer) error {
 }
 
 // Decodes the log entry from a buffer. Returns the number of bytes read.
-func (e *LogEntry) Decode(r io.Reader) (pos int, err error) {
+func (e *LogEntry) decode(r io.Reader) (pos int, err error) {
 	pos = 0
 
 	if r == nil {
@@ -134,7 +136,7 @@ func (e *LogEntry) Decode(r io.Reader) (pos int, err error) {
 	}
 
 	// Instantiate command by name.
-	command, err := NewCommand(commandName)
+	command, err := newCommand(commandName)
 	if err != nil {
 		err = fmt.Errorf("raft.LogEntry: Unable to instantiate command (%s): %v", commandName, err)
 		return
@@ -184,7 +186,7 @@ func (e *LogEntry) UnmarshalJSON(data []byte) error {
 
 	// Create a command based on the name.
 	var err error
-	if e.Command, err = NewCommand(obj.Name); err != nil {
+	if e.Command, err = newCommand(obj.Name); err != nil {
 		return err
 	}
 	json.Unmarshal(obj.Command, e.Command)
