@@ -130,8 +130,8 @@ func (s *S) TestGetRepository(c *gocheck.C) {
 	expected := map[string]interface{}{
 		"name":    r.Name,
 		"public":  r.IsPublic,
-		"ssh_url": r.SshUrl(),
-		"git_url": r.GitUrl(),
+		"ssh_url": r.SshURL(),
+		"git_url": r.GitURL(),
 	}
 	c.Assert(data, gocheck.DeepEquals, expected)
 }
@@ -541,4 +541,42 @@ func (s *S) TestRemoveRepositoryShouldReturnErrorMsgWhenRepoDoesNotExists(c *goc
 	b, err := ioutil.ReadAll(recorder.Body)
 	c.Assert(err, gocheck.IsNil)
 	c.Assert(string(b), gocheck.Equals, "Could not remove repository: not found\n")
+}
+
+func (s *S) TestRenameRepository(c *gocheck.C) {
+	r, err := repository.New("raising", []string{"guardian@what.com"}, true)
+	c.Assert(err, gocheck.IsNil)
+	url := fmt.Sprintf("/repository/%s/?:name=%s", r.Name, r.Name)
+	body := strings.NewReader(`{"name":"freedom"}`)
+	request, err := http.NewRequest("PUT", url, body)
+	c.Assert(err, gocheck.IsNil)
+	recorder := httptest.NewRecorder()
+	RenameRepository(recorder, request)
+	c.Assert(recorder.Code, gocheck.Equals, http.StatusOK)
+	_, err = repository.Get("raising")
+	c.Assert(err, gocheck.NotNil)
+	r.Name = "freedom"
+	repo, err := repository.Get("freedom")
+	c.Assert(err, gocheck.IsNil)
+	c.Assert(repo, gocheck.DeepEquals, *r)
+}
+
+func (s *S) TestRenameRepositoryInvalidJSON(c *gocheck.C) {
+	url := "/repository/foo/?:name=foo"
+	body := strings.NewReader(`{"name""`)
+	request, err := http.NewRequest("PUT", url, body)
+	c.Assert(err, gocheck.IsNil)
+	recorder := httptest.NewRecorder()
+	RenameRepository(recorder, request)
+	c.Assert(recorder.Code, gocheck.Equals, http.StatusBadRequest)
+}
+
+func (s *S) TestRenameRepositoryNotfound(c *gocheck.C) {
+	url := "/repository/foo/?:name=foo"
+	body := strings.NewReader(`{"name":"freedom"}`)
+	request, err := http.NewRequest("PUT", url, body)
+	c.Assert(err, gocheck.IsNil)
+	recorder := httptest.NewRecorder()
+	RenameRepository(recorder, request)
+	c.Assert(recorder.Code, gocheck.Equals, http.StatusNotFound)
 }

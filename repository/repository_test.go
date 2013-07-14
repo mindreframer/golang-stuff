@@ -138,7 +138,7 @@ func (s *S) TestRemoveShouldRemoveBareRepositoryFromFileSystem(c *gocheck.C) {
 	defer func() { fs.Fsystem = nil }()
 	r, err := New("myRepo", []string{"pumpkin"}, false)
 	c.Assert(err, gocheck.IsNil)
-	err = Remove(r)
+	err = Remove(r.Name)
 	c.Assert(err, gocheck.IsNil)
 	action := "removeall " + path.Join(bareLocation(), "myRepo.git")
 	c.Assert(rfs.HasAction(action), gocheck.Equals, true)
@@ -153,7 +153,7 @@ func (s *S) TestRemoveShouldRemoveRepositoryFromDatabase(c *gocheck.C) {
 	defer func() { fs.Fsystem = nil }()
 	r, err := New("myRepo", []string{"pumpkin"}, false)
 	c.Assert(err, gocheck.IsNil)
-	err = Remove(r)
+	err = Remove(r.Name)
 	c.Assert(err, gocheck.IsNil)
 	err = db.Session.Repository().Find(bson.M{"_id": r.Name}).One(&r)
 	c.Assert(err, gocheck.ErrorMatches, "^not found$")
@@ -164,32 +164,58 @@ func (s *S) TestRemoveShouldReturnMeaningfulErrorWhenRepositoryDoesNotExistsInDa
 	fs.Fsystem = rfs
 	defer func() { fs.Fsystem = nil }()
 	r := &Repository{Name: "fooBar"}
-	err := Remove(r)
+	err := Remove(r.Name)
 	c.Assert(err, gocheck.ErrorMatches, "^Could not remove repository: not found$")
 }
 
-func (s *S) TestGitUrl(c *gocheck.C) {
+func (s *S) TestRename(c *gocheck.C) {
+	tmpdir, err := commandmocker.Add("git", "$*")
+	c.Assert(err, gocheck.IsNil)
+	repository, err := New("freedom", []string{"fss@corp.globo.com", "andrews@corp.globo.com"}, true)
+	c.Check(err, gocheck.IsNil)
+	commandmocker.Remove(tmpdir)
+	rfs := &fstesting.RecordingFs{}
+	fs.Fsystem = rfs
+	defer func() { fs.Fsystem = nil }()
+	err = Rename(repository.Name, "free")
+	c.Assert(err, gocheck.IsNil)
+	_, err = Get("freedom")
+	c.Assert(err, gocheck.NotNil)
+	repo, err := Get("free")
+	c.Assert(err, gocheck.IsNil)
+	repository.Name = "free"
+	c.Assert(repo, gocheck.DeepEquals, *repository)
+	action := "rename " + barePath("freedom") + " " + barePath("free")
+	c.Assert(rfs.HasAction(action), gocheck.Equals, true)
+}
+
+func (s *S) TestRenameNotFound(c *gocheck.C) {
+	err := Rename("something", "free")
+	c.Assert(err, gocheck.NotNil)
+}
+
+func (s *S) TestGitURL(c *gocheck.C) {
 	host, err := config.GetString("host")
 	c.Assert(err, gocheck.IsNil)
-	remote := (&Repository{Name: "lol"}).GitUrl()
+	remote := (&Repository{Name: "lol"}).GitURL()
 	c.Assert(remote, gocheck.Equals, fmt.Sprintf("git://%s/lol.git", host))
 }
 
-func (s *S) TestSshUrl(c *gocheck.C) {
+func (s *S) TestSshURL(c *gocheck.C) {
 	host, err := config.GetString("host")
 	c.Assert(err, gocheck.IsNil)
-	remote := (&Repository{Name: "lol"}).SshUrl()
+	remote := (&Repository{Name: "lol"}).SshURL()
 	c.Assert(remote, gocheck.Equals, fmt.Sprintf("git@%s:lol.git", host))
 }
 
-func (s *S) TestSshUrlUseUidFromConfigFile(c *gocheck.C) {
+func (s *S) TestSshURLUseUidFromConfigFile(c *gocheck.C) {
 	uid, err := config.GetString("uid")
 	c.Assert(err, gocheck.IsNil)
 	host, err := config.GetString("host")
 	c.Assert(err, gocheck.IsNil)
 	config.Set("uid", "test")
 	defer config.Set("uid", uid)
-	remote := (&Repository{Name: "f#"}).SshUrl()
+	remote := (&Repository{Name: "f#"}).SshURL()
 	c.Assert(remote, gocheck.Equals, fmt.Sprintf("test@%s:f#.git", host))
 }
 
@@ -295,8 +321,8 @@ func (s *S) TestMarshalJSON(c *gocheck.C) {
 	expected := map[string]interface{}{
 		"name":    repo.Name,
 		"public":  repo.IsPublic,
-		"ssh_url": repo.SshUrl(),
-		"git_url": repo.GitUrl(),
+		"ssh_url": repo.SshURL(),
+		"git_url": repo.GitURL(),
 	}
 	data, err := json.Marshal(&repo)
 	c.Assert(err, gocheck.IsNil)
