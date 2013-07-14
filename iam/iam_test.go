@@ -146,8 +146,8 @@ func (s *S) TestListGroups(c *C) {
 		{
 			Path: "/division_abc/subdivision_xyz/product_1234/",
 			Name: "Managers",
-			Id: "AGPIODR4TAW7CSEXAMPLE",
-			Arn: "arn:aws:iam::123456789012:group/division_abc/subdivision_xyz/product_1234/Managers",
+			Id:   "AGPIODR4TAW7CSEXAMPLE",
+			Arn:  "arn:aws:iam::123456789012:group/division_abc/subdivision_xyz/product_1234/Managers",
 		},
 	}
 	c.Assert(resp.Groups, DeepEquals, expected)

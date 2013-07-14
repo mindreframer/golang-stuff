@@ -3,7 +3,7 @@ package dynamodb
 import (
 	"bytes"
 	"fmt"
-	)
+)
 
 type Query struct {
 	buffer *bytes.Buffer
@@ -15,7 +15,7 @@ func NewEmptyQuery() *Query {
 	return q
 }
 
-func NewQuery(t *Table) *Query {	
+func NewQuery(t *Table) *Query {
 	q := &Query{new(bytes.Buffer)}
 	q.addTable(t)
 	return q
@@ -39,10 +39,10 @@ func (q *Query) AddKey(t *Table, hashKey string, rangeKey string) {
 	b.WriteString("{")
 	b.WriteString(quote(k.KeyAttribute.Type))
 	b.WriteString(":")
-	b.WriteString(quote(hashKey))	
+	b.WriteString(quote(hashKey))
 
 	b.WriteString("}")
-	
+
 	if k.HasRange() {
 		b.WriteString(",")
 		b.WriteString(quote("RangeKeyElement"))
@@ -58,18 +58,18 @@ func (q *Query) AddKey(t *Table, hashKey string, rangeKey string) {
 	b.WriteString("}")
 }
 
-func (q *Query) AddAttributesToGet(attributes []string){
+func (q *Query) AddAttributesToGet(attributes []string) {
 	if len(attributes) == 0 {
-		return 
+		return
 	}
 	b := q.buffer
 	addComma(b)
 
 	b.WriteString(quote("AttributesToGet"))
 	b.WriteString(":")
-	
+
 	b.WriteString("[")
-	
+
 	for index, val := range attributes {
 		if index > 0 {
 			b.WriteString(",")
@@ -77,14 +77,14 @@ func (q *Query) AddAttributesToGet(attributes []string){
 		b.WriteString(quote(val))
 	}
 
-	b.WriteString("]")	
+	b.WriteString("]")
 }
 
-func(q *Query) ConsistentRead(c bool){
+func (q *Query) ConsistentRead(c bool) {
 	if c == true {
 		b := q.buffer
 		addComma(b)
-		
+
 		b.WriteString(quote("ConsistentRead"))
 		b.WriteString(":")
 		b.WriteString("true")
@@ -92,9 +92,9 @@ func(q *Query) ConsistentRead(c bool){
 }
 
 /*
-    "ScanFilter":{
-        "AttributeName1":{"AttributeValueList":[{"S":"AttributeValue"}],"ComparisonOperator":"EQ"}
-    },
+   "ScanFilter":{
+       "AttributeName1":{"AttributeValueList":[{"S":"AttributeValue"}],"ComparisonOperator":"EQ"}
+   },
 */
 func (q *Query) AddScanFilter(comparisons []AttributeComparison) {
 	b := q.buffer
@@ -104,26 +104,25 @@ func (q *Query) AddScanFilter(comparisons []AttributeComparison) {
 		if i > 0 {
 			b.WriteString(",")
 		}
-		
+
 		b.WriteString(quote(c.AttributeName))
 		b.WriteString(":{\"AttributeValueList\":[")
-    for j, attributeValue := range c.AttributeValueList {
-  		if j > 0 {
-  			b.WriteString(",")
-  		}
-      b.WriteString("{")
-      b.WriteString(quote(attributeValue.Type))
-      b.WriteString(":")
-      b.WriteString(quote(attributeValue.Value))
-      b.WriteString("}")
-    }
-    b.WriteString("], \"ComparisonOperator\":")
+		for j, attributeValue := range c.AttributeValueList {
+			if j > 0 {
+				b.WriteString(",")
+			}
+			b.WriteString("{")
+			b.WriteString(quote(attributeValue.Type))
+			b.WriteString(":")
+			b.WriteString(quote(attributeValue.Value))
+			b.WriteString("}")
+		}
+		b.WriteString("], \"ComparisonOperator\":")
 		b.WriteString(quote(c.ComparisonOperator))
 		b.WriteString("}")
 	}
 	b.WriteString("}")
 }
-
 
 // The primary key must be included in attributes.
 func (q *Query) AddItem(attributes []Attribute) {
@@ -133,11 +132,11 @@ func (q *Query) AddItem(attributes []Attribute) {
 
 	b.WriteString(quote("Item"))
 	b.WriteString(":")
-	
+
 	attributeList(b, attributes)
 }
 
-func (q *Query) AddUpdates(attributes []Attribute, action string){
+func (q *Query) AddUpdates(attributes []Attribute, action string) {
 	b := q.buffer
 
 	addComma(b)
@@ -159,18 +158,20 @@ func (q *Query) AddUpdates(attributes []Attribute, action string){
 		b.WriteString("{")
 		b.WriteString(quote(a.Type))
 		b.WriteString(":")
-    
-    if a.SetType() {
-       b.WriteString("[")
-       for i, aval := range a.SetValues {
-         if i > 0 { b.WriteString(",") }
-  	     b.WriteString(quote(aval))
-       }
-       b.WriteString("]")
-    } else {
-  		b.WriteString(quote(a.Value))
-    }
-    
+
+		if a.SetType() {
+			b.WriteString("[")
+			for i, aval := range a.SetValues {
+				if i > 0 {
+					b.WriteString(",")
+				}
+				b.WriteString(quote(aval))
+			}
+			b.WriteString("]")
+		} else {
+			b.WriteString(quote(a.Value))
+		}
+
 		b.WriteString("}")
 		b.WriteString(",")
 		b.WriteString(quote("Action"))
@@ -178,10 +179,10 @@ func (q *Query) AddUpdates(attributes []Attribute, action string){
 		b.WriteString(quote(action))
 		b.WriteString("}")
 	}
-	b.WriteString("}")	
+	b.WriteString("}")
 }
 
-func (q *Query) AddExpected(attributes []Attribute){
+func (q *Query) AddExpected(attributes []Attribute) {
 	b := q.buffer
 	addComma(b)
 
@@ -196,25 +197,27 @@ func (q *Query) AddExpected(attributes []Attribute){
 
 		b.WriteString(quote(a.Name))
 		b.WriteString(":")
-		
+
 		b.WriteString("{")
 		b.WriteString(quote("Value"))
 		b.WriteString(":")
 		b.WriteString("{")
 		b.WriteString(quote(a.Type))
 		b.WriteString(":")
-    
-    if a.SetType() {
-       b.WriteString("[")
-       for i, aval := range a.SetValues {
-         if i > 0 { b.WriteString(",") }
-  	     b.WriteString(quote(aval))
-       }
-       b.WriteString("]")
-    } else {
-  		b.WriteString(quote(a.Value))
-    }
-		
+
+		if a.SetType() {
+			b.WriteString("[")
+			for i, aval := range a.SetValues {
+				if i > 0 {
+					b.WriteString(",")
+				}
+				b.WriteString(quote(aval))
+			}
+			b.WriteString("]")
+		} else {
+			b.WriteString(quote(a.Value))
+		}
+
 		b.WriteString("}")
 		b.WriteString("}")
 	}
@@ -222,31 +225,33 @@ func (q *Query) AddExpected(attributes []Attribute){
 	b.WriteString("}")
 }
 
-func attributeList(b *bytes.Buffer, attributes []Attribute){
+func attributeList(b *bytes.Buffer, attributes []Attribute) {
 	b.WriteString("{")
 	for index, a := range attributes {
 		if index > 0 {
 			b.WriteString(",")
 		}
-		
+
 		b.WriteString(quote(a.Name))
 		b.WriteString(":")
-		
+
 		b.WriteString("{")
 		b.WriteString(quote(a.Type))
 		b.WriteString(":")
-		
-    if a.SetType() {
-       b.WriteString("[")
-       for i, aval := range a.SetValues {
-         if i > 0 { b.WriteString(",") }
-  	     b.WriteString(quote(aval))
-       }
-       b.WriteString("]")
-    } else {
-  		b.WriteString(quote(a.Value))
-    }
-    
+
+		if a.SetType() {
+			b.WriteString("[")
+			for i, aval := range a.SetValues {
+				if i > 0 {
+					b.WriteString(",")
+				}
+				b.WriteString(quote(aval))
+			}
+			b.WriteString("]")
+		} else {
+			b.WriteString(quote(a.Value))
+		}
+
 		b.WriteString("}")
 	}
 	b.WriteString("}")

@@ -30,8 +30,10 @@ func NewQuery(queryParts []string) *Query {
 
 func (s *Server) queryServer(target string, query *Query) ([]byte, error) {
 	data := strings.NewReader(query.String())
-	hreq, err := http.NewRequest("POST", s.Region.DynamoDBEndpoint + "/", data)
-	if err != nil { return nil, err	}
+	hreq, err := http.NewRequest("POST", s.Region.DynamoDBEndpoint+"/", data)
+	if err != nil {
+		return nil, err
+	}
 
 	hreq.Header.Set("Date", requestDate())
 	hreq.Header.Set("Content-Type", "application/x-amz-json-1.0")
