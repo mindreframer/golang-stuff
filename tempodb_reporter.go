@@ -55,8 +55,8 @@ func (self *TempoDBReporter) ReportHealth(h *Health) {
 
 	b, _ := json.Marshal(blk)
 	r := bytes.NewReader(b)
-	resp, _ := http.Post(purl.String(), "application/json", r)
-	if resp.StatusCode != 200 {
-		log.Println("Error: TempoDB API Error: ", resp)
+	resp, err := http.Post(purl.String(), "application/json", r)
+	if nil != err || resp.StatusCode != 200 {
+		log.Println("Error: TempoDB API Error: ", err, resp)
 	}
 }
