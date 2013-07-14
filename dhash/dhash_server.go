@@ -2,7 +2,7 @@ package dhash
 
 import (
 	"github.com/zond/god/common"
-	"github.com/zond/god/setop"
+	"github.com/zond/setop"
 )
 
 type dhashServer Node

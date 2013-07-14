@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 	"github.com/zond/god/common"
-	"github.com/zond/god/setop"
+	"github.com/zond/setop"
 )
 
 func ExampleSetExpression() {
