@@ -17,28 +17,37 @@
 package goapp
 
 import (
-	"encoding/json"
+	"appengine"
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"appengine/blobstore"
 	"appengine/datastore"
+	"appengine/runtime"
 	"appengine/taskqueue"
 	"appengine/urlfetch"
+	"code.google.com/p/go-charset/charset"
+	_ "code.google.com/p/go-charset/data"
 	mpg "github.com/MiniProfiler/go/miniprofiler_gae"
+	"github.com/gorilla/mux"
 	"github.com/mjibson/goon"
 )
 
 func ImportOpmlTask(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	gn := goon.FromContext(c)
 	userid := r.FormValue("user")
-	data := r.FormValue("data")
+	bk := r.FormValue("key")
+	fr := blobstore.NewReader(c, appengine.BlobKey(bk))
 
 	var skip int
 	if s, err := strconv.Atoi(r.FormValue("skip")); err == nil {
@@ -52,6 +61,9 @@ func ImportOpmlTask(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	var proc func(label string, outlines []*OpmlOutline)
 	proc = func(label string, outlines []*OpmlOutline) {
 		for _, o := range outlines {
+			if o.Title == "" {
+				o.Title = o.Text
+			}
 			if o.XmlUrl != "" {
 				if remaining > 0 {
 					remaining--
@@ -70,7 +82,10 @@ func ImportOpmlTask(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	}
 
 	opml := Opml{}
-	if err := xml.Unmarshal([]byte(data), &opml); err != nil {
+	d := xml.NewDecoder(fr)
+	d.CharsetReader = charset.NewReader
+	d.Strict = false
+	if err := d.Decode(&opml); err != nil {
 		c.Errorf("opml error: %v", err.Error())
 		return
 	}
@@ -83,94 +98,10 @@ func ImportOpmlTask(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 		go func(i int) {
 			o := userOpml[i].Outline[0]
 			if err := addFeed(c, userid, userOpml[i]); err != nil {
-				c.Errorf("opml import error: %v", err.Error())
+				c.Warningf("opml import error: %v", err.Error())
 				// todo: do something here?
 			}
 			c.Debugf("opml import: %s, %s", o.Title, o.XmlUrl)
-			wg.Done()
-		}(i)
-	}
-	wg.Wait()
-
-	ud := UserData{Id: "data", Parent: gn.Key(&User{Id: userid})}
-	if err := gn.RunInTransaction(func(gn *goon.Goon) error {
-		gn.Get(&ud)
-		mergeUserOpml(&ud, opml.Outline...)
-		_, err := gn.Put(&ud)
-		return err
-	}, nil); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		c.Errorf("ude update error: %v", err.Error())
-		return
-	}
-
-	if len(userOpml) == IMPORT_LIMIT {
-		task := taskqueue.NewPOSTTask(routeUrl("import-opml-task"), url.Values{
-			"data": {data},
-			"user": {userid},
-			"skip": {strconv.Itoa(skip + IMPORT_LIMIT)},
-		})
-		taskqueue.Add(c, task, "import-reader")
-	}
-}
-
-const IMPORT_LIMIT = 20
-
-func ImportReaderTask(c mpg.Context, w http.ResponseWriter, r *http.Request) {
-	gn := goon.FromContext(c)
-	userid := r.FormValue("user")
-	data := r.FormValue("data")
-
-	var skip int
-	if s, err := strconv.Atoi(r.FormValue("skip")); err == nil {
-		skip = s
-	}
-
-	v := struct {
-		Subscriptions []struct {
-			Id         string `json:"id"`
-			Title      string `json:"title"`
-			HtmlUrl    string `json:"htmlUrl"`
-			Categories []struct {
-				Id    string `json:"id"`
-				Label string `json:"label"`
-			} `json:"categories"`
-		} `json:"subscriptions"`
-	}{}
-	json.Unmarshal([]byte(data), &v)
-	c.Debugf("reader import for %v, skip %v, len %v", userid, skip, len(v.Subscriptions))
-
-	end := skip + IMPORT_LIMIT
-	if end > len(v.Subscriptions) {
-		end = len(v.Subscriptions)
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(end - skip)
-	userOpml := make([]*OpmlOutline, end-skip)
-
-	for i := range v.Subscriptions[skip:end] {
-		go func(i int) {
-			sub := v.Subscriptions[skip+i]
-			var label string
-			if len(sub.Categories) > 0 {
-				label = sub.Categories[0].Label
-			}
-			outline := &OpmlOutline{
-				Title: label,
-				Outline: []*OpmlOutline{
-					&OpmlOutline{
-						XmlUrl: sub.Id[5:],
-						Title:  sub.Title,
-					},
-				},
-			}
-			userOpml[i] = outline
-			if err := addFeed(c, userid, outline); err != nil {
-				c.Errorf("reader import error: %v", err.Error())
-				// todo: do something here?
-			}
-			c.Debugf("reader import: %s, %s", sub.Title, sub.Id)
 			wg.Done()
 		}(i)
 	}
@@ -188,37 +119,246 @@ func ImportReaderTask(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if end < len(v.Subscriptions) {
-		task := taskqueue.NewPOSTTask(routeUrl("import-reader-task"), url.Values{
-			"data": {data},
+	if len(userOpml) == IMPORT_LIMIT {
+		task := taskqueue.NewPOSTTask(routeUrl("import-opml-task"), url.Values{
+			"key":  {bk},
 			"user": {userid},
 			"skip": {strconv.Itoa(skip + IMPORT_LIMIT)},
 		})
 		taskqueue.Add(c, task, "import-reader")
+	} else {
+		c.Infof("opml import done: %v", userid)
+	}
+}
+
+const IMPORT_LIMIT = 10
+
+func BackendStart(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	return
+	const sz = 100
+	ic := 0
+	var f func(appengine.Context)
+	var cs string
+	f = func(c appengine.Context) {
+		gn := goon.FromContext(c)
+		c.Errorf("ic: %d", ic)
+		wg := sync.WaitGroup{}
+		wg.Add(sz)
+		var j int64
+		q := datastore.NewQuery("F").KeysOnly()
+		if cs != "" {
+			if cur, err := datastore.DecodeCursor(cs); err == nil {
+				q = q.Start(cur)
+				c.Errorf("cur start: %v", cur)
+			}
+		}
+		it := q.Run(c)
+		for j = 0; j < sz; j++ {
+			k, err := it.Next(nil)
+			c.Errorf("%v: %v, %v", j, k, err)
+			if err != nil {
+				c.Criticalf("err: %v", err)
+				return
+			}
+
+			go func(k *datastore.Key) {
+				f := Feed{Url: k.StringID()}
+				if err := gn.Get(&f); err == nil {
+					f.Subscribe(c)
+				}
+
+				wg.Done()
+			}(k)
+		}
+		cur, err := it.Cursor()
+		if err == nil {
+			cs = cur.String()
+		}
+		wg.Wait()
+		ic++
+		runtime.RunInBackground(c, f)
+	}
+	runtime.RunInBackground(c, f)
+}
+
+func BackendStop(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+}
+
+func SubscribeCallback(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	gn := goon.FromContext(c)
+	vars := mux.Vars(r)
+	b, _ := base64.URLEncoding.DecodeString(vars["feed"])
+	f := Feed{Url: string(b)}
+	if err := gn.Get(&f); err != nil {
+		http.Error(w, "", http.StatusNotFound)
+		return
+	}
+	if r.Method == "GET" {
+		if r.FormValue("hub.mode") != "subscribe" || r.FormValue("hub.topic") != f.Url {
+			http.Error(w, "", http.StatusNotFound)
+			return
+		}
+		w.Write([]byte(r.FormValue("hub.challenge")))
+		i, _ := strconv.Atoi(r.FormValue("hub.lease_seconds"))
+		f.Subscribed = time.Now().Add(time.Second * time.Duration(i))
+		gn.Put(&f)
+		c.Debugf("subscribed: %v - %v", f.Url, f.Subscribed)
+		return
+	} else {
+		c.Infof("push: %v", f.Url)
+		defer r.Body.Close()
+		b, _ := ioutil.ReadAll(r.Body)
+		nf, ss := ParseFeed(c, f.Url, b)
+		err := updateFeed(c, f.Url, nf, ss)
+		if err != nil {
+			c.Errorf("push error: %v", err)
+		}
+	}
+}
+
+func SubscribeFeed(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	gn := goon.FromContext(c)
+	f := Feed{Url: r.FormValue("feed")}
+	if err := gn.Get(&f); err != nil {
+		c.Errorf("%v: %v", err, f.Url)
+		serveError(w, err)
+		return
+	} else if f.IsSubscribed() {
+		return
+	}
+	u := url.Values{}
+	u.Add("hub.callback", f.PubSubURL())
+	u.Add("hub.mode", "subscribe")
+	u.Add("hub.verify", "sync")
+	fu, _ := url.Parse(f.Url)
+	fu.Fragment = ""
+	u.Add("hub.topic", fu.String())
+	req, err := http.NewRequest("POST", PUBSUBHUBBUB_HUB, strings.NewReader(u.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	cl := urlfetch.Client(c)
+	resp, err := cl.Do(req)
+	if err != nil {
+		c.Errorf("req error: %v", err)
+	} else if resp.StatusCode != 204 {
+		c.Errorf("resp: %v - %v", f.Url, resp.Status)
+		c.Errorf("%s", resp.Body)
+	} else {
+		c.Infof("subscribed: %v", f.Url)
 	}
 }
 
 func UpdateFeeds(c mpg.Context, w http.ResponseWriter, r *http.Request) {
-	gn := goon.FromContext(c)
-	q := datastore.NewQuery(gn.Key(&Feed{}).Kind()).KeysOnly()
-	q = q.Filter("n <=", time.Now())
-	keys, _ := gn.GetAll(q, nil)
-	for _, k := range keys {
-		t := taskqueue.NewPOSTTask(routeUrl("update-feed"), url.Values{
-			"feed": {k.StringID()},
-		})
-		if _, err := taskqueue.Add(c, t, "update-feed"); err != nil {
-			c.Errorf("taskqueue error: %v", err.Error())
+	q := datastore.NewQuery("F").KeysOnly().Filter("n <=", time.Now())
+	q = q.Limit(100)
+	cs := r.FormValue("c")
+	hasCursor := false
+	if len(cs) > 0 {
+		if cur, err := datastore.DecodeCursor(cs); err == nil {
+			q = q.Start(cur)
+			hasCursor = true
+			c.Infof("starting at %v", cur)
+		} else {
+			c.Errorf("cursor error %v", err.Error())
+		}
+	}
+	if !hasCursor {
+		qs, err := taskqueue.QueueStats(c, []string{"update-feed"}, 0)
+		if err != nil || !qs[0].OldestETA.IsZero() {
+			c.Errorf("already %v (%v) tasks", qs[0].Tasks, qs[0].Executed1Minute)
+			return
+		}
+	}
+	var keys []*datastore.Key
+	it := q.Run(Timeout(c, time.Second*60))
+	for {
+		k, err := it.Next(nil)
+		if err == datastore.Done {
+			break
+		} else if err != nil {
+			c.Errorf("next error: %v", err.Error())
+			break
+		}
+		keys = append(keys, k)
+	}
+
+	if len(keys) == 0 {
+		c.Errorf("no results")
+		return
+	} else {
+		cur, err := it.Cursor()
+		if err != nil {
+			c.Errorf("to cur error %v", err.Error())
+		} else {
+			c.Infof("add with cur %v", cur)
+			t := taskqueue.NewPOSTTask(routeUrl("update-feeds"), url.Values{
+				"c": {cur.String()},
+			})
+			taskqueue.Add(c, t, "update-feed")
 		}
 	}
 	c.Infof("updating %d feeds", len(keys))
+
+	var tasks []*taskqueue.Task
+	for _, k := range keys {
+		tasks = append(tasks, taskqueue.NewPOSTTask(routeUrl("update-feed"), url.Values{
+			"feed": {k.StringID()},
+		}))
+	}
+	var ts []*taskqueue.Task
+	const taskLimit = 100
+	for len(tasks) > 0 {
+		if len(tasks) > taskLimit {
+			ts = tasks[:taskLimit]
+			tasks = tasks[taskLimit:]
+		} else {
+			ts = tasks
+			tasks = tasks[0:0]
+		}
+		if _, err := taskqueue.AddMulti(c, ts, "update-feed"); err != nil {
+			c.Errorf("taskqueue error: %v", err.Error())
+		}
+	}
 }
 
-func fetchFeed(c mpg.Context, url string) (*Feed, []*Story) {
-	cl := urlfetch.Client(c)
-	if resp, err := cl.Get(url); err == nil && resp.StatusCode == http.StatusOK {
+func fetchFeed(c mpg.Context, origUrl, fetchUrl string) (*Feed, []*Story) {
+	u, err := url.Parse(fetchUrl)
+	if u.Host == "" {
+		u.Host = u.Path
+		u.Path = ""
+	}
+	if err == nil && u.Scheme == "" {
+		u.Scheme = "http"
+		origUrl = u.String()
+		fetchUrl = origUrl
+		if origUrl == "" {
+			return nil, nil
+		}
+	}
+
+	cl := &http.Client{
+		Transport: &urlfetch.Transport{
+			Context:  c,
+			Deadline: time.Minute,
+		},
+	}
+	if resp, err := cl.Get(fetchUrl); err == nil && resp.StatusCode == http.StatusOK {
+		defer resp.Body.Close()
 		b, _ := ioutil.ReadAll(resp.Body)
-		return ParseFeed(c, url, b)
+		if autoUrl, err := Autodiscover(b); err == nil && origUrl == fetchUrl {
+			if autoU, err := url.Parse(autoUrl); err == nil {
+				if autoU.Scheme == "" {
+					autoU.Scheme = u.Scheme
+				}
+				if autoU.Host == "" {
+					autoU.Host = u.Host
+				}
+				autoUrl = autoU.String()
+			}
+			if autoUrl != fetchUrl {
+				return fetchFeed(c, origUrl, autoUrl)
+			}
+		}
+		return ParseFeed(c, origUrl, b)
 	} else if err != nil {
 		c.Warningf("fetch feed error: %s", err.Error())
 	} else {
@@ -231,7 +371,7 @@ func updateFeed(c mpg.Context, url string, feed *Feed, stories []*Story) error {
 	gn := goon.FromContext(c)
 	f := Feed{Url: url}
 	if err := gn.Get(&f); err != nil {
-		return errors.New(fmt.Sprintf("feed not found: %s", url))
+		return fmt.Errorf("feed not found: %s", url)
 	}
 
 	// Compare the feed's listed update to the story's update.
@@ -245,6 +385,7 @@ func updateFeed(c mpg.Context, url string, feed *Feed, stories []*Story) error {
 		feed.Updated = f.Updated
 	}
 	feed.Date = f.Date
+	feed.Average = f.Average
 	f = *feed
 
 	if hasUpdated && isFeedUpdated {
@@ -254,55 +395,62 @@ func updateFeed(c mpg.Context, url string, feed *Feed, stories []*Story) error {
 		return nil
 	}
 
-	c.Debugf("hasUpdate: %v, isFeedUpdated: %v, storyDate: %v", hasUpdated, isFeedUpdated, storyDate)
-
-	var newStories []*Story
-	for _, s := range stories {
-		if s.Updated.IsZero() || !s.Updated.Before(storyDate) {
-			newStories = append(newStories, s)
-		}
-	}
-	c.Debugf("%v possible stories to update", len(newStories))
-
+	c.Debugf("hasUpdate: %v, isFeedUpdated: %v, storyDate: %v, stories: %v", hasUpdated, isFeedUpdated, storyDate, len(stories))
 	puts := []interface{}{&f}
 
 	// find non existant stories
 	fk := gn.Key(&f)
-	getStories := make([]*Story, len(newStories))
-	for i, s := range newStories {
+	getStories := make([]*Story, len(stories))
+	for i, s := range stories {
 		getStories[i] = &Story{Id: s.Id, Parent: fk}
 	}
 	err := gn.GetMulti(getStories)
+	if _, ok := err.(appengine.MultiError); err != nil && !ok {
+		c.Errorf("get multi error: %v", err.Error())
+		return err
+	}
 	var updateStories []*Story
 	for i, s := range getStories {
 		if goon.NotFound(err, i) {
-			updateStories = append(updateStories, newStories[i])
-		} else if !newStories[i].Updated.IsZero() && !newStories[i].Updated.Equal(s.Updated) {
-			newStories[i].Created = s.Created
-			newStories[i].Published = s.Published
-			updateStories = append(updateStories, newStories[i])
+			updateStories = append(updateStories, stories[i])
+		} else if !stories[i].Updated.IsZero() && !stories[i].Updated.Equal(s.Updated) {
+			stories[i].Created = s.Created
+			stories[i].Published = s.Published
+			updateStories = append(updateStories, stories[i])
 		}
 	}
 	c.Debugf("%v update stories", len(updateStories))
 
 	for _, s := range updateStories {
 		puts = append(puts, s)
-		gn.Put(&StoryContent{
-			Id:      1,
-			Parent:  gn.Key(s),
-			Content: s.content,
-		})
+		sc := StoryContent{
+			Id:     1,
+			Parent: gn.Key(s),
+		}
+		buf := &bytes.Buffer{}
+		if gz, err := gzip.NewWriterLevel(buf, gzip.BestCompression); err == nil {
+			gz.Write([]byte(s.content))
+			gz.Close()
+			sc.Compressed = buf.Bytes()
+		}
+		if len(sc.Compressed) == 0 {
+			sc.Content = s.content
+		}
+		gn.Put(&sc)
 	}
 
 	c.Debugf("putting %v entities", len(puts))
 	if len(puts) > 1 {
+		updateAverage(&f, f.Date, len(puts)-1)
 		f.Date = time.Now()
 		if !hasUpdated {
 			f.Updated = f.Date
 		}
 	}
+	scheduleNextUpdate(&f)
+	delay := f.NextUpdate.Sub(time.Now())
+	c.Infof("next update scheduled for %v from now", delay-delay%time.Second)
 	gn.PutMulti(puts)
-
 	return nil
 }
 
@@ -312,22 +460,133 @@ func UpdateFeed(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	c.Debugf("update feed %s", url)
 	f := Feed{Url: url}
 	if err := gn.Get(&f); err == datastore.ErrNoSuchEntity {
+		c.Errorf("no such entity")
+		return
+	} else if err != nil {
 		return
 	} else if time.Now().Before(f.NextUpdate) {
-		c.Infof("feed %v already updated", url)
+		c.Infof("feed %v already updated: %v", url, f.NextUpdate)
 		return
 	}
-	if feed, stories := fetchFeed(c, url); feed != nil {
-		updateFeed(c, url, feed, stories)
-	} else {
+
+	feedError := func() {
 		f.Errors++
 		v := f.Errors + 1
 		const max = 24 * 7
 		if v > max {
 			v = max
+		} else if f.Errors == 1 {
+			v = 0
 		}
 		f.NextUpdate = time.Now().Add(time.Hour * time.Duration(v))
 		gn.Put(&f)
 		c.Warningf("error with %v (%v), bump next update to %v", url, f.Errors, f.NextUpdate)
+	}
+
+	if feed, stories := fetchFeed(c, f.Url, f.Url); feed != nil {
+		if err := updateFeed(c, f.Url, feed, stories); err != nil {
+			feedError()
+		}
+	} else {
+		feedError()
+	}
+}
+
+func CFixer(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	q := datastore.NewQuery("F").KeysOnly()
+	q = q.Limit(1000)
+	cs := r.FormValue("c")
+	if len(cs) > 0 {
+		if cur, err := datastore.DecodeCursor(cs); err == nil {
+			q = q.Start(cur)
+			c.Infof("starting at %v", cur)
+		} else {
+			c.Errorf("cursor error %v", err.Error())
+		}
+	}
+	var keys []*datastore.Key
+	it := q.Run(Timeout(c, time.Second*15))
+	for {
+		k, err := it.Next(nil)
+		if err == datastore.Done {
+			break
+		} else if err != nil {
+			c.Errorf("next error: %v", err.Error())
+			break
+		}
+		keys = append(keys, k)
+	}
+
+	if len(keys) == 0 {
+		c.Errorf("no results")
+		return
+	} else {
+		cur, err := it.Cursor()
+		if err != nil {
+			c.Errorf("to cur error %v", err.Error())
+		} else {
+			c.Infof("add with cur %v", cur)
+			t := taskqueue.NewPOSTTask("/tasks/cfixer", url.Values{
+				"c": {cur.String()},
+			})
+			taskqueue.Add(c, t, "cfixer")
+		}
+	}
+	c.Infof("fixing %d feeds", len(keys))
+
+	var tasks []*taskqueue.Task
+	for _, k := range keys {
+		c.Infof("f: %v", k.StringID())
+		tasks = append(tasks, taskqueue.NewPOSTTask("/tasks/cfix", url.Values{
+			"feed": {k.StringID()},
+		}))
+	}
+	var ts []*taskqueue.Task
+	const taskLimit = 100
+	for len(tasks) > 0 {
+		if len(tasks) > taskLimit {
+			ts = tasks[:taskLimit]
+			tasks = tasks[taskLimit:]
+		} else {
+			ts = tasks
+			tasks = tasks[0:0]
+		}
+		if _, err := taskqueue.AddMulti(c, ts, "cfixer"); err != nil {
+			c.Errorf("taskqueue error: %v", err.Error())
+		}
+	}
+}
+
+func CFix(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	gn := goon.FromContext(c)
+	url := r.FormValue("feed")
+	c.Infof("fix feed %s", url)
+	f := Feed{Url: url}
+	if err := gn.Get(&f); err != nil {
+		c.Criticalf("cfix err: %v", err)
+		serveError(w, err)
+		return
+	}
+
+	q := datastore.NewQuery("S").Ancestor(gn.Key(&f))
+	var ss []*Story
+	keys, err := q.GetAll(c, &ss)
+	if err != nil {
+		c.Errorf("getall err: %v", err)
+		serveError(w, err)
+		return
+	}
+	c.Infof("trying to fix %v stories", len(ss))
+	const putLimit = 500
+	for i := 0; i <= len(keys)/putLimit; i++ {
+		lo := i * putLimit
+		hi := (i + 1) * putLimit
+		if hi > len(keys) {
+			hi = len(keys)
+		}
+		c.Infof("%v - %v", lo, hi)
+		if _, err := datastore.PutMulti(c, keys[lo:hi], ss[lo:hi]); err != nil {
+			c.Errorf("err: %v, %v, %v", lo, hi, err)
+		}
 	}
 }

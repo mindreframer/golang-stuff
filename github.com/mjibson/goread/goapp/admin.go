@@ -67,13 +67,13 @@ func AllFeeds(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 
 func AdminFeed(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 	gn := goon.FromContext(c)
-	f := Feed{Url: r.URL.Query().Get("f")}
+	f := Feed{Url: r.FormValue("f")}
 	gn.Get(&f)
 	q := datastore.NewQuery(gn.Key(&Story{}).Kind()).KeysOnly()
 	fk := gn.Key(&f)
 	q = q.Ancestor(fk)
-	q = q.Filter("p >", time.Now().Add(time.Hour*-48))
-	q = q.Order("p")
+	q = q.Limit(100)
+	q = q.Order("-" + IDX_COL)
 	keys, _ := gn.GetAll(q, nil)
 	stories := make([]*Story, len(keys))
 	for j, key := range keys {
@@ -83,6 +83,7 @@ func AdminFeed(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	gn.GetMulti(stories)
+	f.Subscribe(c)
 
 	templates.ExecuteTemplate(w, "admin-feed.html", struct {
 		Feed    *Feed
@@ -96,11 +97,34 @@ func AdminFeed(c mpg.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func AdminUpdateFeed(c mpg.Context, w http.ResponseWriter, r *http.Request) {
-	url := r.URL.Query().Get("f")
-	if feed, stories := fetchFeed(c, url); feed != nil {
+	url := r.FormValue("f")
+	if feed, stories := fetchFeed(c, url, url); feed != nil {
 		updateFeed(c, url, feed, stories)
 		fmt.Fprintf(w, "updated: %v", url)
 	} else {
 		fmt.Fprintf(w, "error updating: %v", url)
 	}
+}
+
+func AdminDateFormats(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	gn := goon.FromContext(c)
+	q := datastore.NewQuery(gn.Key(&DateFormat{}).Kind()).KeysOnly()
+	keys, err := gn.GetAll(q, nil)
+	if err != nil {
+		serveError(w, err)
+		return
+	}
+	if err := templates.ExecuteTemplate(w, "admin-date-formats.html", keys); err != nil {
+		serveError(w, err)
+	}
+}
+
+func AdminStats(c mpg.Context, w http.ResponseWriter, r *http.Request) {
+	gn := goon.FromContext(c)
+	uc, _ := datastore.NewQuery(gn.Key(&User{}).Kind()).Count(c)
+	templates.ExecuteTemplate(w, "admin-stats.html", struct {
+		Users int
+	}{
+		uc,
+	})
 }

@@ -19,7 +19,6 @@ package goapp
 import (
 	"bytes"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"html"
 	"html/template"
@@ -41,10 +40,11 @@ import (
 	"appengine/user"
 	"code.google.com/p/go-charset/charset"
 	_ "code.google.com/p/go-charset/data"
-	"code.google.com/p/rsc/blog/atom"
 	mpg "github.com/MiniProfiler/go/miniprofiler_gae"
 	"github.com/mjibson/goon"
-	"github.com/mjibson/rssgo"
+	"goapp/atom"
+	"goapp/rdf"
+	"goapp/rss"
 )
 
 func serveError(w http.ResponseWriter, err error) {
@@ -52,16 +52,21 @@ func serveError(w http.ResponseWriter, err error) {
 }
 
 type Includes struct {
-	Angular         string
-	BootstrapCss    string
-	BootstrapJs     string
-	Jquery          string
-	MiniProfiler    template.HTML
-	User            *User
-	Messages        []string
-	GoogleAnalytics string
-	IsDev           bool
-	IsAdmin         bool
+	Angular             string
+	BootstrapCss        string
+	BootstrapJs         string
+	Jquery              string
+	JqueryUI            string
+	Underscore          string
+	MiniProfiler        template.HTML
+	User                *User
+	Messages            []string
+	GoogleAnalyticsId   string
+	GoogleAnalyticsHost string
+	IsDev               bool
+	IsAdmin             bool
+	StripeKey           string
+	StripePlans         []Plan
 }
 
 var (
@@ -69,6 +74,8 @@ var (
 	BootstrapCss string
 	BootstrapJs  string
 	Jquery       string
+	JqueryUI     string
+	Underscore   string
 	isDevServer  bool
 )
 
@@ -76,6 +83,8 @@ func init() {
 	angular_ver := "1.0.5"
 	bootstrap_ver := "2.3.1"
 	jquery_ver := "1.9.1"
+	jqueryui_ver := "1.10.3"
+	underscore_ver := "1.4.4"
 	isDevServer = appengine.IsDevAppServer()
 
 	if appengine.IsDevAppServer() {
@@ -83,23 +92,32 @@ func init() {
 		BootstrapCss = fmt.Sprintf("/static/css/bootstrap-combined-%v.css", bootstrap_ver)
 		BootstrapJs = fmt.Sprintf("/static/js/bootstrap-%v.js", bootstrap_ver)
 		Jquery = fmt.Sprintf("/static/js/jquery-%v.js", jquery_ver)
+		JqueryUI = fmt.Sprintf("/static/js/jquery-ui-%v.js", jqueryui_ver)
+		Underscore = fmt.Sprintf("/static/js/underscore-%v.js", underscore_ver)
 	} else {
 		Angular = fmt.Sprintf("//ajax.googleapis.com/ajax/libs/angularjs/%v/angular.min.js", angular_ver)
 		BootstrapCss = fmt.Sprintf("//netdna.bootstrapcdn.com/twitter-bootstrap/%v/css/bootstrap-combined.min.css", bootstrap_ver)
 		BootstrapJs = fmt.Sprintf("//netdna.bootstrapcdn.com/twitter-bootstrap/%v/js/bootstrap.min.js", bootstrap_ver)
 		Jquery = fmt.Sprintf("//ajax.googleapis.com/ajax/libs/jquery/%v/jquery.min.js", jquery_ver)
+		JqueryUI = fmt.Sprintf("//ajax.googleapis.com/ajax/libs/jqueryui/%v/jquery-ui.min.js", jqueryui_ver)
+		Underscore = fmt.Sprintf("/static/js/underscore-%v.min.js", underscore_ver)
 	}
 }
 
-func includes(c mpg.Context, r *http.Request) *Includes {
+func includes(c mpg.Context, w http.ResponseWriter, r *http.Request) *Includes {
 	i := &Includes{
-		Angular:         Angular,
-		BootstrapCss:    BootstrapCss,
-		BootstrapJs:     BootstrapJs,
-		Jquery:          Jquery,
-		MiniProfiler:    c.Includes(r),
-		GoogleAnalytics: GOOGLE_ANALYTICS_ID,
-		IsDev:           isDevServer,
+		Angular:             Angular,
+		BootstrapCss:        BootstrapCss,
+		BootstrapJs:         BootstrapJs,
+		Jquery:              Jquery,
+		JqueryUI:            JqueryUI,
+		Underscore:          Underscore,
+		MiniProfiler:        c.Includes(r),
+		GoogleAnalyticsId:   GOOGLE_ANALYTICS_ID,
+		GoogleAnalyticsHost: GOOGLE_ANALYTICS_HOST,
+		IsDev:               isDevServer,
+		StripeKey:           STRIPE_KEY,
+		StripePlans:         STRIPE_PLANS,
 	}
 
 	if cu := user.Current(c); cu != nil {
@@ -114,6 +132,17 @@ func includes(c mpg.Context, r *http.Request) *Includes {
 				user.Messages = nil
 				gn.Put(user)
 			}
+
+			/*
+				if _, err := r.Cookie("update-bug"); err != nil {
+					i.Messages = append(i.Messages, "Go Read had some problems updating feeds. It may take a while for new stories to appear again. Sorry about that.")
+					http.SetCookie(w, &http.Cookie{
+						Name: "update-bug",
+						Value: "done",
+						Expires: time.Now().Add(time.Hour * 24 * 7),
+					})
+				}
+			*/
 		}
 	}
 
@@ -121,40 +150,122 @@ func includes(c mpg.Context, r *http.Request) *Includes {
 }
 
 var dateFormats = []string{
-	"01.02.06",
+	"01-02-2006",
+	"01/02/2006 15:04:05 MST",
+	"02 Jan 2006 15:04 MST",
+	"02 Jan 2006 15:04:05 -0700",
+	"02 Jan 2006 15:04:05 MST",
 	"02 Jan 2006 15:04:05 UT",
 	"02 Jan 2006",
+	"02-01-2006 15:04:05 MST",
+	"02.01.2006 -0700",
+	"02.01.2006 15:04:05",
+	"02/01/2006 15:04:05",
+	"02/01/2006",
+	"06-1-2 15:04",
+	"06/1/2 15:04",
+	"1/2/2006 15:04:05 MST",
+	"1/2/2006 3:04:05 PM",
+	"15:04 02.01.2006 -0700",
+	"2 Jan 2006 15:04:05 MST",
+	"2 Jan 2006",
+	"2 January 2006 15:04:05 -0700",
 	"2 January 2006",
+	"2006 January 02",
+	"2006-01-02 00:00:00.0 15:04:05.0 -0700",
+	"2006-01-02 15:04",
+	"2006-01-02 15:04:05 -0700",
 	"2006-01-02 15:04:05 MST",
+	"2006-01-02 15:04:05-07:00",
+	"2006-01-02 15:04:05Z",
 	"2006-01-02",
-	"2006-01-02T15:04+07:00",
+	"2006-01-02T15:04-07:00",
 	"2006-01-02T15:04:05 -0700",
 	"2006-01-02T15:04:05",
 	"2006-01-02T15:04:05-0700",
 	"2006-01-02T15:04:05-07:00",
+	"2006-01-02T15:04:05-07:00:00",
+	"2006-01-02T15:04:05:-0700",
+	"2006-01-02T15:04:05:00",
+	"2006-01-02T15:04:05Z",
+	"2006-1-02T15:04:05Z",
 	"2006-1-2 15:04:05",
 	"2006-1-2",
+	"2006/01/02",
+	"6-1-2 15:04",
+	"6/1/2 15:04",
+	"Jan 02 2006 03:04:05PM",
 	"Jan 2, 2006 15:04:05 MST",
 	"Jan 2, 2006 3:04:05 PM MST",
+	"January 02, 2006 03:04 PM",
+	"January 02, 2006 15:04",
 	"January 02, 2006 15:04:05 MST",
+	"January 02, 2006",
+	"January 2, 2006 03:04 PM",
 	"January 2, 2006 15:04:05 MST",
-	"Mon, 02 2006 15:04:05 MST",
+	"January 2, 2006 15:04:05",
+	"January 2, 2006",
+	"January 2, 2006, 3:04 p.m.",
+	"Mon 02 Jan 2006 15:04:05 -0700",
+	"Mon 2 Jan 2006 15:04:05 MST",
+	"Mon Jan 2 15:04 2006",
+	"Mon Jan 2 15:04:05 2006 MST",
+	"Mon, 02 Jan 06 15:04:05 MST",
+	"Mon, 02 Jan 2006 15:04 -0700",
+	"Mon, 02 Jan 2006 15:04 MST",
+	"Mon, 02 Jan 2006 15:04:05 --0700",
+	"Mon, 02 Jan 2006 15:04:05 -07",
 	"Mon, 02 Jan 2006 15:04:05 -0700",
+	"Mon, 02 Jan 2006 15:04:05 -07:00",
+	"Mon, 02 Jan 2006 15:04:05 00",
+	"Mon, 02 Jan 2006 15:04:05 MST -0700",
 	"Mon, 02 Jan 2006 15:04:05 MST",
+	"Mon, 02 Jan 2006 15:04:05 MST-07:00",
 	"Mon, 02 Jan 2006 15:04:05 UT",
 	"Mon, 02 Jan 2006 15:04:05 Z",
 	"Mon, 02 Jan 2006 15:04:05",
+	"Mon, 02 Jan 2006 15:04:05MST",
+	"Mon, 02 Jan 2006 3:04:05 PM MST",
 	"Mon, 02 Jan 2006",
 	"Mon, 02 January 2006",
+	"Mon, 2 Jan 06 15:04:05 -0700",
+	"Mon, 2 Jan 06 15:04:05 MST",
+	"Mon, 2 Jan 15:04:05 MST",
+	"Mon, 2 Jan 2006 15:04",
+	"Mon, 2 Jan 2006 15:04:05 -0700 MST",
 	"Mon, 2 Jan 2006 15:04:05 -0700",
 	"Mon, 2 Jan 2006 15:04:05 MST",
+	"Mon, 2 Jan 2006 15:04:05 UT",
+	"Mon, 2 Jan 2006 15:04:05",
+	"Mon, 2 Jan 2006 15:04:05-0700",
+	"Mon, 2 Jan 2006 15:04:05MST",
+	"Mon, 2 Jan 2006 15:4:5 MST",
 	"Mon, 2 Jan 2006",
 	"Mon, 2 Jan 2006, 15:04 -0700",
+	"Mon, 2 January 2006 15:04:05 -0700",
+	"Mon, 2 January 2006 15:04:05 MST",
 	"Mon, 2 January 2006, 15:04 -0700",
 	"Mon, 2 January 2006, 15:04:05 MST",
+	"Mon, 2, Jan 2006 15:4",
+	"Mon, Jan 2 2006 15:04:05 -0700",
+	"Mon, Jan 2 2006 15:04:05 -700",
+	"Mon, January 02, 2006, 15:04:05 MST",
+	"Mon, January 2 2006 15:04:05 -0700",
+	"Mon,02 Jan 2006 15:04:05 -0700",
+	"Mon,02 January 2006 14:04:05 MST",
 	"Monday, 02 January 2006 15:04:05 -0700",
+	"Monday, 02 January 2006 15:04:05 MST",
+	"Monday, 02 January 2006 15:04:05",
 	"Monday, 2 Jan 2006 15:04:05 -0700",
+	"Monday, 2 Jan 2006 15:04:05 MST",
 	"Monday, 2 January 2006 15:04:05 -0700",
+	"Monday, 2 January 2006 15:04:05 MST",
+	"Monday, January 02, 2006",
+	"Monday, January 2, 2006 03:04 PM",
+	"Monday, January 2, 2006 15:04:05 MST",
+	"Monday, January 2, 2006",
+	"Updated January 2, 2006",
+	"mon,2 Jan 2006 15:04:05 MST",
 	time.ANSIC,
 	time.RFC1123,
 	time.RFC1123Z,
@@ -166,14 +277,11 @@ var dateFormats = []string{
 	time.UnixDate,
 }
 
-func parseDate(c appengine.Context, ds ...string) (t time.Time, err error) {
+func parseDate(c appengine.Context, feed *Feed, ds ...string) (t time.Time, err error) {
 	for _, d := range ds {
 		d = strings.TrimSpace(d)
 		if d == "" {
 			continue
-		}
-		if t, err = rssgo.ParseRssDate(d); err == nil {
-			return
 		}
 		for _, f := range dateFormats {
 			if t, err = time.Parse(f, d); err == nil {
@@ -181,9 +289,12 @@ func parseDate(c appengine.Context, ds ...string) (t time.Time, err error) {
 			}
 		}
 		gn := goon.FromContext(c)
-		gn.Put(&DateFormat{Id: d})
+		gn.Put(&DateFormat{
+			Id:     d,
+			Parent: gn.Key(feed),
+		})
 	}
-	err = errors.New(fmt.Sprintf("could not parse date: %v", strings.Join(ds, ", ")))
+	err = fmt.Errorf("could not parse date: %v", strings.Join(ds, ", "))
 	return
 }
 
@@ -192,42 +303,57 @@ func ParseFeed(c appengine.Context, u string, b []byte) (*Feed, []*Story) {
 	var s []*Story
 
 	a := atom.Feed{}
-	var atomerr, rsserr, rdferr error
+	var atomerr, rsserr, rdferr, err error
+	var fb, eb *url.URL
 	d := xml.NewDecoder(bytes.NewReader(b))
 	d.CharsetReader = charset.NewReader
 	if atomerr = d.Decode(&a); atomerr == nil {
 		f.Title = a.Title
-		if t, err := parseDate(c, string(a.Updated)); err == nil {
+		if t, err := parseDate(c, &f, string(a.Updated)); err == nil {
 			f.Updated = t
 		}
-		for _, l := range a.Link {
-			if l.Rel != "self" {
-				f.Link = l.Href
-				break
+
+		if fb, err = url.Parse(a.XMLBase); err != nil {
+			fb, _ = url.Parse("")
+		}
+		if len(a.Link) > 0 {
+			f.Link = findBestAtomLink(c, a.Link).Href
+			if l, err := fb.Parse(f.Link); err == nil {
+				f.Link = l.String()
 			}
 		}
 
 		for _, i := range a.Entry {
+			if eb, err = fb.Parse(i.XMLBase); err != nil {
+				eb = fb
+			}
 			st := Story{
 				Id:    i.ID,
 				Title: i.Title,
 			}
-			if t, err := parseDate(c, string(i.Updated)); err == nil {
+			if t, err := parseDate(c, &f, string(i.Updated)); err == nil {
 				st.Updated = t
 			}
-			if t, err := parseDate(c, string(i.Published)); err == nil {
+			if t, err := parseDate(c, &f, string(i.Published)); err == nil {
 				st.Published = t
 			}
 			if len(i.Link) > 0 {
-				st.Link = i.Link[0].Href
+				st.Link = findBestAtomLink(c, i.Link).Href
+				if l, err := eb.Parse(st.Link); err == nil {
+					st.Link = l.String()
+				}
 			}
 			if i.Author != nil {
 				st.Author = i.Author.Name
 			}
 			if i.Content != nil {
-				st.content, st.Summary = Sanitize(i.Content.Body)
+				if len(strings.TrimSpace(i.Content.Body)) != 0 {
+					st.content = i.Content.Body
+				} else if len(i.Content.InnerXML) != 0 {
+					st.content = i.Content.InnerXML
+				}
 			} else if i.Summary != nil {
-				st.content, st.Summary = Sanitize(i.Summary.Body)
+				st.content = i.Summary.Body
 			}
 			s = append(s, &st)
 		}
@@ -235,14 +361,14 @@ func ParseFeed(c appengine.Context, u string, b []byte) (*Feed, []*Story) {
 		return parseFix(c, &f, s)
 	}
 
-	r := rssgo.Rss{}
+	r := rss.Rss{}
 	d = xml.NewDecoder(bytes.NewReader(b))
 	d.CharsetReader = charset.NewReader
 	d.DefaultSpace = "DefaultSpace"
 	if rsserr = d.Decode(&r); rsserr == nil {
 		f.Title = r.Title
 		f.Link = r.Link
-		if t, err := parseDate(c, r.LastBuildDate, r.PubDate); err == nil {
+		if t, err := parseDate(c, &f, r.LastBuildDate, r.PubDate); err == nil {
 			f.Updated = t
 		} else {
 			c.Warningf("no rss feed date: %v", f.Link)
@@ -259,14 +385,17 @@ func ParseFeed(c appengine.Context, u string, b []byte) (*Feed, []*Story) {
 				i.Title = i.Description
 			}
 			if i.Content != "" {
-				st.content, st.Summary = Sanitize(i.Content)
+				st.content = i.Content
 			} else if i.Title != "" && i.Description != "" {
-				st.content, st.Summary = Sanitize(i.Description)
+				st.content = i.Description
 			}
 			if i.Guid != nil {
 				st.Id = i.Guid.Guid
 			}
-			if t, err := parseDate(c, i.PubDate, i.Date, i.Published); err == nil {
+			if i.Media != nil {
+				st.MediaContent = i.Media.URL
+			}
+			if t, err := parseDate(c, &f, i.PubDate, i.Date, i.Published); err == nil {
 				st.Published = t
 				st.Updated = t
 			}
@@ -277,27 +406,27 @@ func ParseFeed(c appengine.Context, u string, b []byte) (*Feed, []*Story) {
 		return parseFix(c, &f, s)
 	}
 
-	rdf := RDF{}
+	rd := rdf.RDF{}
 	d = xml.NewDecoder(bytes.NewReader(b))
 	d.CharsetReader = charset.NewReader
-	if rdferr = d.Decode(&rdf); rdferr == nil {
-		if rdf.Channel != nil {
-			f.Title = rdf.Channel.Title
-			f.Link = rdf.Channel.Link
-			if t, err := parseDate(c, rdf.Channel.Date); err == nil {
+	if rdferr = d.Decode(&rd); rdferr == nil {
+		if rd.Channel != nil {
+			f.Title = rd.Channel.Title
+			f.Link = rd.Channel.Link
+			if t, err := parseDate(c, &f, rd.Channel.Date); err == nil {
 				f.Updated = t
 			}
 		}
 
-		for _, i := range rdf.Item {
+		for _, i := range rd.Item {
 			st := Story{
 				Id:     i.About,
 				Title:  i.Title,
 				Link:   i.Link,
 				Author: i.Creator,
 			}
-			st.content, st.Summary = Sanitize(html.UnescapeString(i.Description))
-			if t, err := parseDate(c, i.Date); err == nil {
+			st.content = html.UnescapeString(i.Description)
+			if t, err := parseDate(c, &f, i.Date); err == nil {
 				st.Published = t
 				st.Updated = t
 			}
@@ -313,14 +442,48 @@ func ParseFeed(c appengine.Context, u string, b []byte) (*Feed, []*Story) {
 	return nil, nil
 }
 
-const UpdateTime = time.Hour
+func findBestAtomLink(c appengine.Context, links []atom.Link) atom.Link {
+	getScore := func(l atom.Link) int {
+		switch {
+		case l.Rel == "hub":
+			return 0
+		case l.Type == "text/html":
+			return 3
+		case l.Rel != "self":
+			return 2
+		default:
+			return 1
+		}
+	}
+
+	var bestlink atom.Link
+	bestscore := -1
+	for _, l := range links {
+		score := getScore(l)
+		if score > bestscore {
+			bestlink = l
+			bestscore = score
+		}
+	}
+
+	return bestlink
+}
 
 func parseFix(c appengine.Context, f *Feed, ss []*Story) (*Feed, []*Story) {
 	g := goon.FromContext(c)
 	f.Checked = time.Now()
-	f.NextUpdate = f.Checked.Add(UpdateTime - time.Second*time.Duration(rand.Int63n(300)))
 	fk := g.Key(f)
 	f.Image = loadImage(c, f)
+
+	if u, err := url.Parse(f.Url); err == nil {
+		if ul, err := u.Parse(f.Link); err == nil {
+			f.Link = ul.String()
+		}
+	}
+	base, err := url.Parse(f.Link)
+	if err != nil {
+		c.Warningf("unable to parse link: %v", f.Link)
+	}
 
 	for _, s := range ss {
 		s.Parent = fk
@@ -352,6 +515,26 @@ func parseFix(c appengine.Context, f *Feed, ss []*Story) (*Feed, []*Story) {
 				s.Link = u.String()
 			}
 		}
+		if base != nil && s.Link != "" {
+			link, err := base.Parse(s.Link)
+			if err == nil {
+				s.Link = link.String()
+			} else {
+				c.Warningf("unable to resolve link: %v", s.Link)
+			}
+		}
+		const keySize = 500
+		sk := g.Key(s)
+		if kl := len(sk.Encode()); kl > keySize {
+			c.Errorf("key too long: %v, %v, %v", kl, f.Url, s.Id)
+			return nil, nil
+		}
+		su, serr := url.Parse(s.Link)
+		if serr != nil {
+			su = &url.URL{}
+			s.Link = ""
+		}
+		s.content, s.Summary = Sanitize(s.content, su)
 	}
 
 	return f, ss
@@ -386,7 +569,7 @@ func loadImage(c appengine.Context, f *Feed) string {
 		return ""
 	}
 	buf := bytes.NewBuffer(b)
-	_, t, err := image.Decode(buf)
+	_, t, err := image.DecodeConfig(buf)
 	if err != nil {
 		t = "application/octet-stream"
 	} else {
@@ -410,4 +593,61 @@ func loadImage(c appengine.Context, f *Feed) string {
 	i.Url = su.String()
 	g.Put(i)
 	return i.Url
+}
+
+func updateAverage(f *Feed, previousUpdate time.Time, updateCount int) {
+	if previousUpdate.IsZero() || updateCount < 1 {
+		return
+	}
+
+	// if multiple updates occurred, assume they were evenly spaced
+	interval := time.Since(previousUpdate) / time.Duration(updateCount)
+
+	// rather than calculate a strict mean, we weight
+	// each new interval, gradually decaying the influence
+	// of older intervals
+	old := float64(f.Average) * (1.0 - NewIntervalWeight)
+	cur := float64(interval) * NewIntervalWeight
+	f.Average = time.Duration(old + cur)
+}
+
+func scheduleNextUpdate(f *Feed) {
+	now := time.Now()
+	if f.Date.IsZero() {
+		f.NextUpdate = now.Add(UpdateDefault)
+		return
+	}
+
+	// calculate the delay until next check based on average time between updates
+	pause := time.Duration(float64(f.Average) * UpdateFraction)
+
+	// if we have never found an update, start with a default wait time
+	if pause == 0 {
+		pause = UpdateDefault
+	}
+
+	// if it has been much longer than expected since the last update,
+	// gradually reduce the frequency of checks
+	since := time.Since(f.Date)
+	if since > pause*UpdateLongFactor {
+		pause = time.Duration(float64(since) / UpdateLongFactor)
+	}
+
+	// enforce some limits
+	if pause < UpdateMin {
+		pause = UpdateMin
+	}
+	if pause > UpdateMax {
+		pause = UpdateMax
+	}
+
+	// introduce a little random jitter to break up
+	// convoys of updates
+	jitter := time.Duration(rand.Int63n(int64(UpdateJitter)))
+	if rand.Intn(2) == 0 {
+		pause += jitter
+	} else {
+		pause -= jitter
+	}
+	f.NextUpdate = time.Now().Add(pause)
 }

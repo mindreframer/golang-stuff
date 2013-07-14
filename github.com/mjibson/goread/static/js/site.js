@@ -13,11 +13,25 @@ function countProperties(obj) {
 	return count;
 }
 
-function GoreadCtrl($scope, $http, $timeout) {
+var goReadAppModule = angular.module('goReadApp', ['ui.sortable']);
+goReadAppModule.controller('GoreadCtrl', function($scope, $http, $timeout, $window) {
 	$scope.loading = 0;
 	$scope.contents = {};
-	$scope.nav = true;
-	$scope.folderClose = {};
+	$scope.opts = {
+		folderClose: {},
+		nav: true,
+		expanded: false,
+		mode: 'unread',
+		sort: 'newest',
+		hideEmpty: false,
+		scrollRead: false
+	};
+
+	$scope.sortableOptions = {
+		stop: function() {
+			$scope.uploadOpml();
+		}
+	};
 
 	$scope.importOpml = function() {
 		$scope.shown = 'feeds';
@@ -25,7 +39,7 @@ function GoreadCtrl($scope, $http, $timeout) {
 		$('#import-opml-form').ajaxForm(function() {
 			$('#import-opml-form')[0].reset();
 			$scope.loaded();
-			$scope.showMessage('OPML is importing. May take a bit. Refresh at will.');
+			$scope.showMessage("OPML import is happening. It can take a minute. Don't reorganize your feeds until it's completed importing. Refresh to see its progress.");
 		});
 	};
 
@@ -37,21 +51,24 @@ function GoreadCtrl($scope, $http, $timeout) {
 		return $http({
 			method: method,
 			url: url,
-			data: $.param(data),
+			data: $.param(data || ''),
 			headers: {'Content-Type': 'application/x-www-form-urlencoded'}
 		});
 	};
 
-	$scope.addSubscription = function() {
+	$scope.addSubscription = function(e) {
 		if (!$scope.addFeedUrl) {
 			return false;
 		}
+		var btn = $(e.target);
+		btn.button('loading')
 		$scope.loading++;
 		var f = $('#add-subscription-form');
 		$scope.http('POST', f.attr('data-url'), {
 			url: $scope.addFeedUrl
 		}).then(function() {
 			$scope.addFeedUrl = '';
+			btn.button('reset')
 			// I think this is needed due to the datastore's eventual consistency.
 			// Without the delay we only get the feed data with no story data.
 			$timeout(function() {
@@ -62,6 +79,47 @@ function GoreadCtrl($scope, $http, $timeout) {
 				alert(data.data);
 			}
 			$scope.loading--;
+			btn.button('reset')
+		});
+	};
+
+	$scope.procStory = function(xmlurl, story, read) {
+		story.read = read;
+		story.feed = $scope.xmlurls[xmlurl];
+		story.guid = xmlurl + '|' + story.Id;
+		if (!story.Title) {
+			story.Title = '(title unknown)';
+		}
+		var today = new Date().toDateString();
+		var d = new Date(story.Date * 1000);
+		story.dispdate = moment(d).format(d.toDateString() == today ? "h:mm a" : "MMM D, YYYY");
+	};
+
+	$scope.clear = function() {
+		$scope.feeds = [];
+		$scope.numfeeds = 0;
+		$scope.stories = [];
+		$scope.unreadStories = {};
+		$scope.last = 0;
+		$scope.xmlurls = {};
+	};
+
+	$scope.update = function() {
+		$scope.updateFolders();
+		$scope.updateUnread();
+		$scope.updateStories();
+		$scope.updateTitle();
+	};
+
+	$scope.updateFolders = function() {
+		_.each($scope.feeds, function(f, i) {
+			if (f.Outline) {
+				_.each(f.Outline, function(s) {
+					s.folder = f.Title;
+				});
+			} else {
+				delete f.folder;
+			}
 		});
 	};
 
@@ -71,34 +129,19 @@ function GoreadCtrl($scope, $http, $timeout) {
 		delete $scope.currentStory;
 		$http.get($('#refresh').attr('data-url-feeds'))
 			.success(function(data) {
-				$scope.feeds = data.Opml || [];
-				$scope.numfeeds = 0;
-				$scope.stories = [];
-				$scope.unreadStories = {};
-				$scope.last = 0;
-				$scope.xmlurls = {};
+				$scope.clear();
+				$scope.feeds = data.Opml || $scope.feeds;
 				$scope.icons = data.Icons;
-				var today = new Date().toDateString();
+				$scope.opts = data.Options ? JSON.parse(data.Options) : $scope.opts;
 
 				var loadStories = function(feed) {
 					$scope.numfeeds++;
 					$scope.xmlurls[feed.XmlUrl] = feed;
 					var stories = data.Stories[feed.XmlUrl] || [];
 					for(var i = 0; i < stories.length; i++) {
-						stories[i].feed = feed;
-						var d = new Date(stories[i].Date * 1000);
-						if (d.toDateString() == today) {
-							stories[i].dispdate = d.format("shortTime");
-						} else {
-							stories[i].dispdate = d.format("mediumDate");
-						}
+						$scope.procStory(feed.XmlUrl, stories[i], false);
 						if ($scope.last < stories[i].Date) {
 							$scope.last = stories[i].Date;
-						}
-						stories[i].read = false;
-						stories[i].guid = feed.XmlUrl + '|' + stories[i].Id;
-						if (!stories[i].Title) {
-							stories[i].Title = '(title unknown)';
 						}
 						$scope.stories.push(stories[i]);
 						$scope.unreadStories[stories[i].guid] = true;
@@ -110,22 +153,18 @@ function GoreadCtrl($scope, $http, $timeout) {
 
 					if (f.XmlUrl) {
 						loadStories(f);
-					} else {
+					} else if (f.Outline) {  // check for empty groups
 						for(var j = 0; j < f.Outline.length; j++) {
 							loadStories(f.Outline[j]);
 							$scope.xmlurls[f.Outline[j].XmlUrl].folder = f.Title;
 						}
 					}
 				}
-				$scope.stories.sort(function(a, b) {
-					return b.Date - a.Date;
-				});
 
 				if (typeof cb === 'function') cb();
 				$scope.loaded();
-				$scope.updateUnread();
-				$scope.updateStories();
-				$scope.updateTitle();
+				$scope.update();
+				setTimeout($scope.applyGetFeed);
 			})
 			.error(function() {
 				if (typeof cb === 'function') cb();
@@ -138,41 +177,78 @@ function GoreadCtrl($scope, $http, $timeout) {
 		document.title = 'go read' + (ur != 0 ? ' (' + ur + ')' : '');
 	};
 
-	$scope.setCurrent = function(i) {
-		if (i == $scope.currentStory) {
+	$scope.setCurrent = function(i, noClose, isClick, $event, noOpen) {
+		var middleClick = $event && $event.which == 2;
+		if ($event && !middleClick) {
+			$event.preventDefault();
+		}
+		if (!middleClick && !noClose && i == $scope.currentStory) {
 			delete $scope.currentStory;
 			return;
 		}
-		var story = $scope.stories[i];
+		var story = $scope.dispStories[i];
 		$scope.getContents(story);
 		if (i > 0) {
-			$scope.getContents($scope.stories[i - 1]);
+			$scope.getContents($scope.dispStories[i - 1]);
 		}
-		if (i < $scope.stories.length - 2) {
-			$scope.getContents($scope.stories[i + 1]);
+		if (i < $scope.dispStories.length - 2) {
+			$scope.getContents($scope.dispStories[i + 1]);
 		}
-		$('#story' + $scope.currentStory).empty();
-		$scope.currentStory = i;
-		$scope.markRead(story);
-		$('#story' + i).html($scope.contents[story.guid] || '');
-		setTimeout(function() {
-			se = $('#storydiv' + i);
-			$('.story-header', se).addClass('read');
-			var eTop = se.offset().top;
-			if (eTop < 0 || eTop > $('#story-list').height()) {
-				se[0].scrollIntoView();
-			}
-		});
+		if ($scope.currentStory != i) {
+			setTimeout(function() {
+				se = $('#storydiv' + i);
+				var eTop = se.offset().top;
+				if (!isClick || eTop < 0 || eTop > $('#story-list').height() || (isClick && !middleClick && !noOpen && $scope.opts.expanded)) {
+					se[0].scrollIntoView();
+				}
+			});
+		}
+		if (!middleClick && !noOpen) {
+			$scope.currentStory = i;
+		}
+		$scope.markAllRead(story);
 	};
+
 	$scope.prev = function() {
 		if ($scope.currentStory > 0) {
 			$scope.setCurrent($scope.currentStory - 1);
 		}
 	};
-	$scope.next = function() {
-		if ($scope.stories && typeof $scope.currentStory === 'undefined') {
+
+	$scope.toggleHideEmpty = function() {
+		$scope.opts.hideEmpty = !$scope.opts.hideEmpty;
+		$scope.saveOpts();
+	};
+
+	$scope.toggleScrollRead = function() {
+		$scope.opts.scrollRead = !$scope.opts.scrollRead;
+		$scope.saveOpts();
+	};
+
+	$scope.shouldHideEmpty = function(f) {
+		if (!$scope.opts.hideEmpty) return false;
+		var cnt = f.Outline ? $scope.unread['folders'][f.Title] : $scope.unread['feeds'][f.XmlUrl];
+		return cnt == 0;
+	};
+
+	$scope.next = function(page) {
+		if ($scope.dispStories && typeof $scope.currentStory === 'undefined') {
 			$scope.setCurrent(0);
-		} else if ($scope.stories && $scope.currentStory < $scope.stories.length - 1) {
+			return;
+		}
+		if (page) {
+			var sl = $('#story-list');
+			var sd = $('#storydiv' + $scope.currentStory);
+			var sdh = sd.height();
+			var sdt = sd.position().top;
+			var slh = sl.height();
+			if (sdt + sdh > slh) {
+				var slt = sl.scrollTop();
+				sl.scrollTop(slt + slh - 20);
+				return;
+			}
+		}
+		if ($scope.dispStories && $scope.currentStory < $scope.dispStories.length - 1) {
 			$scope.setCurrent($scope.currentStory + 1);
 		}
 	};
@@ -207,32 +283,54 @@ function GoreadCtrl($scope, $http, $timeout) {
 				}
 			}
 		}
+		$scope.updateUnreadCurrent();
 	};
 
-	$scope.markRead = function(s) {
-		if ($scope.unreadStories[s.guid]) {
-			delete $scope.unreadStories[s.guid];
-			s.read = true;
-			$scope.http('POST', $('#mark-all-read').attr('data-url-read'), {
-				feed: s.feed.XmlUrl,
-				story: s.Id
-			});
-			$scope.updateUnread();
-			$scope.updateTitle();
-		}
+	$scope.updateUnreadCurrent = function() {
+		if ($scope.activeFeed) $scope.unread.current = $scope.unread.feeds[$scope.activeFeed];
+		else if ($scope.activeFolder) $scope.unread.current = $scope.unread.folders[$scope.activeFolder];
+		else $scope.unread.current = $scope.unread.all;
 	};
 
-	$scope.markAllRead = function(s) {
-		if ($scope.stories.length == 0) {
-			return;
+	$scope.markReadStories = [];
+	$scope.markAllRead = function(story) {
+		if (!$scope.dispStories.length) return;
+		var checkStories = story ? [story] : $scope.dispStories;
+		for (var i = 0; i < checkStories.length; i++) {
+			var s = checkStories[i];
+			if (!s.read) {
+				if ($scope.opts.mode == 'unread') s.remove = true;
+				s.read = true;
+				$scope.markReadStories.push({
+					Feed: s.feed.XmlUrl,
+					Story: s.Id
+				});
+				delete $scope.unreadStories[s.guid];
+			}
 		}
-		$scope.unreadStories = {};
-		$scope.stories = [];
-		$scope.updateUnread();
-		$scope.updateStories();
-		$scope.http('POST', $('#mark-all-read').attr('data-url'), { last: $scope.last });
-		$scope.updateTitle();
+		$scope.sendReadStories();
+		var unread = false;
+		for (var i = $scope.stories.length - 1; i >= 0; i--) {
+			if (!story && $scope.stories[i].remove) {
+				$scope.stories.splice(i, 1);
+			} else if (!$scope.stories[i].read) {
+				unread = true;
+			}
+		}
+
+		$scope.update();
+
+		if (!unread)
+			$scope.http('POST', $('#mark-all-read').attr('data-url'), { last: $scope.last });
 	};
+
+	$scope.sendReadStories = _.debounce(function() {
+		var ss = $scope.markReadStories;
+		$scope.markReadStories = [];
+		$scope.http('POST', $('#mark-all-read').attr('data-url-read'), {
+			stories: JSON.stringify(ss)
+		});
+	}, 1000);
 
 	$scope.active = function() {
 		if ($scope.activeFolder) return $scope.activeFolder;
@@ -241,18 +339,43 @@ function GoreadCtrl($scope, $http, $timeout) {
 	};
 
 	$scope.nothing = function() {
-		return $scope.loading == 0 && $scope.stories && !$scope.numfeeds && $scope.shown != 'about';
+		return $scope.loading == 0 && $scope.stories && !$scope.numfeeds && $scope.shown != 'about' && $scope.shown != 'account';
 	};
 
 	$scope.toggleNav = function() {
-		$scope.nav = !$scope.nav;
-	}
+		$scope.opts.nav = !$scope.opts.nav;
+		$scope.saveOpts();
+	};
+
+	$scope.toggleExpanded = function() {
+		$scope.opts.expanded = !$scope.opts.expanded;
+		$scope.saveOpts();
+		$scope.applyGetFeed();
+	};
+
+	$scope.setExpanded = function(v) {
+		$scope.opts.expanded = v;
+		$scope.saveOpts();
+		$scope.applyGetFeed();
+	};
+
 	$scope.navspan = function() {
-		return $scope.nav ? '' : 'no-nav';
+		return $scope.opts.nav ? '' : 'no-nav';
 	};
+
 	$scope.navmargin = function() {
-		return $scope.nav ? {} : {'margin-left': '0'};
+		return $scope.opts.nav ? {} : {'margin-left': '0'};
 	};
+
+	var prevOpts;
+	$scope.saveOpts = _.debounce(function() {
+		var opts = JSON.stringify($scope.opts);
+		if (opts == prevOpts) return;
+		prevOpts = opts;
+		$scope.http('POST', $('#story-list').attr('data-url-options'), {
+			options: opts
+		});
+	}, 1000);
 
 	$scope.overContents = function(s) {
 		if (typeof $scope.contents[s.guid] !== 'undefined') {
@@ -297,14 +420,13 @@ function GoreadCtrl($scope, $http, $timeout) {
 		$http.post($('#mark-all-read').attr('data-url-contents'), data)
 			.success(function(data) {
 				var current = '';
-				if ($scope.stories[$scope.currentStory]) {
-					current = $scope.stories[$scope.currentStory].guid;
+				if ($scope.dispStories[$scope.currentStory]) {
+					current = $scope.dispStories[$scope.currentStory].guid;
 				}
 				for (var i = 0; i < data.length; i++) {
-					$scope.contents[tofetch[i].guid] = data[i];
-					if (current == tofetch[i].guid) {
-						$('#story' + $scope.currentStory).html(data[i]);
-					}
+					var d = $('<div>' + data[i] + '</div>');
+					$('a', d).attr('target', '_blank');
+					$scope.contents[tofetch[i].guid] = d;
 				}
 			});
 	};
@@ -312,13 +434,38 @@ function GoreadCtrl($scope, $http, $timeout) {
 	$scope.setActiveFeed = function(feed) {
 		delete $scope.activeFolder;
 		$scope.activeFeed = feed;
+		delete $scope.currentStory;
 		$scope.updateStories();
+		$scope.applyGetFeed();
+		$scope.updateUnreadCurrent();
+		$scope.resetScroll();
 	};
 
 	$scope.setActiveFolder = function(folder) {
 		delete $scope.activeFeed;
 		$scope.activeFolder = folder;
+		delete $scope.currentStory;
 		$scope.updateStories();
+		$scope.applyGetFeed();
+		$scope.updateUnreadCurrent();
+		$scope.resetScroll();
+	};
+
+	$scope.resetScroll = function() {
+		$('#story-list').scrollTop(0);
+	};
+
+	$scope.setMode = function(mode) {
+		$scope.opts.mode = mode;
+		$scope.updateStories();
+		$scope.applyGetFeed();
+		$scope.saveOpts();
+	};
+
+	$scope.setSort = function(order) {
+		$scope.opts.sort = order;
+		$scope.updateStories();
+		$scope.saveOpts();
 	};
 
 	$scope.updateStories = function() {
@@ -331,39 +478,440 @@ function GoreadCtrl($scope, $http, $timeout) {
 				}
 			}
 		} else if ($scope.activeFeed) {
-			for (var i = 0; i < $scope.stories.length; i++) {
-				var s = $scope.stories[i];
-				if (s.feed.XmlUrl == $scope.activeFeed) {
+			if ($scope.opts.mode != 'unread') {
+				angular.forEach($scope.readStories[$scope.activeFeed], function(s) {
+					if ($scope.unreadStories[s.guid]) {
+						s.read = false;
+					}
 					$scope.dispStories.push(s);
+				});
+			} else {
+				for (var i = 0; i < $scope.stories.length; i++) {
+					var s = $scope.stories[i];
+					if (s.feed.XmlUrl == $scope.activeFeed) {
+						$scope.dispStories.push(s);
+					}
 				}
 			}
 		} else {
 			$scope.dispStories = $scope.stories;
 		}
+
+		var swap = $scope.opts.sort == 'oldest'
+		if (swap) {
+			// turn off swap for all items mode on a feed
+			if ($scope.activeFeed && $scope.opts.mode == 'all')
+				swap = false;
+		}
+		$scope.dispStories.sort(function(_a, _b) {
+			var a, b;
+			if (!swap) {
+				a = _a;
+				b = _b;
+			} else {
+				a = _b;
+				b = _a;
+			}
+
+			var d = b.Date - a.Date;
+			if (!d)
+				return a.guid.localeCompare(b.guid);
+			return d;
+		});
 	};
 
-	var shortcuts = $('#shortcuts');
+	$scope.rename = function(feed) {
+		var name = prompt('Rename to', $scope.xmlurls[feed].Title);
+		if (!name) return;
+		$scope.xmlurls[feed].Title = name;
+		$scope.uploadOpml();
+	};
+
+	$scope.renameFolder = function(folder) {
+		var name = prompt('Rename to');
+		if (!name) return;
+		var src, dst;
+		for (var i = 0; i < $scope.feeds.length; i++) {
+			var f = $scope.feeds[i];
+			if (f.Outline) {
+				if (f.Title == folder) src = f;
+				else if (f.Title == name) dst = f;
+			}
+		}
+		if (!dst) {
+			src.Title = name;
+		} else {
+			dst.Outline.push.apply(dst.Outline, src.Outline);
+			var i = $scope.feeds.indexOf(src);
+			$scope.feeds.splice(i, 1);
+		}
+		$scope.activeFolder = name;
+		$scope.uploadOpml();
+		$scope.update();
+	};
+
+	$scope.deleteFolder = function(folder) {
+		if (!confirm('Delete ' + folder + ' and unsubscribe from all feeds in it?')) return;
+		for (var i = 0; i < $scope.feeds.length; i++) {
+			var f = $scope.feeds[i];
+			if (f.Outline && f.Title == folder) {
+				$scope.feeds.splice(i, 1);
+				break;
+			}
+		}
+		$scope.setActiveFeed();
+		$scope.uploadOpml();
+		$scope.update();
+	};
+
+	$scope.unsubscribe = function(feed) {
+		if (!confirm('Unsubscribe from ' + $scope.xmlurls[feed].Title + '?')) return;
+		for (var i = 0; i < $scope.feeds.length; i++) {
+			var f = $scope.feeds[i];
+			if (f.Outline) {
+				for (var j = 0; j < f.Outline.length; j++) {
+					if (f.Outline[j].XmlUrl == feed) {
+						f.Outline.splice(j, 1);
+						break;
+					}
+				}
+				if (!f.Outline.length) {
+					$scope.feeds.splice(i, 1);
+					break;
+				}
+			}
+			if (f.XmlUrl == feed) {
+				$scope.feeds.splice(i, 1);
+				break;
+			}
+		}
+		$scope.stories = $scope.stories.filter(function(e) {
+			return e.feed.XmlUrl != feed;
+		});
+		$scope.setActiveFeed();
+		$scope.uploadOpml();
+		$scope.update();
+	};
+
+	$scope.moveFeed = function(url, folder) {
+		var feed;
+		var found = false;
+		for (var i = $scope.feeds.length - 1; i >= 0; i--) {
+			var f = $scope.feeds[i];
+			if (f.Outline) {
+				for (var j = 0; j < f.Outline.length; j++) {
+					var o = f.Outline[j];
+					if (o.XmlUrl == url) {
+						if (f.Title == folder)
+							return;
+						feed = f.Outline[j];
+						f.Outline.splice(j, 1);
+						if (!f.Outline.length)
+							$scope.feeds.splice(i, 1);
+						break;
+					}
+				}
+				if (f.Title == folder)
+					found = true;
+			} else if (f.XmlUrl == url) {
+				if (!folder)
+					return;
+				feed = f;
+				$scope.feeds.splice(i, 1)
+			}
+		}
+		if (!feed) return;
+		if (!folder) {
+			$scope.feeds.push(feed);
+		} else {
+			if (!found) {
+				$scope.feeds.push({
+					Outline: [],
+					Title: folder
+				});
+			}
+			for (var i = 0; i < $scope.feeds.length; i++) {
+				var f = $scope.feeds[i];
+				if (f.Outline && f.Title == folder) {
+					$scope.feeds[i].Outline.push(feed);
+				}
+			}
+		}
+		$scope.uploadOpml();
+		$scope.update();
+	};
+
+	$scope.moveFeedNew = function(url) {
+		var folder = prompt('New folder name');
+		if (!folder) return;
+		$scope.moveFeed(url, folder);
+	};
+
+	var prevOpml;
+	$scope.uploadOpml = _.debounce(function() {
+		var opml = JSON.stringify($scope.feeds);
+		if (opml == prevOpml) return;
+		prevOpml = opml;
+		$scope.http('POST', $('#story-list').attr('data-url-upload'), {
+			opml: opml
+		});
+	}, 1000);
+
+	var sl = $('#story-list');
+	$scope.readStories = {};
+	$scope.cursors = {};
+	$scope.fetching = {};
+	$scope.getFeed = function() {
+		var f = $scope.activeFeed;
+		if (!f || $scope.fetching[f]) return;
+		if ($scope.dispStories.length != 0) {
+			var sh = sl[0].scrollHeight;
+			var h = sl.height();
+			var st = sl.scrollTop()
+			if (sh - (st + h) > 200) {
+				return;
+			}
+		}
+		$scope.http('GET', sl.attr('data-url-get-feed') + '?' + $.param({
+			f: f,
+			c: $scope.cursors[f] || ''
+		})).success(function (data) {
+			if (!data || !data.Stories) return
+			delete $scope.fetching[f]
+			$scope.cursors[$scope.activeFeed] = data.Cursor;
+			if (!$scope.readStories[f])
+				$scope.readStories[f] = [];
+			for (var i = 0; i < data.Stories.length; i++) {
+				$scope.procStory(f, data.Stories[i], true);
+				$scope.readStories[f].push(data.Stories[i]);
+			}
+			$scope.updateStories();
+			$scope.applyGetFeed();
+		});
+		$scope.fetching[f] = true;
+	};
+
+	$scope.applyGetFeed = function() {
+		if ($scope.opts.mode == 'all') {
+			$scope.getFeed();
+		}
+		if ($scope.opts.expanded) {
+			$scope.getVisibleContents();
+		}
+	};
+
+	$scope.onScroll = _.debounce(function() {
+		$scope.applyGetFeed();
+		$scope.scrollRead();
+		$scope.$apply(function() {
+			$scope.collapsed = $(window).width() <= 979;
+		});
+	}, 300);
+	sl.on('scroll', $scope.onScroll);
+	$window.onscroll = $scope.onScroll;
+	$window.onresize = $scope.onScroll;
+
+	$scope.scrollRead = function() {
+		if (!$scope.opts.scrollRead || !$scope.opts.expanded) return;
+		var slh = $('#story-list').height();
+		for (var i = 0; i < $scope.dispStories.length; i++) {
+			var s = $scope.dispStories[i];
+			if (!$scope.unreadStories[s.guid]) continue;
+			if (!$scope.contents[s.guid]) continue;
+			var sd = $('#storydiv' + i);
+			var sth = $('.story-title', sd).height();
+			var sdt = sd.position().top;
+			var sdb = sdt + sth;
+			if (sdb < slh) {
+				$scope.markAllRead(s);
+			}
+		}
+	};
+
+	$scope.getVisibleContents = function() {
+		var h = sl.height();
+		var st = sl.scrollTop();
+		var b = st + h + 200;
+		var fetched = 0;
+		for (var i = 0; i < $scope.dispStories.length && fetched < 10; i++) {
+			var s = $scope.dispStories[i];
+			if ($scope.contents[s.guid]) continue;
+			var sd = $('#storydiv' + i);
+			if (!sd.length) continue;
+			var sdt = sd.position().top;
+			var sdb = sdt + sd.height();
+			if (sdt < b && sdb > 0) {
+				fetched += 1;
+				$scope.getContents(s);
+			}
+		}
+	};
+
+	$scope.setAddSubscription = function() {
+		$scope.shown = 'add-subscription';
+		// need to wait for the keypress to finish before focusing
+		setTimeout(function() {
+			$('#add-subscription-form input').focus();
+		});
+	};
+
+	$scope.clearFeeds = function() {
+		if (!confirm('Remove all folders and subscriptions?')) return;
+		$scope.clear();
+		$scope.uploadOpml();
+		$scope.update();
+	};
+
+	$scope.deleteAccount = function() {
+		if (!confirm('Delete your account?')) return;
+		window.location.href = $('#delete-account').attr('data-url');
+	};
+
+	var checkoutLoaded = false;
+	$scope.getAccount = function() {
+		$scope.loadCheckout();
+		$scope.shown = 'account';
+		if ($scope.account) return;
+		$http.get($('#account').attr('data-url-account'))
+			.success(function(data) {
+				$scope.account = data;
+			});
+	};
+
+	$scope.loadCheckout = function(cb) {
+		if (!checkoutLoaded) {
+			$.getScript("https://checkout.stripe.com/v2/checkout.js", function() {
+				checkoutLoaded = true;
+				if (cb) cb();
+			});
+		} else {
+			if (cb) cb();
+		}
+	};
+
+	$scope.date = function(d) {
+		var m = moment(d);
+		if (!m.isValid()) return d;
+		return m.format('D MMMM YYYY');
+	};
+
+	$scope.checkout = function(plan, desc, amount) {
+		$scope.loadCheckout(function() {
+			var token = function(res){
+				var button = $('#button' + plan);
+				button.button('loading');
+				$scope.http('POST', $('#account').attr('data-url-charge'), {
+					token: res.id,
+					plan: plan
+				})
+					.success(function(data) {
+						button.button('reset');
+						$scope.accountType = 2;
+						$scope.account = data;
+					})
+					.error(function(data) {
+						button.button('reset');
+						console.log(data);
+						alert('Error');
+					});
+			};
+			StripeCheckout.open({
+				key: $('#account').attr('data-stripe-key'),
+				amount: amount,
+				currency: 'usd',
+				name: 'Go Read',
+				description: desc,
+				panelLabel: 'Subscribe for',
+				token: token
+			});
+		});
+	};
+
+	$scope.donate = function() {
+		$scope.loadCheckout(function() {
+			var token = function(res){
+				var button = $('#donateButton');
+				button.button('loading');
+				$scope.http('POST', $('#account').attr('data-url-donate'), {
+						stripeToken: res.id,
+						amount: $scope.donateAmount * 100
+					})
+					.success(function(data) {
+						button.button('reset');
+						alert('Thank you');
+					})
+					.error(function(data) {
+						button.button('reset');
+						console.log(data);
+						alert('Error');
+					});
+			};
+			StripeCheckout.open({
+				key: $('#account').attr('data-stripe-key'),
+				amount: $scope.donateAmount * 100,
+				currency: 'usd',
+				name: 'Go Read',
+				description: 'Donation',
+				panelLabel: 'Donate',
+				token: token
+			});
+		});
+	};
+
+	$scope.unCheckout = function() {
+		if (!confirm('Sure you want to unsubscribe?')) return;
+		var button = $('#uncheckoutButton');
+		button.button('loading');
+		$http.post($('#account').attr('data-url-uncheckout'))
+			.success(function() {
+				delete $scope.account;
+				$scope.accountType = 0;
+				button.button('reset');
+				alert('Unsubscribed');
+			})
+			.error(function() {
+				button.button('reset');
+				console.log(data);
+				alert('Error');
+			});
+	};
+
+	$scope.encode = function(v) {
+		return encodeURIComponent(v);
+	};
+
+	$scope.shortcuts = $('#shortcuts');
 	Mousetrap.bind('?', function() {
-		shortcuts.modal('toggle');
+		$scope.shortcuts.modal('toggle');
+		return false;
 	});
 	Mousetrap.bind('esc', function() {
-		shortcuts.modal('hide');
+		$scope.shortcuts.modal('hide');
+		return false;
 	});
 	Mousetrap.bind('r', function() {
 		if ($scope.nouser) {
 			return;
 		}
 		$scope.$apply($scope.refresh());
+		return false;
 	});
 	Mousetrap.bind(['j', 'n'], function() {
 		$scope.$apply('next()');
+		return false;
 	});
-	Mousetrap.bind(['k', 'p'], function() {
+	Mousetrap.bind('space', function() {
+		$scope.$apply('next(true)');
+		return false;
+	});
+	Mousetrap.bind(['k', 'p', 'shift+space'], function() {
 		$scope.$apply('prev()');
+		return false;
 	});
 	Mousetrap.bind('v', function() {
-		if ($scope.stories[$scope.currentStory]) {
-			window.open($scope.stories[$scope.currentStory].Link);
+		if ($scope.dispStories[$scope.currentStory]) {
+			window.open($scope.dispStories[$scope.currentStory].Link);
+			return false;
 		}
 	});
 	Mousetrap.bind('shift+a', function() {
@@ -371,30 +919,43 @@ function GoreadCtrl($scope, $http, $timeout) {
 			return;
 		}
 		$scope.$apply($scope.markAllRead());
+		return false;
 	});
 	Mousetrap.bind('a', function() {
 		if ($scope.nouser) {
 			return;
 		}
-		$scope.$apply("shown = 'add-subscription'");
-
-		// need to wait for the keypress to finish before focusing
-		setTimeout(function() {
-			$('#add-subscription-form input').focus();
-		}, 0);
+		$scope.$apply("setAddSubscription()");
+		return false;
 	});
 	Mousetrap.bind('g a', function() {
 		if ($scope.nouser) {
 			return;
 		}
 		$scope.$apply("shown = 'feeds'; setActiveFeed();");
+		return false;
 	});
 	Mousetrap.bind('u', function() {
 		$scope.$apply("toggleNav()");
+		return false;
+	});
+	Mousetrap.bind('1', function() {
+		$scope.$apply("setExpanded(true)");
+		return false;
+	});
+	Mousetrap.bind('2', function() {
+		$scope.$apply("setExpanded(false)");
+		return false;
 	});
 
 	$scope.showMessage = function(m) {
 		$('#message-list').text(m);
 		$('#messages').modal('show');
 	};
-}
+
+	$scope.setYesterday = function() {
+		var d = new Date();
+		d.setDate(d.getDate() - 1);
+		$scope.http('POST', $('#mark-all-read').attr('data-url'), { last: d.valueOf() });
+	};
+});
