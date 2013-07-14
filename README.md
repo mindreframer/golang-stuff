@@ -10,11 +10,11 @@ Now you can test your code on real user sessions in an automated and repeatable 
 Gor consists of 2 parts: listener and replay servers.
 
 The listener server catches http traffic from a given port in real-time
-and sends it to the replay server via UDP. 
+and sends it to the replay server. 
 The replay server forwards traffic to a given address.
 
 
-![Diagram](http://i.imgur.com/zZCFPCY.png)
+![Diagram](http://i.imgur.com/9mqj2SK.png)
 
 
 ## Basic example
@@ -24,7 +24,7 @@ The replay server forwards traffic to a given address.
 sudo gor listen -p 80 -r replay.server.local:28020 
 
 # Replay server (replay.server.local). 
-gor replay -f http://staging.server
+gor replay -f http://staging.server -p 28020
 ```
 
 ## Advanced use
