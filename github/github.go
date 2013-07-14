@@ -3,8 +3,6 @@ package github
 import (
 	"errors"
 	"fmt"
-	"github.com/jingweno/gh/git"
-	"github.com/jingweno/gh/utils"
 	"github.com/jingweno/octokat"
 )
 
@@ -15,7 +13,13 @@ const (
 
 type GitHub struct {
 	Project *Project
-	config  *Config
+	Config  *Config
+}
+
+func (gh *GitHub) PullRequest(id string) (*octokat.PullRequest, error) {
+	client := gh.client()
+
+	return client.PullRequest(gh.repo(), id)
 }
 
 func (gh *GitHub) CreatePullRequest(base, head, title, body string) (string, error) {
@@ -27,6 +31,30 @@ func (gh *GitHub) CreatePullRequest(base, head, title, body string) (string, err
 	}
 
 	return pullRequest.HTMLURL, nil
+}
+
+func (gh *GitHub) Repository(project Project) (*octokat.Repository, error) {
+	client := gh.client()
+
+	return client.Repository(octokat.Repo{project.Name, project.Owner})
+}
+
+// TODO: detach GitHub from Project
+func (gh *GitHub) IsRepositoryExist(project Project) bool {
+	repo, err := gh.Repository(project)
+
+	return err == nil && repo != nil
+}
+
+func (gh *GitHub) CreateRepository(project Project, description, homepage string, isPrivate bool) (*octokat.Repository, error) {
+	params := octokat.Params{"description": description, "homepage": homepage, "private": isPrivate}
+	if project.Owner != gh.Config.FetchUser() {
+		params.Put("organization", project.Owner)
+	}
+
+	client := gh.client()
+
+	return client.CreateRepository(project.Name, &params)
 }
 
 func (gh *GitHub) CreatePullRequestForIssue(base, head, issue string) (string, error) {
@@ -54,10 +82,10 @@ func (gh *GitHub) CiStatus(sha string) (*octokat.Status, error) {
 	return &statuses[0], nil
 }
 
-func (gh *GitHub) ForkRepository(name, owner string, noRemote bool) (newRemote string, err error) {
+func (gh *GitHub) ForkRepository(name, owner string, noRemote bool) (repo *octokat.Repository, err error) {
 	client := gh.client()
-	config := gh.config
-	repo, err := client.Repository(octokat.Repo{name, config.User})
+	config := gh.Config
+	repo, err = client.Repository(octokat.Repo{name, config.User})
 	if repo != nil && err == nil {
 		msg := fmt.Sprintf("Error creating fork: %s exists on %s", repo.FullName, GitHubHost)
 		err = errors.New(msg)
@@ -65,16 +93,18 @@ func (gh *GitHub) ForkRepository(name, owner string, noRemote bool) (newRemote s
 	}
 
 	repo, err = client.Fork(octokat.Repo{name, owner}, nil)
-	if err != nil {
-		return
-	}
-
-	if !noRemote {
-		newRemote = config.User
-		err = git.AddRemote(config.User, repo.SshURL)
-	}
 
 	return
+}
+
+func (gh *GitHub) ExpandRemoteUrl(owner, name string, isSSH bool) (url string) {
+	project := gh.Project
+	if owner == "origin" {
+		config := gh.Config
+		owner = config.FetchUser()
+	}
+
+	return project.GitURL(name, owner, isSSH)
 }
 
 func (gh *GitHub) repo() octokat.Repo {
@@ -115,28 +145,24 @@ func findOrCreateToken(user, password string) (string, error) {
 }
 
 func (gh *GitHub) client() *octokat.Client {
-	config := gh.config
-	if config.User == "" {
-		config.FetchUser()
-	}
-
-	if config.Token == "" {
-		password := config.FetchPassword()
-		token, err := findOrCreateToken(config.User, password)
-		utils.Check(err)
-
-		config.Token = token
-		err = saveConfig(config)
-		utils.Check(err)
-	}
+	config := gh.Config
+	config.FetchCredentials()
 
 	return octokat.NewClient().WithToken(config.Token)
 }
 
 func New() *GitHub {
 	project := CurrentProject()
-	c, _ := loadConfig()
+	c := CurrentConfig()
 	c.FetchUser()
 
-	return &GitHub{project, &c}
+	return &GitHub{project, c}
+}
+
+// TODO: detach project from GitHub
+func NewWithoutProject() *GitHub {
+	c := CurrentConfig()
+	c.FetchUser()
+
+	return &GitHub{nil, c}
 }
