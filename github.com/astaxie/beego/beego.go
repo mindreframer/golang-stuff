@@ -10,9 +10,10 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"time"
 )
 
-const VERSION = "0.6.0"
+const VERSION = "0.7.2"
 
 var (
 	BeeApp        *App
@@ -39,6 +40,12 @@ var (
 	UseFcgi              bool
 	MaxMemory            int64
 	EnableGzip           bool // enable gzip
+	DirectoryIndex       bool //ebable DirectoryIndex default is false
+	EnbaleHotUpdate      bool //enable HotUpdate default is false
+	HttpServerTimeOut    int64
+	ErrorsShow           bool
+	XSRFKEY              string
+	CopyRequestBody      bool
 )
 
 func init() {
@@ -65,6 +72,9 @@ func init() {
 	EnableGzip = false
 	StaticDir["/static"] = "static"
 	AppConfigPath = path.Join(AppPath, "conf", "app.conf")
+	HttpServerTimeOut = 0
+	ErrorsShow = true
+	XSRFKEY = "beegoxsrf"
 	ParseConfig()
 }
 
@@ -92,16 +102,31 @@ func (app *App) Run() {
 		}
 		err = fcgi.Serve(l, app.Handlers)
 	} else {
-		server := &http.Server{Handler: app.Handlers}
-		laddr, err := net.ResolveTCPAddr("tcp", addr)
-		if nil != err {
-			BeeLogger.Fatal("ResolveTCPAddr:", err)
+		if EnbaleHotUpdate {
+			server := &http.Server{
+				Handler:      app.Handlers,
+				ReadTimeout:  time.Duration(HttpServerTimeOut) * time.Second,
+				WriteTimeout: time.Duration(HttpServerTimeOut) * time.Second,
+			}
+			laddr, err := net.ResolveTCPAddr("tcp", addr)
+			if nil != err {
+				BeeLogger.Fatal("ResolveTCPAddr:", err)
+			}
+			l, err = GetInitListner(laddr)
+			theStoppable = newStoppable(l)
+			err = server.Serve(theStoppable)
+			theStoppable.wg.Wait()
+			CloseSelf()
+		} else {
+			s := &http.Server{
+				Addr:         addr,
+				Handler:      app.Handlers,
+				ReadTimeout:  time.Duration(HttpServerTimeOut) * time.Second,
+				WriteTimeout: time.Duration(HttpServerTimeOut) * time.Second,
+			}
+			err = s.ListenAndServe()
 		}
-		l, err = GetInitListner(laddr)
-		theStoppable = newStoppable(l)
-		err = server.Serve(theStoppable)
-		theStoppable.wg.Wait()
-		CloseSelf()
+
 	}
 	if err != nil {
 		BeeLogger.Fatal("ListenAndServe: ", err)
@@ -138,6 +163,11 @@ func (app *App) SetStaticPath(url string, path string) *App {
 	return app
 }
 
+func (app *App) DelStaticPath(url string) *App {
+	delete(StaticDir, url)
+	return app
+}
+
 func (app *App) ErrorLog(ctx *Context) {
 	BeeLogger.Printf("[ERR] host: '%s', request: '%s %s', proto: '%s', ua: '%s', remote: '%s'\n", ctx.Request.Host, ctx.Request.Method, ctx.Request.URL.Path, ctx.Request.Proto, ctx.Request.UserAgent(), ctx.Request.RemoteAddr)
 }
@@ -151,8 +181,14 @@ func RegisterController(path string, c ControllerInterface) *App {
 	return BeeApp
 }
 
-func Router(path string, c ControllerInterface) *App {
-	BeeApp.Router(path, c)
+func Router(rootpath string, c ControllerInterface) *App {
+	BeeApp.Router(rootpath, c)
+	return BeeApp
+}
+
+func RESTRouter(rootpath string, c ControllerInterface) *App {
+	Router(rootpath, c)
+	Router(path.Join(rootpath, ":objectId"), c)
 	return BeeApp
 }
 
@@ -173,6 +209,11 @@ func SetViewsPath(path string) *App {
 
 func SetStaticPath(url string, path string) *App {
 	StaticDir[url] = path
+	return BeeApp
+}
+
+func DelStaticPath(url string) *App {
+	delete(StaticDir, url)
 	return BeeApp
 }
 
