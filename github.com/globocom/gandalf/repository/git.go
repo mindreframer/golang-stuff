@@ -26,8 +26,12 @@ func bareLocation() string {
 	return bare
 }
 
+func barePath(name string) string {
+	return path.Join(bareLocation(), name+".git")
+}
+
 func newBare(name string) error {
-	args := []string{"init", path.Join(bareLocation(), formatName(name)), "--bare"}
+	args := []string{"init", barePath(name), "--bare"}
 	if bareTempl, err := config.GetString("git:bare:template"); err == nil {
 		args = append(args, "--template="+bareTempl)
 	}
@@ -40,13 +44,9 @@ func newBare(name string) error {
 }
 
 func removeBare(name string) error {
-	err := fs.Filesystem().RemoveAll(path.Join(bareLocation(), formatName(name)))
+	err := fs.Filesystem().RemoveAll(barePath(name))
 	if err != nil {
 		return fmt.Errorf("Could not remove git bare repository: %s", err)
 	}
 	return nil
-}
-
-func formatName(name string) string {
-	return fmt.Sprintf("%s.git", name)
 }

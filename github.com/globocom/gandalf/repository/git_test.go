@@ -95,8 +95,3 @@ func (s *S) TestRemoveBareShouldReturnDescriptiveErrorWhenRemovalFails(c *gochec
 	err := removeBare("fooo")
 	c.Assert(err, gocheck.ErrorMatches, "^Could not remove git bare repository: .*")
 }
-
-func (s *S) TestFormatNameShouldAppendDotGitInTheEndOfTheRepoName(c *gocheck.C) {
-	rName := formatName("myrepo")
-	c.Assert(rName, gocheck.Equals, "myrepo.git")
-}

@@ -168,12 +168,28 @@ func GetRepository(w http.ResponseWriter, r *http.Request) {
 }
 
 func RemoveRepository(w http.ResponseWriter, r *http.Request) {
-	repo := &repository.Repository{Name: r.URL.Query().Get(":name")}
-	if err := repository.Remove(repo); err != nil {
+	name := r.URL.Query().Get(":name")
+	if err := repository.Remove(name); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fmt.Fprintf(w, "Repository \"%s\" successfully removed\n", repo.Name)
+	fmt.Fprintf(w, "Repository \"%s\" successfully removed\n", name)
+}
+
+func RenameRepository(w http.ResponseWriter, r *http.Request) {
+	var p struct{ Name string }
+	defer r.Body.Close()
+	err := parseBody(r.Body, &p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	name := r.URL.Query().Get(":name")
+	err = repository.Rename(name, p.Name)
+	if err != nil && err.Error() == "not found" {
+		http.Error(w, err.Error(), http.StatusNotFound)
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func parseBody(body io.ReadCloser, result interface{}) error {

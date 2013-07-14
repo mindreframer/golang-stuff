@@ -10,11 +10,14 @@ import (
 	"fmt"
 	"github.com/globocom/config"
 	"github.com/globocom/gandalf/db"
+	"github.com/globocom/gandalf/fs"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"regexp"
 )
 
+// Repository represents a Git repository. A Git repository is a record in the
+// database and a directory in the filesystem (the bare repository).
 type Repository struct {
 	Name     string `bson:"_id"`
 	Users    []string
@@ -26,15 +29,15 @@ func (r *Repository) MarshalJSON() ([]byte, error) {
 	data := map[string]interface{}{
 		"name":    r.Name,
 		"public":  r.IsPublic,
-		"ssh_url": r.SshUrl(),
-		"git_url": r.GitUrl(),
+		"ssh_url": r.SshURL(),
+		"git_url": r.GitURL(),
 	}
 	return json.Marshal(&data)
 }
 
-// Creates a representation of a git repository
-// This function creates a git repository using the "bare-dir" config
-// and saves repository's meta data in the database
+// New creates a representation of a git repository. It creates a Git
+// repository using the "bare-dir" setting and saves repository's meta data in
+// the database.
 func New(name string, users []string, isPublic bool) (*Repository, error) {
 	r := &Repository{Name: name, Users: users, IsPublic: isPublic}
 	if v, err := r.isValid(); !v {
@@ -50,29 +53,47 @@ func New(name string, users []string, isPublic bool) (*Repository, error) {
 	return r, err
 }
 
-// Get find a repository by name
+// Get find a repository by name.
 func Get(name string) (Repository, error) {
 	var r Repository
 	err := db.Session.Repository().FindId(name).One(&r)
 	return r, err
 }
 
-// Deletes the repository from the database and
-// removes it's bare git repository
-func Remove(r *Repository) error {
-	// maybe it should receive only a name, to standardize the api (user.Remove already does that)
-	if err := removeBare(r.Name); err != nil {
+// Remove deletes the repository from the database and removes it's bare Git
+// repository.
+func Remove(name string) error {
+	if err := removeBare(name); err != nil {
 		return err
 	}
-	if err := db.Session.Repository().RemoveId(r.Name); err != nil {
+	if err := db.Session.Repository().RemoveId(name); err != nil {
 		return fmt.Errorf("Could not remove repository: %s", err)
 	}
 	return nil
 }
 
-// SshUrl formats the git ssh url and return it
-// If no remote is configured in gandalf.conf SshUrl will panic
-func (r *Repository) SshUrl() string {
+// Rename renames a repository.
+func Rename(oldName, newName string) error {
+	repo, err := Get(oldName)
+	if err != nil {
+		return err
+	}
+	newRepo := repo
+	newRepo.Name = newName
+	err = db.Session.Repository().Insert(newRepo)
+	if err != nil {
+		return err
+	}
+	err = db.Session.Repository().RemoveId(oldName)
+	if err != nil {
+		return err
+	}
+	return fs.Fsystem.Rename(barePath(oldName), barePath(newName))
+}
+
+// SshURL formats the git ssh url and return it. If no remote is configured in
+// gandalf.conf, this method panics.
+func (r *Repository) SshURL() string {
 	host, err := config.GetString("host")
 	if err != nil {
 		panic(err.Error())
@@ -81,17 +102,17 @@ func (r *Repository) SshUrl() string {
 	if err != nil {
 		panic(err.Error())
 	}
-	return fmt.Sprintf("%s@%s:%s", uid, host, formatName(r.Name))
+	return fmt.Sprintf("%s@%s:%s.git", uid, host, r.Name)
 }
 
-// GitUrl formats the git url and return it
-// If no host is configured in gandalf.conf GitUrl will panic
-func (r *Repository) GitUrl() string {
+// GitURL formats the git url and return it. If no host is configured in
+// gandalf.conf, this method panics.
+func (r *Repository) GitURL() string {
 	host, err := config.GetString("host")
 	if err != nil {
 		panic(err.Error())
 	}
-	return fmt.Sprintf("git://%s/%s", host, formatName(r.Name))
+	return fmt.Sprintf("git://%s/%s.git", host, r.Name)
 }
 
 // Validates a repository
@@ -112,13 +133,15 @@ func (r *Repository) isValid() (bool, error) {
 	return true, nil
 }
 
-// Gives write permission for users (uNames) in all specified repositories (rNames)
-// If any of the repositories/users do not exists, just skip it.
+// GrantAccess gives write permission for users in all specified repositories.
+// If any of the repositories/users do not exists, GrantAccess just skips it.
 func GrantAccess(rNames, uNames []string) error {
 	_, err := db.Session.Repository().UpdateAll(bson.M{"_id": bson.M{"$in": rNames}}, bson.M{"$addToSet": bson.M{"users": bson.M{"$each": uNames}}})
 	return err
 }
 
+// RevokeAccess revokes write permission from users in all specified
+// repositories.
 func RevokeAccess(rNames, uNames []string) error {
 	_, err := db.Session.Repository().UpdateAll(bson.M{"_id": bson.M{"$in": rNames}}, bson.M{"$pullAll": bson.M{"users": uNames}})
 	return err

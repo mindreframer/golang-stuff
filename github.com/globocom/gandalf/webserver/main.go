@@ -37,6 +37,7 @@ For an example conf check gandalf/etc/gandalf.conf file.\n %s`
 	router.Del("/repository/revoke", http.HandlerFunc(api.RevokeAccess))
 	router.Del("/repository/:name", http.HandlerFunc(api.RemoveRepository))
 	router.Get("/repository/:name", http.HandlerFunc(api.GetRepository))
+	router.Put("/repository/:name", http.HandlerFunc(api.RenameRepository))
 
 	port, err := config.GetString("webserver:port")
 	if err != nil {
