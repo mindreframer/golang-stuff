@@ -37,7 +37,7 @@ go get github.com/pelletier/go-toml
 go build
 ```
 
-Then copy the ```gopack``` binary to your project directory and invoke just as you would go. Make sure the current directory is on your path or place the ```gp``` binary elsewhere on your path.
+Then copy the ```gopack``` binary to your project directory and invoke just as you would ```go```. Make sure the current directory is on your path or place the ```gp``` binary elsewhere on your path.
 ```
 cp gopack ~/projects/mygoproject/gp
 cd ~/projects/myproject
