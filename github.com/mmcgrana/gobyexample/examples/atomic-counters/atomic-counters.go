@@ -10,6 +10,7 @@ package main
 import "fmt"
 import "time"
 import "sync/atomic"
+import "runtime"
 
 func main() {
 
@@ -23,13 +24,14 @@ func main() {
     for i := 0; i < 50; i++ {
         go func() {
             for {
-                time.Sleep(time.Millisecond)
-
                 // To atomically increment the counter we
                 // use `AddUint64`, giving it the memory
                 // address of our `ops` counter with the
                 // `&` syntax.
                 atomic.AddUint64(&ops, 1)
+
+                // Allow other goroutines to proceed.
+                runtime.Gosched()
             }
         }()
     }
