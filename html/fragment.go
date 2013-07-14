@@ -42,7 +42,7 @@ func parsefragment(document xml.Document, node *xml.XmlNode, content, url []byte
 		}
 		htmlPtr := C.htmlParseFragmentAsDoc(document.DocPtr(), contentPtr, C.int(contentLen), urlPtr, encodingPtr, C.int(options), nil, 0)
 
-		//Note we've parsed the fragment within the given document 
+		//Note we've parsed the fragment within the given document
 		//the root is not the root of the document; rather it's the root of the subtree from the fragment
 		html := xml.NewNode(unsafe.Pointer(htmlPtr), document)
 
@@ -90,5 +90,6 @@ func ParseFragment(content, inEncoding, url []byte, options int, outEncoding []b
 	outEncoding = AppendCStringTerminator(outEncoding)
 	document := CreateEmptyDocument(inEncoding, outEncoding)
 	fragment, err = parsefragment(document, nil, content, url, options)
+	C.xmlDocSetRootElement((*C.xmlDoc)(document.DocPtr()), (*C.xmlNode)(fragment.Node.NodePtr()))
 	return
 }

@@ -14,8 +14,6 @@ int close_callback(void * ctx) {
 }
 
 xmlDoc* newEmptyXmlDoc() {
-	//why does xmlNewDoc NOT call xmlInitParser like other parse functions?
-	xmlInitParser();
 	return xmlNewDoc(BAD_CAST XML_DEFAULT_VERSION); 
 }
 
@@ -146,3 +144,52 @@ int xmlSaveNode(void *wbuffer, void *node, void *encoding, int options) {
 	return xmlSaveClose(savectx);
 }
 
+void removeNamespace(xmlNs **source, xmlNs *target) {
+    xmlNs *ns, *prevns = NULL;
+
+    for (ns = *source; ns; ns = ns->next) {
+        if (ns == target) {
+            if (!prevns) {
+                // we are the first element
+                *source = ns->next;
+            } else {
+                prevns->next = ns->next;
+            }
+
+            break;
+        }
+
+        prevns = ns;
+    }
+}
+
+void removeDefaultNamespace(xmlNs *ns, xmlNode *node) {
+    removeNamespace(&node->nsDef, ns);
+
+    xmlAttr *attr;
+
+    for (attr = node->properties; attr; attr = attr->next) {
+        if (!attr->ns)
+            continue;
+
+        removeNamespace(&attr->ns, ns);
+    }
+
+    if (node->ns == ns)
+        node->ns = NULL;
+
+    xmlNode *child;
+
+    for (child = xmlFirstElementChild(node); child; child = xmlNextElementSibling(child)) {
+        removeDefaultNamespace(ns, child);
+    }
+}
+
+void xmlRemoveDefaultNamespace(xmlNode *node) {
+    if (node->ns && node->ns->prefix) {
+        // not a default namespace
+        return;
+    }
+
+    removeDefaultNamespace(node->ns, node);
+}
