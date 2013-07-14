@@ -27,6 +27,7 @@ const defaultConfig = `
 
 	"commands": {
 		"build": "packer-command-build",
+		"fix": "packer-command-fix",
 		"validate": "packer-command-validate"
 	},
 
@@ -35,6 +36,7 @@ const defaultConfig = `
 	},
 
 	"provisioners": {
+		"file": "packer-provisioner-file",
 		"shell": "packer-provisioner-shell"
 	}
 }

@@ -6,9 +6,17 @@ import (
 	"sync"
 )
 
+// This is the key in configurations that is set to the name of the
+// build.
+const BuildNameConfigKey = "packer_build_name"
+
 // This is the key in configurations that is set to "true" when Packer
 // debugging is enabled.
 const DebugConfigKey = "packer_debug"
+
+// This is the key in configurations that is set to "true" when Packer
+// force build is enabled.
+const ForceConfigKey = "packer_force"
 
 // A Build represents a single job within Packer that is responsible for
 // building some machine image artifact. Builds are meant to be parallelized.
@@ -38,6 +46,12 @@ type Build interface {
 	// When SetDebug is set to true, parallelism between builds is
 	// strictly prohibited.
 	SetDebug(bool)
+
+	// SetForce will enable/disable forcing a build when artifacts exist.
+	//
+	// When SetForce is set to true, existing artifacts from the build are
+	// deleted prior to the build.
+	SetForce(bool)
 }
 
 // A build struct represents a single build job, the result of which should
@@ -54,6 +68,7 @@ type coreBuild struct {
 	provisioners   []coreBuildProvisioner
 
 	debug         bool
+	force         bool
 	l             sync.Mutex
 	prepareCalled bool
 }
@@ -91,12 +106,14 @@ func (b *coreBuild) Prepare() (err error) {
 
 	b.prepareCalled = true
 
-	debugConfig := map[string]interface{}{
-		DebugConfigKey: b.debug,
+	packerConfig := map[string]interface{}{
+		BuildNameConfigKey: b.name,
+		DebugConfigKey:     b.debug,
+		ForceConfigKey:     b.force,
 	}
 
 	// Prepare the builder
-	err = b.builder.Prepare(b.builderConfig, debugConfig)
+	err = b.builder.Prepare(b.builderConfig, packerConfig)
 	if err != nil {
 		log.Printf("Build '%s' prepare failure: %s\n", b.name, err)
 		return
@@ -106,7 +123,7 @@ func (b *coreBuild) Prepare() (err error) {
 	for _, coreProv := range b.provisioners {
 		configs := make([]interface{}, len(coreProv.config), len(coreProv.config)+1)
 		copy(configs, coreProv.config)
-		configs = append(configs, debugConfig)
+		configs = append(configs, packerConfig)
 
 		if err = coreProv.provisioner.Prepare(configs...); err != nil {
 			return
@@ -116,7 +133,8 @@ func (b *coreBuild) Prepare() (err error) {
 	// Prepare the post-processors
 	for _, ppSeq := range b.postProcessors {
 		for _, corePP := range ppSeq {
-			if err = corePP.processor.Configure(corePP.config); err != nil {
+			err = corePP.processor.Configure(corePP.config, packerConfig)
+			if err != nil {
 				return
 			}
 		}
@@ -189,7 +207,7 @@ PostProcessorRunSeqLoop:
 			}
 
 			builderUi.Say(fmt.Sprintf("Running post-processor: %s", corePP.processorType))
-			artifact, err := corePP.processor.PostProcess(ppUi, priorArtifact)
+			artifact, keep, err := corePP.processor.PostProcess(ppUi, priorArtifact)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("Post-processor failed: %s", err))
 				continue PostProcessorRunSeqLoop
@@ -200,11 +218,12 @@ PostProcessorRunSeqLoop:
 				continue PostProcessorRunSeqLoop
 			}
 
+			keep = keep || corePP.keepInputArtifact
 			if i == 0 {
 				// This is the first post-processor. We handle deleting
 				// previous artifacts a bit different because multiple
 				// post-processors may be using the original and need it.
-				if !keepOriginalArtifact && corePP.keepInputArtifact {
+				if !keepOriginalArtifact && keep {
 					log.Printf(
 						"Flagging to keep original artifact from post-processor '%s'",
 						corePP.processorType)
@@ -213,7 +232,7 @@ PostProcessorRunSeqLoop:
 			} else {
 				// We have a prior artifact. If we want to keep it, we append
 				// it to the results list. Otherwise, we destroy it.
-				if corePP.keepInputArtifact {
+				if keep {
 					artifacts = append(artifacts, priorArtifact)
 				} else {
 					log.Printf("Deleting prior artifact from post-processor '%s'", corePP.processorType)
@@ -256,6 +275,14 @@ func (b *coreBuild) SetDebug(val bool) {
 	}
 
 	b.debug = val
+}
+
+func (b *coreBuild) SetForce(val bool) {
+	if b.prepareCalled {
+		panic("prepare has already been called")
+	}
+
+	b.force = val
 }
 
 // Cancels the build if it is running.

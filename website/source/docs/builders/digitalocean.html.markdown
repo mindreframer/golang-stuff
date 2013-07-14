@@ -25,11 +25,13 @@ Required:
 
 * `api_key` (string) - The API key to use to access your account. You can
   retrieve this on the "API" page visible after logging into your account
-  on DigitalOcean.
+  on DigitalOcean. Alternatively, the builder looks for the environment
+  variable `DIGITALOCEAN_API_KEY`.
 
 * `client_id` (string) - The client ID to use to access your account. You can
   find this on the "API" page visible after logging into your account on
-  DigitalOcean.
+  DigitalOcean. Alternatively, the builder looks for the environment
+  variable `DIGITALOCEAN_CLIENT_ID`.
 
 Optional:
 
@@ -89,7 +91,7 @@ the prior linked page for information on syntax if you're unfamiliar with it.
 
 The available variables are shown below:
 
-* `CreateTime`- This will be replaced with the Unix timestamp of when the
+* `CreateTime` - This will be replaced with the Unix timestamp of when the
   image is created.
 
 ## Finding Image, Region, and Size IDs

@@ -3,6 +3,7 @@ package rpc
 import (
 	"github.com/mitchellh/packer/packer"
 	"net/rpc"
+	"reflect"
 	"testing"
 )
 
@@ -10,23 +11,23 @@ var testPostProcessorArtifact = new(testArtifact)
 
 type TestPostProcessor struct {
 	configCalled bool
-	configVal    interface{}
+	configVal    []interface{}
 	ppCalled     bool
 	ppArtifact   packer.Artifact
 	ppUi         packer.Ui
 }
 
-func (pp *TestPostProcessor) Configure(v interface{}) error {
+func (pp *TestPostProcessor) Configure(v ...interface{}) error {
 	pp.configCalled = true
 	pp.configVal = v
 	return nil
 }
 
-func (pp *TestPostProcessor) PostProcess(ui packer.Ui, a packer.Artifact) (packer.Artifact, error) {
+func (pp *TestPostProcessor) PostProcess(ui packer.Ui, a packer.Artifact) (packer.Artifact, bool, error) {
 	pp.ppCalled = true
 	pp.ppArtifact = a
 	pp.ppUi = ui
-	return testPostProcessorArtifact, nil
+	return testPostProcessorArtifact, false, nil
 }
 
 func TestPostProcessorRPC(t *testing.T) {
@@ -56,14 +57,14 @@ func TestPostProcessorRPC(t *testing.T) {
 		t.Fatal("config should be called")
 	}
 
-	if p.configVal != 42 {
+	if !reflect.DeepEqual(p.configVal, []interface{}{42}) {
 		t.Fatalf("unknown config value: %#v", p.configVal)
 	}
 
 	// Test PostProcess
 	a := new(testArtifact)
 	ui := new(testUi)
-	artifact, err := pClient.PostProcess(ui, a)
+	artifact, _, err := pClient.PostProcess(ui, a)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}

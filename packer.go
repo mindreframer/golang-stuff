@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/packer/packer"
 	"github.com/mitchellh/packer/packer/plugin"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -14,18 +15,36 @@ import (
 )
 
 func main() {
-	if os.Getenv("PACKER_LOG") == "" {
-		// If we don't have logging explicitly enabled, then disable it
-		log.SetOutput(ioutil.Discard)
-	} else {
-		// Logging is enabled, make sure it goes to stderr
-		log.SetOutput(os.Stderr)
+	// Setup logging if PACKER_LOG is set.
+	// Log to PACKER_LOG_PATH if it is set, otherwise default to stderr.
+	var logOutput io.Writer = ioutil.Discard
+	if os.Getenv("PACKER_LOG") != "" {
+		logOutput = os.Stderr
+
+		if logPath := os.Getenv("PACKER_LOG_PATH"); logPath != "" {
+			var err error
+			logOutput, err = os.Create(logPath)
+			if err != nil {
+				fmt.Fprintf(
+					os.Stderr,
+					"Couldn't open '%s' for logging: %s",
+					logPath, err)
+				os.Exit(1)
+			}
+		}
 	}
+
+	log.SetOutput(logOutput)
 
 	// If there is no explicit number of Go threads to use, then set it
 	if os.Getenv("GOMAXPROCS") == "" {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
+
+	log.Printf(
+		"Packer Version: %s %s %s",
+		packer.Version, packer.VersionPrerelease, packer.GitCommit)
+	log.Printf("Packer Target OS/Arch: %s %s", runtime.GOOS, runtime.GOARCH)
 
 	config, err := loadConfig()
 	if err != nil {
@@ -97,7 +116,7 @@ func loadConfig() (*config, error) {
 		mustExist = false
 
 		if err != nil {
-			log.Printf("Error detecing default config file path: %s", err)
+			log.Printf("Error detecting default config file path: %s", err)
 		}
 	}
 

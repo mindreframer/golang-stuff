@@ -1,11 +1,14 @@
 package vmware
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 	"log"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -33,7 +36,13 @@ func (s *stepShutdown) Run(state map[string]interface{}) multistep.StepAction {
 	if config.ShutdownCommand != "" {
 		ui.Say("Gracefully halting virtual machine...")
 		log.Printf("Executing shutdown command: %s", config.ShutdownCommand)
-		cmd := &packer.RemoteCmd{Command: config.ShutdownCommand}
+
+		var stdout, stderr bytes.Buffer
+		cmd := &packer.RemoteCmd{
+			Command: config.ShutdownCommand,
+			Stdout:  &stdout,
+			Stderr:  &stderr,
+		}
 		if err := comm.Start(cmd); err != nil {
 			err := fmt.Errorf("Failed to send shutdown command: %s", err)
 			state["error"] = err
@@ -44,9 +53,20 @@ func (s *stepShutdown) Run(state map[string]interface{}) multistep.StepAction {
 		// Wait for the command to run
 		cmd.Wait()
 
+		// If the command failed to run, notify the user in some way.
+		if cmd.ExitStatus != 0 {
+			state["error"] = fmt.Errorf(
+				"Shutdown command has non-zero exit status.\n\nStdout: %s\n\nStderr: %s",
+				stdout.String(), stderr.String())
+			return multistep.ActionHalt
+		}
+
+		log.Printf("Shutdown stdout: %s", stdout.String())
+		log.Printf("Shutdown stderr: %s", stderr.String())
+
 		// Wait for the machine to actually shut down
-		log.Printf("Waiting max %s for shutdown to complete", config.ShutdownTimeout)
-		shutdownTimer := time.After(config.ShutdownTimeout)
+		log.Printf("Waiting max %s for shutdown to complete", config.shutdownTimeout)
+		shutdownTimer := time.After(config.shutdownTimeout)
 		for {
 			running, _ := driver.IsRunning(vmxPath)
 			if !running {
@@ -69,6 +89,34 @@ func (s *stepShutdown) Run(state map[string]interface{}) multistep.StepAction {
 			state["error"] = err
 			ui.Error(err.Error())
 			return multistep.ActionHalt
+		}
+	}
+
+	ui.Message("Waiting for VMware to clean up after itself...")
+	lockPattern := filepath.Join(config.OutputDir, "*.lck")
+	timer := time.After(15 * time.Second)
+LockWaitLoop:
+	for {
+		locks, err := filepath.Glob(lockPattern)
+		if err == nil {
+			if len(locks) == 0 {
+				log.Println("No more lock files found. VMware is clean.")
+				break
+			}
+
+			if len(locks) == 1 && strings.HasSuffix(locks[0], ".vmx.lck") {
+				log.Println("Only waiting on VMX lock. VMware is clean.")
+				break
+			}
+
+			log.Printf("Waiting on lock files: %#v", locks)
+		}
+
+		select {
+		case <-timer:
+			log.Println("Reached timeout on waiting for clean VMware. Assuming clean.")
+			break LockWaitLoop
+		case <-time.After(1 * time.Second):
 		}
 	}
 

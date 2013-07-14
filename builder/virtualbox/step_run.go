@@ -23,7 +23,14 @@ func (s *stepRun) Run(state map[string]interface{}) multistep.StepAction {
 	vmName := state["vmName"].(string)
 
 	ui.Say("Starting the virtual machine...")
-	command := []string{"startvm", vmName, "--type", "gui"}
+	guiArgument := "gui"
+	if config.Headless == true {
+		ui.Message("WARNING: The VM will be started in headless mode, as configured.\n" +
+			"In headless mode, errors during the boot sequence or OS setup\n" +
+			"won't be easily visible. Use at your own discretion.")
+		guiArgument = "headless"
+	}
+	command := []string{"startvm", vmName, "--type", guiArgument}
 	if err := driver.VBoxManage(command...); err != nil {
 		err := fmt.Errorf("Error starting VM: %s", err)
 		state["error"] = err
@@ -33,9 +40,9 @@ func (s *stepRun) Run(state map[string]interface{}) multistep.StepAction {
 
 	s.vmName = vmName
 
-	if int64(config.BootWait) > 0 {
-		ui.Say(fmt.Sprintf("Waiting %s for boot...", config.BootWait))
-		time.Sleep(config.BootWait)
+	if int64(config.bootWait) > 0 {
+		ui.Say(fmt.Sprintf("Waiting %s for boot...", config.bootWait))
+		time.Sleep(config.bootWait)
 	}
 
 	return multistep.ActionContinue

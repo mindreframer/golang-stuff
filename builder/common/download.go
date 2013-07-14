@@ -2,11 +2,15 @@ package common
 
 import (
 	"bytes"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"hash"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -45,6 +49,21 @@ type DownloadClient struct {
 	downloader Downloader
 }
 
+// HashForType returns the Hash implementation for the given string
+// type, or nil if the type is not supported.
+func HashForType(t string) hash.Hash {
+	switch t {
+	case "md5":
+		return md5.New()
+	case "sha1":
+		return sha1.New()
+	case "sha256":
+		return sha256.New()
+	default:
+		return nil
+	}
+}
+
 // NewDownloadClient returns a new DownloadClient for the given
 // configuration.
 func NewDownloadClient(c *DownloadConfig) *DownloadClient {
@@ -73,6 +92,7 @@ func (d *DownloadClient) Cancel() {
 func (d *DownloadClient) Get() (string, error) {
 	// If we already have the file and it matches, then just return the target path.
 	if verify, _ := d.VerifyChecksum(d.config.TargetPath); verify {
+		log.Println("Initial checksum matched, no download needed.")
 		return d.config.TargetPath, nil
 	}
 
@@ -80,6 +100,8 @@ func (d *DownloadClient) Get() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	log.Printf("Parsed URL: %#v", url)
 
 	// Files when we don't copy the file are special cased.
 	var finalPath string
@@ -101,7 +123,11 @@ func (d *DownloadClient) Get() (string, error) {
 		}
 		defer f.Close()
 
+		log.Printf("Downloading: %s", url.String())
 		err = d.downloader.Download(f, url)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	if d.config.Hash != nil {
@@ -117,6 +143,10 @@ func (d *DownloadClient) Get() (string, error) {
 
 // PercentProgress returns the download progress as a percentage.
 func (d *DownloadClient) PercentProgress() uint {
+	if d.downloader == nil {
+		return 0
+	}
+
 	return uint((float64(d.downloader.Progress()) / float64(d.downloader.Total())) * 100)
 }
 
@@ -133,6 +163,7 @@ func (d *DownloadClient) VerifyChecksum(path string) (bool, error) {
 	}
 	defer f.Close()
 
+	log.Printf("Verifying checksum of %s", path)
 	d.config.Hash.Reset()
 	io.Copy(d.config.Hash, f)
 	return bytes.Compare(d.config.Hash.Sum(nil), d.config.Checksum) == 0, nil
@@ -150,9 +181,20 @@ func (*HTTPDownloader) Cancel() {
 }
 
 func (d *HTTPDownloader) Download(dst io.Writer, src *url.URL) error {
+	log.Printf("Starting download: %s", src.String())
 	resp, err := http.Get(src.String())
 	if err != nil {
 		return err
+	}
+
+	if resp.StatusCode != 200 {
+		log.Printf(
+			"Non-200 status code: %d. Getting error body.", resp.StatusCode)
+
+		errorBody := new(bytes.Buffer)
+		io.Copy(errorBody, resp.Body)
+		return fmt.Errorf("HTTP error '%d'! Remote side responded:\n%s",
+			resp.StatusCode, errorBody.String())
 	}
 
 	d.progress = 0

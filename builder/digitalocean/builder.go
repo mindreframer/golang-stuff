@@ -12,7 +12,10 @@ import (
 	"github.com/mitchellh/packer/builder/common"
 	"github.com/mitchellh/packer/packer"
 	"log"
+	"os"
+	"sort"
 	"strconv"
+	"strings"
 	"text/template"
 	"time"
 )
@@ -37,9 +40,6 @@ type config struct {
 	SnapshotName string
 	SSHUsername  string `mapstructure:"ssh_username"`
 	SSHPort      uint   `mapstructure:"ssh_port"`
-	SSHTimeout   time.Duration
-	EventDelay   time.Duration
-	StateTimeout time.Duration
 
 	PackerDebug bool `mapstructure:"packer_debug"`
 
@@ -47,6 +47,12 @@ type config struct {
 	RawSSHTimeout   string `mapstructure:"ssh_timeout"`
 	RawEventDelay   string `mapstructure:"event_delay"`
 	RawStateTimeout string `mapstructure:"state_timeout"`
+
+	// These are unexported since they're set by other fields
+	// being set.
+	sshTimeout   time.Duration
+	eventDelay   time.Duration
+	stateTimeout time.Duration
 }
 
 type Builder struct {
@@ -55,15 +61,49 @@ type Builder struct {
 }
 
 func (b *Builder) Prepare(raws ...interface{}) error {
+	var md mapstructure.Metadata
+	decoderConfig := &mapstructure.DecoderConfig{
+		Metadata: &md,
+		Result:   &b.config,
+	}
+
+	decoder, err := mapstructure.NewDecoder(decoderConfig)
+	if err != nil {
+		return err
+	}
+
 	for _, raw := range raws {
-		err := mapstructure.Decode(raw, &b.config)
+		err := decoder.Decode(raw)
 		if err != nil {
 			return err
 		}
 	}
 
+	// Accumulate any errors
+	errs := make([]error, 0)
+
+	// Unused keys are errors
+	if len(md.Unused) > 0 {
+		sort.Strings(md.Unused)
+		for _, unused := range md.Unused {
+			if unused != "type" && !strings.HasPrefix(unused, "packer_") {
+				errs = append(
+					errs, fmt.Errorf("Unknown configuration key: %s", unused))
+			}
+		}
+	}
+
 	// Optional configuration with defaults
-	//
+	if b.config.APIKey == "" {
+		// Default to environment variable for api_key, if it exists
+		b.config.APIKey = os.Getenv("DIGITALOCEAN_API_KEY")
+	}
+
+	if b.config.ClientID == "" {
+		// Default to environment variable for client_id, if it exists
+		b.config.ClientID = os.Getenv("DIGITALOCEAN_CLIENT_ID")
+	}
+
 	if b.config.RegionID == 0 {
 		// Default to Region "New York"
 		b.config.RegionID = 1
@@ -112,11 +152,7 @@ func (b *Builder) Prepare(raws ...interface{}) error {
 		b.config.RawStateTimeout = "6m"
 	}
 
-	// A list of errors on the configuration
-	errs := make([]error, 0)
-
 	// Required configurations that will display errors if not set
-	//
 	if b.config.ClientID == "" {
 		errs = append(errs, errors.New("a client_id must be specified"))
 	}
@@ -129,19 +165,19 @@ func (b *Builder) Prepare(raws ...interface{}) error {
 	if err != nil {
 		errs = append(errs, fmt.Errorf("Failed parsing ssh_timeout: %s", err))
 	}
-	b.config.SSHTimeout = sshTimeout
+	b.config.sshTimeout = sshTimeout
 
 	eventDelay, err := time.ParseDuration(b.config.RawEventDelay)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("Failed parsing event_delay: %s", err))
 	}
-	b.config.EventDelay = eventDelay
+	b.config.eventDelay = eventDelay
 
 	stateTimeout, err := time.ParseDuration(b.config.RawStateTimeout)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("Failed parsing state_timeout: %s", err))
 	}
-	b.config.StateTimeout = stateTimeout
+	b.config.stateTimeout = stateTimeout
 
 	// Parse the name of the snapshot
 	snapNameBuf := new(bytes.Buffer)

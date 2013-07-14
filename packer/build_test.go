@@ -39,24 +39,28 @@ func TestBuild_Name(t *testing.T) {
 func TestBuild_Prepare(t *testing.T) {
 	assert := asserts.NewTestingAsserts(t, true)
 
-	debugFalseConfig := map[string]interface{}{DebugConfigKey: false}
+	packerConfig := map[string]interface{}{
+		BuildNameConfigKey: "test",
+		DebugConfigKey:     false,
+		ForceConfigKey:     false,
+	}
 
 	build := testBuild()
 	builder := build.builder.(*TestBuilder)
 
 	build.Prepare()
 	assert.True(builder.prepareCalled, "prepare should be called")
-	assert.Equal(builder.prepareConfig, []interface{}{42, debugFalseConfig}, "prepare config should be 42")
+	assert.Equal(builder.prepareConfig, []interface{}{42, packerConfig}, "prepare config should be 42")
 
 	coreProv := build.provisioners[0]
 	prov := coreProv.provisioner.(*TestProvisioner)
 	assert.True(prov.prepCalled, "prepare should be called")
-	assert.Equal(prov.prepConfigs, []interface{}{42, debugFalseConfig}, "prepare should be called with proper config")
+	assert.Equal(prov.prepConfigs, []interface{}{42, packerConfig}, "prepare should be called with proper config")
 
 	corePP := build.postProcessors[0][0]
 	pp := corePP.processor.(*TestPostProcessor)
 	assert.True(pp.configCalled, "config should be called")
-	assert.Equal(pp.configVal, 42, "config should have right value")
+	assert.Equal(pp.configVal, []interface{}{42, packerConfig}, "config should have right value")
 }
 
 func TestBuild_Prepare_Twice(t *testing.T) {
@@ -82,7 +86,11 @@ func TestBuild_Prepare_Twice(t *testing.T) {
 func TestBuild_Prepare_Debug(t *testing.T) {
 	assert := asserts.NewTestingAsserts(t, true)
 
-	debugConfig := map[string]interface{}{DebugConfigKey: true}
+	packerConfig := map[string]interface{}{
+		BuildNameConfigKey: "test",
+		DebugConfigKey:     true,
+		ForceConfigKey:     false,
+	}
 
 	build := testBuild()
 	builder := build.builder.(*TestBuilder)
@@ -90,12 +98,12 @@ func TestBuild_Prepare_Debug(t *testing.T) {
 	build.SetDebug(true)
 	build.Prepare()
 	assert.True(builder.prepareCalled, "prepare should be called")
-	assert.Equal(builder.prepareConfig, []interface{}{42, debugConfig}, "prepare config should be 42")
+	assert.Equal(builder.prepareConfig, []interface{}{42, packerConfig}, "prepare config should be 42")
 
 	coreProv := build.provisioners[0]
 	prov := coreProv.provisioner.(*TestProvisioner)
 	assert.True(prov.prepCalled, "prepare should be called")
-	assert.Equal(prov.prepConfigs, []interface{}{42, debugConfig}, "prepare should be called with proper config")
+	assert.Equal(prov.prepConfigs, []interface{}{42, packerConfig}, "prepare should be called with proper config")
 }
 
 func TestBuild_Run(t *testing.T) {
@@ -231,6 +239,33 @@ func TestBuild_Run_Artifacts(t *testing.T) {
 	}
 
 	expectedIds = []string{"pp1a", "pp1b", "pp2b"}
+	artifactIds = make([]string, len(artifacts))
+	for i, artifact := range artifacts {
+		artifactIds[i] = artifact.Id()
+	}
+
+	if !reflect.DeepEqual(artifactIds, expectedIds) {
+		t.Fatalf("unexpected ids: %#v", artifactIds)
+	}
+
+	// Test case: Test that with a single post-processor that forcibly
+	// keeps inputs, that the artifacts are kept.
+	build = testBuild()
+	build.postProcessors = [][]coreBuildPostProcessor{
+		[]coreBuildPostProcessor{
+			coreBuildPostProcessor{
+				&TestPostProcessor{artifactId: "pp", keep: true}, "pp", 42, false,
+			},
+		},
+	}
+
+	build.Prepare()
+	artifacts, err = build.Run(ui, cache)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	expectedIds = []string{"b", "pp"}
 	artifactIds = make([]string, len(artifacts))
 	for i, artifact := range artifacts {
 		artifactIds[i] = artifact.Id()

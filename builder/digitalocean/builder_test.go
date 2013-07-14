@@ -2,9 +2,16 @@ package digitalocean
 
 import (
 	"github.com/mitchellh/packer/packer"
+	"os"
 	"strconv"
 	"testing"
 )
+
+func init() {
+	// Clear out the credential env vars
+	os.Setenv("DIGITALOCEAN_API_KEY", "")
+	os.Setenv("DIGITALOCEAN_CLIENT_ID", "")
+}
 
 func testConfig() map[string]interface{} {
 	return map[string]interface{}{
@@ -55,6 +62,15 @@ func TestBuilderPrepare_APIKey(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have error")
 	}
+
+	// Test env variable
+	delete(config, "api_key")
+	os.Setenv("DIGITALOCEAN_API_KEY", "foo")
+	defer os.Setenv("DIGITALOCEAN_API_KEY", "")
+	err = b.Prepare(config)
+	if err != nil {
+		t.Fatalf("should not have error: %s", err)
+	}
 }
 
 func TestBuilderPrepare_ClientID(t *testing.T) {
@@ -76,6 +92,27 @@ func TestBuilderPrepare_ClientID(t *testing.T) {
 	delete(config, "client_id")
 	b = Builder{}
 	err = b.Prepare(config)
+	if err == nil {
+		t.Fatal("should have error")
+	}
+
+	// Test env variable
+	delete(config, "client_id")
+	os.Setenv("DIGITALOCEAN_CLIENT_ID", "foo")
+	defer os.Setenv("DIGITALOCEAN_CLIENT_ID", "")
+	err = b.Prepare(config)
+	if err != nil {
+		t.Fatalf("should not have error: %s", err)
+	}
+}
+
+func TestBuilderPrepare_InvalidKey(t *testing.T) {
+	var b Builder
+	config := testConfig()
+
+	// Add a random key
+	config["i_should_not_be_valid"] = true
+	err := b.Prepare(config)
 	if err == nil {
 		t.Fatal("should have error")
 	}

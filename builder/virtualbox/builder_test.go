@@ -10,9 +10,12 @@ import (
 
 func testConfig() map[string]interface{} {
 	return map[string]interface{}{
-		"iso_md5":      "foo",
-		"iso_url":      "http://www.google.com/",
-		"ssh_username": "foo",
+		"iso_checksum":      "foo",
+		"iso_checksum_type": "md5",
+		"iso_url":           "http://www.google.com/",
+		"ssh_username":      "foo",
+
+		packer.BuildNameConfigKey: "foo",
 	}
 }
 
@@ -36,7 +39,7 @@ func TestBuilderPrepare_Defaults(t *testing.T) {
 		t.Errorf("bad guest OS type: %s", b.config.GuestOSType)
 	}
 
-	if b.config.OutputDir != "virtualbox" {
+	if b.config.OutputDir != "output-foo" {
 		t.Errorf("bad output dir: %s", b.config.OutputDir)
 	}
 
@@ -52,7 +55,7 @@ func TestBuilderPrepare_Defaults(t *testing.T) {
 		t.Errorf("bad ssh port: %d", b.config.SSHPort)
 	}
 
-	if b.config.VMName != "packer" {
+	if b.config.VMName != "packer-foo" {
 		t.Errorf("bad vm name: %s", b.config.VMName)
 	}
 }
@@ -61,9 +64,20 @@ func TestBuilderPrepare_BootWait(t *testing.T) {
 	var b Builder
 	config := testConfig()
 
+	// Test a default boot_wait
+	delete(config, "boot_wait")
+	err := b.Prepare(config)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if b.config.RawBootWait != "10s" {
+		t.Fatalf("bad value: %s", b.config.RawBootWait)
+	}
+
 	// Test with a bad boot_wait
 	config["boot_wait"] = "this is not good"
-	err := b.Prepare(config)
+	err = b.Prepare(config)
 	if err == nil {
 		t.Fatal("should have error")
 	}
@@ -102,11 +116,38 @@ func TestBuilderPrepare_DiskSize(t *testing.T) {
 	}
 }
 
+func TestBuilderPrepare_FloppyFiles(t *testing.T) {
+	var b Builder
+	config := testConfig()
+
+	delete(config, "floppy_files")
+	err := b.Prepare(config)
+	if err != nil {
+		t.Fatalf("bad err: %s", err)
+	}
+
+	if len(b.config.FloppyFiles) != 0 {
+		t.Fatalf("bad: %#v", b.config.FloppyFiles)
+	}
+
+	config["floppy_files"] = []string{"foo", "bar"}
+	b = Builder{}
+	err = b.Prepare(config)
+	if err != nil {
+		t.Fatalf("should not have error: %s", err)
+	}
+
+	expected := []string{"foo", "bar"}
+	if !reflect.DeepEqual(b.config.FloppyFiles, expected) {
+		t.Fatalf("bad: %#v", b.config.FloppyFiles)
+	}
+}
+
 func TestBuilderPrepare_GuestAdditionsPath(t *testing.T) {
 	var b Builder
 	config := testConfig()
 
-	delete(config, "disk_size")
+	delete(config, "guest_additions_path")
 	err := b.Prepare(config)
 	if err != nil {
 		t.Fatalf("bad err: %s", err)
@@ -125,6 +166,81 @@ func TestBuilderPrepare_GuestAdditionsPath(t *testing.T) {
 
 	if b.config.GuestAdditionsPath != "foo" {
 		t.Fatalf("bad size: %s", b.config.GuestAdditionsPath)
+	}
+}
+
+func TestBuilderPrepare_GuestAdditionsSHA256(t *testing.T) {
+	var b Builder
+	config := testConfig()
+
+	delete(config, "guest_additions_sha256")
+	err := b.Prepare(config)
+	if err != nil {
+		t.Fatalf("bad err: %s", err)
+	}
+
+	if b.config.GuestAdditionsSHA256 != "" {
+		t.Fatalf("bad: %s", b.config.GuestAdditionsSHA256)
+	}
+
+	config["guest_additions_sha256"] = "FOO"
+	b = Builder{}
+	err = b.Prepare(config)
+	if err != nil {
+		t.Fatalf("should not have error: %s", err)
+	}
+
+	if b.config.GuestAdditionsSHA256 != "foo" {
+		t.Fatalf("bad size: %s", b.config.GuestAdditionsSHA256)
+	}
+}
+
+func TestBuilderPrepare_GuestAdditionsURL(t *testing.T) {
+	var b Builder
+	config := testConfig()
+
+	config["guest_additions_url"] = ""
+	err := b.Prepare(config)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if b.config.GuestAdditionsURL != "" {
+		t.Fatalf("should be empty: %s", b.config.GuestAdditionsURL)
+	}
+
+	config["guest_additions_url"] = "i/am/a/file/that/doesnt/exist"
+	err = b.Prepare(config)
+	if err == nil {
+		t.Error("should have error")
+	}
+
+	config["guest_additions_url"] = "file:i/am/a/file/that/doesnt/exist"
+	err = b.Prepare(config)
+	if err == nil {
+		t.Error("should have error")
+	}
+
+	config["guest_additions_url"] = "http://www.packer.io"
+	err = b.Prepare(config)
+	if err != nil {
+		t.Errorf("should not have error: %s", err)
+	}
+
+	tf, err := ioutil.TempFile("", "packer")
+	if err != nil {
+		t.Fatalf("error tempfile: %s", err)
+	}
+	defer os.Remove(tf.Name())
+
+	config["guest_additions_url"] = tf.Name()
+	err = b.Prepare(config)
+	if err != nil {
+		t.Fatalf("should not have error: %s", err)
+	}
+
+	if b.config.GuestAdditionsURL != "file://"+tf.Name() {
+		t.Fatalf("guest_additions_url should be modified: %s", b.config.GuestAdditionsURL)
 	}
 }
 
@@ -156,26 +272,68 @@ func TestBuilderPrepare_HTTPPort(t *testing.T) {
 	}
 }
 
-func TestBuilderPrepare_ISOMD5(t *testing.T) {
+func TestBuilderPrepare_InvalidKey(t *testing.T) {
+	var b Builder
+	config := testConfig()
+
+	// Add a random key
+	config["i_should_not_be_valid"] = true
+	err := b.Prepare(config)
+	if err == nil {
+		t.Fatal("should have error")
+	}
+}
+
+func TestBuilderPrepare_ISOChecksum(t *testing.T) {
 	var b Builder
 	config := testConfig()
 
 	// Test bad
-	config["iso_md5"] = ""
+	config["iso_checksum"] = ""
 	err := b.Prepare(config)
 	if err == nil {
 		t.Fatal("should have error")
 	}
 
 	// Test good
-	config["iso_md5"] = "FOo"
+	config["iso_checksum"] = "FOo"
 	err = b.Prepare(config)
 	if err != nil {
 		t.Fatalf("should not have error: %s", err)
 	}
 
-	if b.config.ISOMD5 != "foo" {
-		t.Fatalf("should've lowercased: %s", b.config.ISOMD5)
+	if b.config.ISOChecksum != "foo" {
+		t.Fatalf("should've lowercased: %s", b.config.ISOChecksum)
+	}
+}
+
+func TestBuilderPrepare_ISOChecksumType(t *testing.T) {
+	var b Builder
+	config := testConfig()
+
+	// Test bad
+	config["iso_checksum_type"] = ""
+	err := b.Prepare(config)
+	if err == nil {
+		t.Fatal("should have error")
+	}
+
+	// Test good
+	config["iso_checksum_type"] = "mD5"
+	err = b.Prepare(config)
+	if err != nil {
+		t.Fatalf("should not have error: %s", err)
+	}
+
+	if b.config.ISOChecksumType != "md5" {
+		t.Fatalf("should've lowercased: %s", b.config.ISOChecksumType)
+	}
+
+	// Test unknown
+	config["iso_checksum_type"] = "fake"
+	err = b.Prepare(config)
+	if err == nil {
+		t.Fatal("should have error")
 	}
 }
 
@@ -317,9 +475,20 @@ func TestBuilderPrepare_SSHWaitTimeout(t *testing.T) {
 	var b Builder
 	config := testConfig()
 
+	// Test a default boot_wait
+	delete(config, "ssh_wait_timeout")
+	err := b.Prepare(config)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if b.config.RawSSHWaitTimeout != "20m" {
+		t.Fatalf("bad value: %s", b.config.RawSSHWaitTimeout)
+	}
+
 	// Test with a bad value
 	config["ssh_wait_timeout"] = "this is not good"
-	err := b.Prepare(config)
+	err = b.Prepare(config)
 	if err == nil {
 		t.Fatal("should have error")
 	}

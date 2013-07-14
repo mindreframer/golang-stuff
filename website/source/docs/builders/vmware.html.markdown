@@ -26,9 +26,11 @@ Ubuntu to self-install. Still, the example serves to show the basic configuratio
 {
   "type": "vmware",
   "iso_url": "http://releases.ubuntu.com/12.04/ubuntu-12.04.2-server-amd64.iso",
-  "iso_md5": "af5f788aee1b32c4b2634734309cc9e9",
+  "iso_checksum": "af5f788aee1b32c4b2634734309cc9e9",
+  "iso_checksum_type": "md5",
   "ssh_username": "packer",
-  "ssh_wait_timeout": "30s"
+  "ssh_wait_timeout": "30s",
+  "shutdown_command": "shutdown -P now"
 }
 </pre>
 
@@ -40,9 +42,13 @@ each category, the available options are alphabetized and described.
 
 Required:
 
-* `iso_md5` (string) - The MD5 checksum for the OS ISO file. Because ISO
+* `iso_checksum` (string) - The checksum for the OS ISO file. Because ISO
   files are so large, this is required and Packer will verify it prior
-  to booting a virtual machine with the ISO attached.
+  to booting a virtual machine with the ISO attached. The type of the
+  checksum is specified with `iso_checksum_type`, documented below.
+
+* `iso_checksum_type` (string) - The type of the checksum specified in
+  `iso_checksum`. Valid values are "md5", "sha1", or "sha256" currently.
 
 * `iso_url` (string) - A URL to the ISO containing the installation image.
   This URL can be either an HTTP URL or a file URL (or path to a file).
@@ -72,10 +78,24 @@ Optional:
   actual file representing the disk will not use the full size unless it is full.
   By default this is set to 40,000 (40 GB).
 
+* `floppy_files` (array of strings) - A list of files to put onto a floppy
+  disk that is attached when the VM is booted for the first time. This is
+  most useful for unattended Windows installs, which look for an
+  `Autounattend.xml` file on removable media. By default no floppy will
+  be attached. The files listed in this configuration will all be put
+  into the root directory of the floppy disk; sub-directories are not supported.
+
 * `guest_os_type` (string) - The guest OS type being installed. This will be
   set in the VMware VMX. By default this is "other". By specifying a more specific
   OS type, VMware may perform some optimizations or virtual hardware changes
   to better support the operating system running in the virtual machine.
+
+* `headless` (bool) - Packer defaults to building VMware
+  virtual machines by launching a GUI that shows the console of the
+  machine being built. When this value is set to true, the machine will
+  start without a console. For VMware machines, Packer will output VNC
+  connection information in case you need to connect to the console to
+  debug the build process.
 
 * `http_directory` (string) - Path to a directory to serve using an HTTP
   server. The files in this directory will be available over HTTP that will
@@ -95,8 +115,15 @@ Optional:
 * `output_directory` (string) - This is the path to the directory where the
   resulting virtual machine will be created. This may be relative or absolute.
   If relative, the path is relative to the working directory when `packer`
-  is executed. By default this is "vmware". This directory must not exist
-  or be empty prior to running the builder.
+  is executed. This directory must not exist or be empty prior to running the builder.
+  By default this is "output-BUILDNAME" where "BUILDNAME" is the name
+  of the build.
+
+* `skip_compaction` (bool) -  VMware-created disks are defragmented
+  and compacted at the end of the build process using `vmware-vdiskmanager`.
+  In certain rare cases, this might actually end up making the resulting disks
+  slightly larger. If you find this to be the case, you can disable compaction
+  using this configuration value.
 
 * `shutdown_command` (string) - The command to use to gracefully shut down
   the machine once all the provisioning is done. By default this is an empty
@@ -115,10 +142,22 @@ Optional:
 
 * `ssh_wait_timeout` (string) - The duration to wait for SSH to become
   available. By default this is "20m", or 20 minutes. Note that this should
-  be quite long since the timer begins as soon as virtual machine is booted.
+  be quite long since the timer begins as soon as the virtual machine is booted.
+
+* `tools_upload_flavor` (string) - The flavor of the VMware Tools ISO to
+  upload into the VM. Valid values are "darwin", "linux", and "windows".
+  By default, this is empty, which means VMware tools won't be uploaded.
+
+* `tools_upload_path` (string) - The path in the VM to upload the VMware
+  tools. This only takes effect if `tools_upload_flavor` is non-empty.
+  This is a [configuration template](/docs/templates/configuration-templates.html)
+  that has a single valid variable: `Flavor`, which will be the value of
+  `tools_upload_flavor`. By default the upload path is set to
+  `{{.Flavor}}.iso`.
 
 * `vm_name` (string) - This is the name of the VMX file for the new virtual
-  machine, without the file extension. By default this is "packer".
+  machine, without the file extension. By default this is "packer-BUILDNAME",
+  where "BUILDNAME" is the name of the build.
 
 * `vmdk_name` (string) - The filename of the virtual disk that'll be created,
   without the extension. This defaults to "packer".
@@ -155,7 +194,7 @@ will be replaced by the proper key:
 
 * `<tab>` - Simulates pressing the tab key.
 
-* `<wait>` - Adds a one second pause before sending any additional keys. This
+* `<wait>` `<wait5>` `<wait10>` - Adds a 1, 5 or 10 second pause before sending any additional keys. This
   is useful if you have to generally wait for the UI to update before typing more.
 
 In addition to the special keys, each command to type is treated as a
@@ -180,6 +219,6 @@ an Ubuntu 12.04 installer:
   "fb=false debconf/frontend=noninteractive ",
   "keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
   "keyboard-configuration/variant=USA console-setup/ask_detect=false ",
-  "initrd=/install/initrd.gz -- <enter>"
+  "initrd=/install/initrd.gz -- &lt;enter&gt;"
 ]
 </pre>

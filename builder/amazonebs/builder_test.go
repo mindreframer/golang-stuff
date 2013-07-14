@@ -2,8 +2,18 @@ package amazonebs
 
 import (
 	"github.com/mitchellh/packer/packer"
+	"os"
 	"testing"
 )
+
+func init() {
+	// Clear out the AWS access key env vars so they don't
+	// affect our tests.
+	os.Setenv("AWS_ACCESS_KEY_ID", "")
+	os.Setenv("AWS_ACCESS_KEY", "")
+	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
+	os.Setenv("AWS_SECRET_KEY", "")
+}
 
 func testConfig() map[string]interface{} {
 	return map[string]interface{}{
@@ -34,30 +44,6 @@ func TestBuilder_Prepare_BadType(t *testing.T) {
 	err := b.Prepare(c)
 	if err == nil {
 		t.Fatalf("prepare should fail")
-	}
-}
-
-func TestBuilderPrepare_AccessKey(t *testing.T) {
-	var b Builder
-	config := testConfig()
-
-	// Test good
-	config["access_key"] = "foo"
-	err := b.Prepare(config)
-	if err != nil {
-		t.Fatalf("should not have error: %s", err)
-	}
-
-	if b.config.AccessKey != "foo" {
-		t.Errorf("access key invalid: %s", b.config.AccessKey)
-	}
-
-	// Test bad
-	delete(config, "access_key")
-	b = Builder{}
-	err = b.Prepare(config)
-	if err == nil {
-		t.Fatal("should have error")
 	}
 }
 
@@ -113,6 +99,18 @@ func TestBuilderPrepare_InstanceType(t *testing.T) {
 	}
 }
 
+func TestBuilderPrepare_InvalidKey(t *testing.T) {
+	var b Builder
+	config := testConfig()
+
+	// Add a random key
+	config["i_should_not_be_valid"] = true
+	err := b.Prepare(config)
+	if err == nil {
+		t.Fatal("should have error")
+	}
+}
+
 func TestBuilderPrepare_Region(t *testing.T) {
 	var b Builder
 	config := testConfig()
@@ -138,30 +136,6 @@ func TestBuilderPrepare_Region(t *testing.T) {
 
 	// Test invalid
 	config["region"] = "i-am-not-real"
-	b = Builder{}
-	err = b.Prepare(config)
-	if err == nil {
-		t.Fatal("should have error")
-	}
-}
-
-func TestBuilderPrepare_SecretKey(t *testing.T) {
-	var b Builder
-	config := testConfig()
-
-	// Test good
-	config["secret_key"] = "foo"
-	err := b.Prepare(config)
-	if err != nil {
-		t.Fatalf("should not have error: %s", err)
-	}
-
-	if b.config.SecretKey != "foo" {
-		t.Errorf("secret key invalid: %s", b.config.SecretKey)
-	}
-
-	// Test bad
-	delete(config, "secret_key")
 	b = Builder{}
 	err = b.Prepare(config)
 	if err == nil {

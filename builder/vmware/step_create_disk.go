@@ -15,7 +15,7 @@ import (
 //   ui     packer.Ui
 //
 // Produces:
-//   <nothing>
+//   full_disk_path (string) - The full path to the created disk.
 type stepCreateDisk struct{}
 
 func (stepCreateDisk) Run(state map[string]interface{}) multistep.StepAction {
@@ -24,13 +24,15 @@ func (stepCreateDisk) Run(state map[string]interface{}) multistep.StepAction {
 	ui := state["ui"].(packer.Ui)
 
 	ui.Say("Creating virtual machine disk")
-	output := filepath.Join(config.OutputDir, config.DiskName+".vmdk")
-	if err := driver.CreateDisk(output, fmt.Sprintf("%dM", config.DiskSize)); err != nil {
+	full_disk_path := filepath.Join(config.OutputDir, config.DiskName+".vmdk")
+	if err := driver.CreateDisk(full_disk_path, fmt.Sprintf("%dM", config.DiskSize)); err != nil {
 		err := fmt.Errorf("Error creating disk: %s", err)
 		state["error"] = err
 		ui.Error(err.Error())
 		return multistep.ActionHalt
 	}
+
+	state["full_disk_path"] = full_disk_path
 
 	return multistep.ActionContinue
 }

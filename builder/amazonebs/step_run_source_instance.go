@@ -29,6 +29,19 @@ func (s *stepRunSourceInstance) Run(state map[string]interface{}) multistep.Step
 	}
 
 	ui.Say("Launching a source AWS instance...")
+	imageResp, err := ec2conn.Images([]string{config.SourceAmi}, ec2.NewFilter())
+	if err != nil {
+		state["error"] = fmt.Errorf("There was a problem with the source AMI: %s", err)
+		return multistep.ActionHalt
+	}
+
+	if imageResp.Images[0].RootDeviceType != "ebs" {
+		state["error"] = fmt.Errorf(
+			"The provided source AMI is instance-store based. The\n" +
+				"amazon-ebs bundler can only work with EBS based AMIs.")
+		return multistep.ActionHalt
+	}
+
 	runResp, err := ec2conn.RunInstances(runOpts)
 	if err != nil {
 		err := fmt.Errorf("Error launching source instance: %s", err)
@@ -40,10 +53,10 @@ func (s *stepRunSourceInstance) Run(state map[string]interface{}) multistep.Step
 	s.instance = &runResp.Instances[0]
 	log.Printf("instance id: %s", s.instance.InstanceId)
 
-	ui.Say("Waiting for instance to become ready...")
+	ui.Say(fmt.Sprintf("Waiting for instance (%s) to become ready...", s.instance.InstanceId))
 	s.instance, err = waitForState(ec2conn, s.instance, []string{"pending"}, "running")
 	if err != nil {
-		err := fmt.Errorf("Error waiting for instance to become ready: %s", err)
+		err := fmt.Errorf("Error waiting for instance (%s) to become ready: %s", s.instance.InstanceId, err)
 		state["error"] = err
 		ui.Error(err.Error())
 		return multistep.ActionHalt
