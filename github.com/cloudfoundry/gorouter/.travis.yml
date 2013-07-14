@@ -9,7 +9,5 @@ matrix:
 
 install:
   - gem install nats
-  - export GOPATH=$TRAVIS_BUILD_DIR
-  - go build ./...
-
-script: bin/test router
+  - go get -v ./...
+  - go build -v ./...

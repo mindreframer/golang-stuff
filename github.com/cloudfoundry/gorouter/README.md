@@ -30,33 +30,55 @@ standalone environment.
 
 ### Setup
 
-```
-git clone https://github.com/cloudfoundry/gorouter.git
-cd gorouter
-git submodule update --init
-./bin/go install router/router
+```bash
+export GOPATH=~/go # or wherever
+export PATH=$GOPATH/bin:$PATH
+
+cd $GOPATH
+
+mkdir -p src/github.com/cloudfoundry
+(
+  cd src/github.com/cloudfoundry
+  git clone https://github.com/cloudfoundry/gorouter.git
+)
+
+go get -v ./src/github.com/cloudfoundry/gorouter/...
+
 gem install nats
 ```
 
 ### Start
 
-```
+```bash
 # Start NATS server in daemon mode
 nats-server -d
 
 # Start gorouter
-./bin/router
+router
 ```
 
 ### Usage
 
-When gorouter is used in Cloud Foundry, it receives route updates via NATS
-after sending `router.start`.  Routes that haven't responded with
-`router.register` in 2 minutes (configurable) are pruned unless connection to
-NATS was lost.
+When gorouter starts, it sends `router.start`. This message contains an
+interval that other components should then send `router.register` on. If they
+do not send a `router.register` for an amount of time considered "stale" by the
+router, the routes are pruned. The default "staleness" is 2 minutes.
 
-Therefore, to maintain an active route, it needs to be updated at least every 2 minutes.
-The format of these route updates are as follows:
+The format of this message is as follows:
+
+```json
+{
+  "id": "some-router-id",
+  "hosts": ["1.2.3.4"],
+  "minimumRegisterIntervalInSeconds": 5
+}
+```
+
+If a component comes online after the router, it must make a NATS request
+called `router.greet` in order to determine the interval. The response to this
+message will be the same format as `router.start`.
+
+The format of route updates are as follows:
 
 ```json
 {
