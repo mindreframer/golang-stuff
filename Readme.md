@@ -171,6 +171,10 @@ Basics:
       Genetic problem solver written in Go
        100 commits, last change: 2012-12-04 07:58:42, 34 stars, 2 forks
 
+    inconshreveable/ngrok:
+      Tunneling, reverse proxy for developing and understanding networked, HTTP services
+       118 commits, last change: 2013-07-03 00:18:11, 187 stars, 10 forks
+
     insionng/toropress:
       toropress is a cms system of written in golang
        56 commits, last change: 2013-05-23 12:15:15, 37 stars, 13 forks
