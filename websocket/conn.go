@@ -28,26 +28,26 @@
 // The following example shows how to use NextReader and NextWriter to echo
 // messages:
 //
-//	for {
+//  for {
 //      op, r, err := conn.NextReader()
 //      if err != nil {
-//			return
+//          return
 //      }
-//		if op != websocket.OpBinary && op != websocket.OpText {
+//      if op != websocket.OpBinary && op != websocket.OpText {
 //          // Ignore if not a data message.
-//			continue
-//		}
-//		w, err := conn.NextWriter(op)
-//		if err != nil {
-//			return err
-//		}
-//		if _, err := io.Copy(w, r); err != nil {
+//          continue
+//      }
+//      w, err := conn.NextWriter(op)
+//      if err != nil {
+//          return err
+//      }
+//      if _, err := io.Copy(w, r); err != nil {
 //          return err
 //      }
 //      if err := w.Close(); err != nil {
 //          return err
 //      }
-//	}
+//  }
 //
 // Concurrency
 //
