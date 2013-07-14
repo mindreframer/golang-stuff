@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/zond/god/client"
 	"github.com/zond/god/common"
-	"github.com/zond/god/setop"
+	"github.com/zond/setop"
 	"io"
 	"math/big"
 	"os"

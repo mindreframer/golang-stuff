@@ -13,12 +13,11 @@ func init() {
 }
 
 func TestMurmur(t *testing.T) {
-	h := &Hash{}
 	m := make(map[string]bool)
 	for i := 0; i < 1000000; i++ {
 		s := fmt.Sprint(rand.Int63())
-		c1 := h.HashBytes([]byte(s))
-		c2 := h.HashBytes([]byte(s))
+		c1 := HashBytes([]byte(s))
+		c2 := HashBytes([]byte(s))
 		if string(c1) != string(c2) {
 			t.Errorf("%v should == %v", c1, c2)
 		}
@@ -32,13 +31,12 @@ func TestMurmur(t *testing.T) {
 func BenchmarkMurmur(b *testing.B) {
 	b.StopTimer()
 	var v [][]byte
-	t := &Hash{}
 	for i := 0; i < b.N; i++ {
 		v = append(v, []byte(fmt.Sprint(rand.Int63())))
 	}
 	b.StartTimer()
 	for _, n := range v {
-		t.HashBytes(n)
+		HashBytes(n)
 	}
 }
 

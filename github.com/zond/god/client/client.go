@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/zond/god/common"
-	"github.com/zond/god/setop"
+	"github.com/zond/setop"
 	"net/rpc"
 	"sync"
 	"sync/atomic"
@@ -41,7 +41,7 @@ func findKeys(op *setop.SetOp) (result map[string]bool) {
 //
 // Sub trees can be 'mirrored', which means that they contain a tree mirroring its values as keys and its keys as values.
 // To mirror a sub tree, call SubAddConfiguration for the sub tree and set 'mirrored' to 'yes'.
-// 
+//
 // Naming conventions:
 //
 // If there are two methods with similar names except that one has a capital S prefixed, that means that the method with the capital S will not return until all nodes responsible for the written data has received the data, while the one without the capital S will return as soon as the owner of the data has received it.
@@ -986,7 +986,7 @@ func (self *Conn) Describe() string {
 //
 // If expr.Dest is nil it will return the result.
 //
-// Either expr.Op or expr.Code has to be set. 
+// Either expr.Op or expr.Code has to be set.
 //
 // If expr.Op is nil expr.Code will be parsed using SetOpParser to provide expr.Op.
 func (self *Conn) SetExpression(expr setop.SetExpression) (result []setop.SetOpResult) {

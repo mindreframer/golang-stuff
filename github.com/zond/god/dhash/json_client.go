@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/zond/god/common"
-	"github.com/zond/god/setop"
+	"github.com/zond/setop"
 	"net/http"
 )
 

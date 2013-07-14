@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"github.com/zond/god/common"
 	"github.com/zond/god/radix"
-	"github.com/zond/god/setop"
+	"github.com/zond/setop"
 )
 
 const (

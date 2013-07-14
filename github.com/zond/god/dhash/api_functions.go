@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/zond/god/client"
 	"github.com/zond/god/common"
-	"github.com/zond/god/setop"
+	"github.com/zond/setop"
 	"sync/atomic"
 	"time"
 )

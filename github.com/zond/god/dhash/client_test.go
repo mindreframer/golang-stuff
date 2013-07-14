@@ -6,7 +6,7 @@ import (
 	"github.com/zond/god/client"
 	"github.com/zond/god/common"
 	"github.com/zond/god/murmur"
-	"github.com/zond/god/setop"
+	"github.com/zond/setop"
 	"math/big"
 	"net"
 	"runtime"
