@@ -18,6 +18,8 @@ import (
 	"github.com/globocom/tsuru/provision"
 	"github.com/globocom/tsuru/queue"
 	"github.com/globocom/tsuru/repository"
+	"github.com/globocom/tsuru/router"
+	_ "github.com/globocom/tsuru/router/elb"
 	"github.com/globocom/tsuru/safe"
 	"io"
 	"labix.org/v2/mgo"
@@ -72,6 +74,10 @@ func (p *JujuProvisioner) elbSupport() bool {
 	return *p.elb
 }
 
+func Router() (router.Router, error) {
+	return router.Get("elb")
+}
+
 func (p *JujuProvisioner) unitsCollection() (*db.Storage, *mgo.Collection) {
 	name, err := config.GetString("juju:units-collection")
 	if err != nil {
@@ -117,7 +123,11 @@ func (p *JujuProvisioner) Provision(app provision.App) error {
 	}
 	runCmd(true, &buf, &buf, setOption...)
 	if p.elbSupport() {
-		if err = p.LoadBalancer().Create(app); err != nil {
+		router, err := Router()
+		if err != nil {
+			return err
+		}
+		if err = router.AddBackend(app.GetName()); err != nil {
 			return err
 		}
 		p.enqueueUnits(app.GetName())
@@ -136,11 +146,48 @@ func (p *JujuProvisioner) Restart(app provision.App) error {
 	return nil
 }
 
+func (JujuProvisioner) Swap(app1, app2 provision.App) error {
+	r, err := Router()
+	if err != nil {
+		log.Printf("Failed to get router: %s", err.Error())
+		return err
+	}
+	app1Routes, err := r.Routes(app1.GetName())
+	if err != nil {
+		return err
+	}
+	app2Routes, err := r.Routes(app2.GetName())
+	if err != nil {
+		return err
+	}
+	for _, route := range app1Routes {
+		err = r.AddRoute(app2.GetName(), route)
+		if err != nil {
+			return err
+		}
+		err = r.RemoveRoute(app1.GetName(), route)
+		if err != nil {
+			return err
+		}
+	}
+	for _, route := range app2Routes {
+		err = r.AddRoute(app1.GetName(), route)
+		if err != nil {
+			return err
+		}
+		err = r.RemoveRoute(app2.GetName(), route)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (p *JujuProvisioner) Deploy(a provision.App, version string, w io.Writer) error {
 	var buf bytes.Buffer
 	setOption := []string{"set", a.GetName(), "app-version=" + version}
 	if err := runCmd(true, &buf, &buf, setOption...); err != nil {
-		log.Printf("juju: Failed to set app-repo. Error: %s.\nCommand output: %s", err, &buf)
+		log.Printf("juju: Failed to set app-version. Error: %s.\nCommand output: %s", err, &buf)
 	}
 	return deploy.Git(p, a, version, w)
 }
@@ -173,7 +220,7 @@ func (p *JujuProvisioner) destroyService(app provision.App) error {
 func (p *JujuProvisioner) terminateMachines(app provision.App, units ...provision.AppUnit) error {
 	var buf bytes.Buffer
 	if len(units) < 1 {
-		units = app.ProvisionUnits()
+		units = app.ProvisionedUnits()
 	}
 	for _, u := range units {
 		buf.Reset()
@@ -190,7 +237,7 @@ func (p *JujuProvisioner) terminateMachines(app provision.App, units ...provisio
 }
 
 func (p *JujuProvisioner) deleteUnits(app provision.App) {
-	units := app.ProvisionUnits()
+	units := app.ProvisionedUnits()
 	names := make([]string, len(units))
 	for i, u := range units {
 		names[i] = u.GetName()
@@ -206,7 +253,11 @@ func (p *JujuProvisioner) Destroy(app provision.App) error {
 		return err
 	}
 	if p.elbSupport() {
-		err = p.LoadBalancer().Destroy(app)
+		router, err := Router()
+		if err != nil {
+			return err
+		}
+		err = router.RemoveBackend(app.GetName())
 	}
 	go p.terminateMachines(app)
 	p.deleteUnits(app)
@@ -284,11 +335,11 @@ func (p *JujuProvisioner) removeUnit(app provision.App, unit provision.AppUnit) 
 		return cmdError(buf.String(), err, cmd)
 	}
 	if p.elbSupport() {
-		pUnit := provision.Unit{
-			Name:       unit.GetName(),
-			InstanceId: unit.GetInstanceId(),
+		router, err := Router()
+		if err != nil {
+			return err
 		}
-		err = p.LoadBalancer().Deregister(app, pUnit)
+		err = router.RemoveRoute(app.GetName(), unit.GetInstanceId())
 	}
 	conn, collection := p.unitsCollection()
 	defer conn.Close()
@@ -299,7 +350,7 @@ func (p *JujuProvisioner) removeUnit(app provision.App, unit provision.AppUnit) 
 
 func (p *JujuProvisioner) RemoveUnit(app provision.App, name string) error {
 	var unit provision.AppUnit
-	for _, unit = range app.ProvisionUnits() {
+	for _, unit = range app.ProvisionedUnits() {
 		if unit.GetName() == name {
 			break
 		}
@@ -316,7 +367,7 @@ func (p *JujuProvisioner) InstallDeps(app provision.App, w io.Writer) error {
 
 func (p *JujuProvisioner) ExecuteCommand(stdout, stderr io.Writer, app provision.App, cmd string, args ...string) error {
 	arguments := []string{"ssh", "-o", "StrictHostKeyChecking no", "-q"}
-	units := app.ProvisionUnits()
+	units := app.ProvisionedUnits()
 	length := len(units)
 	for i, unit := range units {
 		if length > 1 {
@@ -419,10 +470,12 @@ func (p *JujuProvisioner) heal(units []provision.Unit) {
 			format := "[juju] instance-id of unit %q changed from %q to %q. Healing."
 			log.Printf(format, unit.Name, inst.InstanceID, unit.InstanceId)
 			if p.elbSupport() {
-				a := qApp{unit.AppName}
-				manager := p.LoadBalancer()
-				manager.Deregister(&a, provision.Unit{InstanceId: inst.InstanceID})
-				err := manager.Register(&a, provision.Unit{InstanceId: unit.InstanceId})
+				router, err := Router()
+				if err != nil {
+					continue
+				}
+				router.RemoveRoute(unit.AppName, inst.InstanceID)
+				err = router.AddRoute(unit.AppName, unit.InstanceId)
 				if err != nil {
 					format := "[juju] Could not register instance %q in the load balancer: %s."
 					log.Printf(format, unit.InstanceId, err)
@@ -453,20 +506,17 @@ func (p *JujuProvisioner) CollectStatus() ([]provision.Unit, error) {
 
 func (p *JujuProvisioner) Addr(app provision.App) (string, error) {
 	if p.elbSupport() {
-		return p.LoadBalancer().Addr(app)
+		router, err := Router()
+		if err != nil {
+			return "", err
+		}
+		return router.Addr(app.GetName())
 	}
-	units := app.ProvisionUnits()
+	units := app.ProvisionedUnits()
 	if len(units) < 1 {
 		return "", fmt.Errorf("App %q has no units.", app.GetName())
 	}
 	return units[0].GetIp(), nil
-}
-
-func (p *JujuProvisioner) LoadBalancer() *ELBManager {
-	if p.elbSupport() {
-		return &ELBManager{}
-	}
-	return nil
 }
 
 // instance represents a unit in the database.

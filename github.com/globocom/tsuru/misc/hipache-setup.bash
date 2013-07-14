@@ -6,6 +6,15 @@
 
 # This script is used to install the hipache router.
 
+function set_npm_proxy() {
+    if [ ! -z "$http_proxy" ]; then
+        npm config set proxy $http_proxy
+    fi
+    if [ ! -z "$https_proxy" ]; then
+        npm config set https-proxy $https_proxy
+    fi
+}
+
 function install_npm() {
     curl http://nodejs.org/dist/v0.8.23/node-v0.8.23-linux-x64.tar.gz | sudo tar -C /usr/local/ --strip-components=1 -zxv
 }
@@ -15,7 +24,7 @@ function install_redis() {
 }
 
 function install_hipache() {
-    sudo npm install hipache -g
+    sudo -E npm install hipache -g
 }
 
 function configure_hipache() {
@@ -45,6 +54,7 @@ function start_hipache() {
 
 function main() {
     install_npm
+    set_npm_proxy
     install_redis
     install_hipache
     configure_hipache

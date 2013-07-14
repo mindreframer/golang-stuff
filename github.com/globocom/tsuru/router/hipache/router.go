@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"github.com/globocom/config"
+	"github.com/globocom/tsuru/log"
 	"github.com/globocom/tsuru/router"
 	"strings"
 )
@@ -93,14 +94,17 @@ func (r hipacheRouter) RemoveBackend(name string) error {
 func (r hipacheRouter) AddRoute(name, address string) error {
 	domain, err := config.GetString("hipache:domain")
 	if err != nil {
+		log.Printf("error on getting hipache domin in add route for %s - %s", name, address)
 		return &routeError{"add", err}
 	}
 	frontend := "frontend:" + name + "." + domain
 	if err := r.addRoute(frontend, address); err != nil {
+		log.Printf("error on add route for %s - %s", name, address)
 		return &routeError{"add", err}
 	}
 	cname, err := r.getCName(name)
 	if err != nil {
+		log.Printf("error on get cname in add route for %s - %s", name, address)
 		return err
 	}
 	if cname == "" {
@@ -114,6 +118,7 @@ func (hipacheRouter) addRoute(name, address string) error {
 	defer conn.Close()
 	_, err := conn.Do("RPUSH", name, address)
 	if err != nil {
+		log.Printf("error on store in redis in add route for %s - %s", name, address)
 		return &routeError{"add", err}
 	}
 	return nil
@@ -225,6 +230,21 @@ func (hipacheRouter) Addr(name string) (string, error) {
 		return "", errRouteNotFound
 	}
 	return fmt.Sprintf("%s.%s", name, domain), nil
+}
+
+func (hipacheRouter) Routes(name string) ([]string, error) {
+	domain, err := config.GetString("hipache:domain")
+	if err != nil {
+		return nil, &routeError{"routes", err}
+	}
+	frontend := "frontend:" + name + "." + domain
+	conn := connect()
+	defer conn.Close()
+	routes, err := redis.Strings(conn.Do("LRANGE", frontend, 0, -1))
+	if err != nil {
+		return nil, &routeError{"routes", err}
+	}
+	return routes, nil
 }
 
 func (hipacheRouter) removeElement(name, address string) error {

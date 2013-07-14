@@ -640,7 +640,7 @@ func (c *hasUnitChecker) Check(params []interface{}, names []string) (bool, stri
 	if !ok {
 		return false, "second parameter should be a pointer to an unit instance"
 	}
-	for _, unit := range a.ProvisionUnits() {
+	for _, unit := range a.ProvisionedUnits() {
 		if reflect.DeepEqual(unit, u) {
 			return true, ""
 		}
@@ -665,7 +665,7 @@ func (s *S) TestRemoveUnitsPriority(c *gocheck.C) {
 	defer s.conn.Apps().Remove(bson.M{"name": a.Name})
 	s.provisioner.Provision(&a)
 	s.provisioner.AddUnits(&a, 6)
-	un := a.ProvisionUnits()
+	un := a.ProvisionedUnits()
 	c.Assert(&a, HasUnit, un[0])
 	c.Assert(&a, HasUnit, un[1])
 	c.Assert(&a, HasUnit, un[2])
@@ -688,7 +688,7 @@ func (s *S) TestRemoveUnitsPriority(c *gocheck.C) {
 	c.Assert(err, gocheck.IsNil)
 	c.Assert(&a, gocheck.Not(HasUnit), un[5])
 	c.Assert(&a, HasUnit, un[0])
-	c.Assert(a.ProvisionUnits(), gocheck.HasLen, 1)
+	c.Assert(a.ProvisionedUnits(), gocheck.HasLen, 1)
 }
 
 func (s *S) TestRemoveUnitsWithQuota(c *gocheck.C) {
@@ -1873,7 +1873,7 @@ func (s *S) TestSerializeEnvVars(c *gocheck.C) {
 		},
 		Units: []Unit{{Name: "i-0800", State: "started"}},
 	}
-	err := app.serializeEnvVars()
+	err := app.SerializeEnvVars()
 	c.Assert(err, gocheck.IsNil)
 	cmds := s.provisioner.GetCmds("", &app)
 	c.Assert(cmds, gocheck.HasLen, 1)
@@ -1895,7 +1895,7 @@ func (s *S) TestSerializeEnvVarsErrorWithoutOutput(c *gocheck.C) {
 			},
 		},
 	}
-	err := app.serializeEnvVars()
+	err := app.SerializeEnvVars()
 	c.Assert(err, gocheck.NotNil)
 	c.Assert(err.Error(), gocheck.Equals, "Failed to write env vars: Failed to run commands.")
 }
@@ -1914,7 +1914,7 @@ func (s *S) TestSerializeEnvVarsErrorWithOutput(c *gocheck.C) {
 		},
 		Units: []Unit{{Name: "i-0800", State: "started"}},
 	}
-	err := app.serializeEnvVars()
+	err := app.SerializeEnvVars()
 	c.Assert(err, gocheck.NotNil)
 	expected := "Failed to write env vars (exit status 1): This program has performed an illegal operation."
 	c.Assert(err.Error(), gocheck.Equals, expected)
@@ -1976,9 +1976,9 @@ func (s *S) TestGetPlatform(c *gocheck.C) {
 	c.Assert(a.GetPlatform(), gocheck.Equals, a.Platform)
 }
 
-func (s *S) TestGetProvisionUnits(c *gocheck.C) {
+func (s *S) TestGetProvisionedUnits(c *gocheck.C) {
 	a := App{Name: "anycolor", Units: []Unit{{Name: "i-0800"}, {Name: "i-0900"}, {Name: "i-a00"}}}
-	gotUnits := a.ProvisionUnits()
+	gotUnits := a.ProvisionedUnits()
 	for i := range a.Units {
 		if gotUnits[i].GetName() != a.Units[i].Name {
 			c.Errorf("Failed at position %d: Want %q. Got %q.", i, a.Units[i].Name, gotUnits[i].GetName())
@@ -1996,4 +1996,11 @@ func (s *S) TestAppAvailableShouldReturnsTrueWhenOneUnitIsStarted(c *gocheck.C) 
 		},
 	}
 	c.Assert(a.Available(), gocheck.Equals, true)
+}
+
+func (s *S) TestSwap(c *gocheck.C) {
+	app1 := &App{}
+	app2 := &App{}
+	err := Swap(app1, app2)
+	c.Assert(err, gocheck.IsNil)
 }

@@ -30,29 +30,6 @@ import (
 	"time"
 )
 
-type testHandler struct {
-	body    [][]byte
-	method  []string
-	url     []string
-	content string
-	header  []http.Header
-}
-
-func (h *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.method = append(h.method, r.Method)
-	h.url = append(h.url, r.URL.String())
-	b, _ := ioutil.ReadAll(r.Body)
-	h.body = append(h.body, b)
-	h.header = append(h.header, r.Header)
-	w.Write([]byte(h.content))
-}
-
-type testBadHandler struct{}
-
-func (h *testBadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "some error", http.StatusInternalServerError)
-}
-
 func (s *S) TestAppIsAvailableHandlerShouldReturnErrorWhenAppStatusIsnotStarted(c *gocheck.C) {
 	a := app.App{
 		Name:     "someapp",
@@ -2610,4 +2587,21 @@ func (s *S) TestgetAppOrErrorWhenUserIsAdmin(c *gocheck.C) {
 	err = a.Get()
 	c.Assert(err, gocheck.IsNil)
 	c.Assert(app, gocheck.DeepEquals, a)
+}
+
+func (s *S) TestSwap(c *gocheck.C) {
+	app1 := app.App{Name: "app1", Teams: []string{s.team.Name}}
+	err := s.conn.Apps().Insert(&app1)
+	c.Assert(err, gocheck.IsNil)
+	defer s.conn.Apps().RemoveId(&app1.Name)
+	app2 := app.App{Name: "app2", Teams: []string{s.team.Name}}
+	err = s.conn.Apps().Insert(&app2)
+	c.Assert(err, gocheck.IsNil)
+	defer s.conn.Apps().RemoveId(&app2.Name)
+	request, _ := http.NewRequest("PUT", "/swap?app1=app1&app2=app2", nil)
+	recorder := httptest.NewRecorder()
+	err = swap(recorder, request, s.token)
+	c.Assert(err, gocheck.IsNil)
+	action := testing.Action{Action: "swap", User: s.user.Email, Extra: []interface{}{"app1", "app2"}}
+	c.Assert(action, testing.IsRecorded)
 }
