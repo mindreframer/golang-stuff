@@ -21,16 +21,16 @@ type HttpResponse struct {
 // 3. sendRequest() forwards request and returns response info to `responses` chan
 // 4. handleRequest() listen for `response` channel and updates stats
 type RequestFactory struct {
-	responses chan *HttpResponse
-	requests  chan *http.Request
+	c_responses chan *HttpResponse
+	c_requests  chan *http.Request
 }
 
 // RequestFactory contstuctor
 // One created, it starts listening for incoming requests: requests channel
 func NewRequestFactory() (factory *RequestFactory) {
 	factory = &RequestFactory{}
-	factory.responses = make(chan *HttpResponse)
-	factory.requests = make(chan *http.Request)
+	factory.c_responses = make(chan *HttpResponse)
+	factory.c_requests = make(chan *http.Request)
 
 	go factory.handleRequests()
 
@@ -47,9 +47,7 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 	request.RequestURI = ""
 	request.URL, _ = url.ParseRequestURI(URL)
 
-	if Settings.verbose {
-		Debug("Sending request:", host.Url, request)
-	}
+	Debug("Sending request:", host.Url, request)
 
 	resp, err := client.Do(request)
 
@@ -59,7 +57,7 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 		Debug("Request error:", err)
 	}
 
-	f.responses <- &HttpResponse{host, request, resp, err}
+	f.c_responses <- &HttpResponse{host, request, resp, err}
 }
 
 // Handle incoming requests, and they responses
@@ -68,7 +66,7 @@ func (f *RequestFactory) handleRequests() {
 
 	for {
 		select {
-		case req := <-f.requests:
+		case req := <-f.c_requests:
 			for _, host := range hosts {
 				// Ensure that we have actual stats for given timestamp
 				host.Stat.Touch()
@@ -80,7 +78,7 @@ func (f *RequestFactory) handleRequests() {
 					go f.sendRequest(host, req)
 				}
 			}
-		case resp := <-f.responses:
+		case resp := <-f.c_responses:
 			// Increment returned http code stats, and elapsed time
 			resp.host.Stat.IncResp(resp)
 		}
@@ -89,5 +87,5 @@ func (f *RequestFactory) handleRequests() {
 
 // Add request to channel for further processing
 func (f *RequestFactory) Add(request *http.Request) {
-	f.requests <- request
+	f.c_requests <- request
 }
