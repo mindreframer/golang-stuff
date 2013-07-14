@@ -233,7 +233,7 @@ func BenchmarkDocOutputToBuffer(b *testing.B) {
 
 }
 
-func TestRemoveNamespace(t *testing.T) {
+func TestRemoveNamespaces(t *testing.T) {
 	xml := "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\"><SOAP-ENV:Body><m:setPresence xmlns:m=\"http://schemas.microsoft.com/winrtc/2002/11/sip\"><m:presentity m:uri=\"test\"><m:availability m:aggregate=\"300\" m:description=\"online\"/><m:activity m:aggregate=\"400\" m:description=\"Active\"/><deviceName xmlns=\"http://schemas.microsoft.com/2002/09/sip/client/presence\" name=\"WIN-0DDABKC1UI8\"/></m:presentity></m:setPresence></SOAP-ENV:Body></SOAP-ENV:Envelope>"
 	xml_no_namespace := "<Envelope><Body><setPresence><presentity uri=\"test\"><availability aggregate=\"300\" description=\"online\"/><activity aggregate=\"400\" description=\"Active\"/><deviceName name=\"WIN-0DDABKC1UI8\"/></presentity></setPresence></Body></Envelope>"
 
@@ -245,5 +245,36 @@ func TestRemoveNamespace(t *testing.T) {
 	output_no_namespace := fmt.Sprintf("%v", doc2)
 	if output != output_no_namespace {
 		t.Errorf("Xml namespaces not removed!")
+	}
+}
+
+func TestRemoveDefaultNamespace(t *testing.T) {
+	xml := `
+<body xmlns="http://jabber.org/protocol/httpbind" xmlns:stream="http://etherx.jabber.org/streams" to="127.0.0.1" rid="3" sid="0acad5262d995374">
+  <iq id="2" type="get" from="">
+    <query xmlns="jabber:iq:auth">
+      <username>xyz</username>
+    </query>
+  </iq>
+</body>
+`
+
+	xml_no_namespace := `
+<body xmlns:stream="http://etherx.jabber.org/streams" to="127.0.0.1" rid="3" sid="0acad5262d995374">
+  <iq id="2" type="get" from="">
+    <query xmlns="jabber:iq:auth">
+      <username>xyz</username>
+    </query>
+  </iq>
+</body>
+`
+	doc, _ := Parse([]byte(xml), DefaultEncodingBytes, nil, DefaultParseOption, DefaultEncodingBytes)
+	doc.Root().RemoveDefaultNamespace()
+	doc2, _ := Parse([]byte(xml_no_namespace), DefaultEncodingBytes, nil, DefaultParseOption, DefaultEncodingBytes)
+
+	output := fmt.Sprintf("%v", doc)
+	output_no_namespace := fmt.Sprintf("%v", doc2)
+	if output != output_no_namespace {
+		t.Errorf("Default namespace not removed!")
 	}
 }

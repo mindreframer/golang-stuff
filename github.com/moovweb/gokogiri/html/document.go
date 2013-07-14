@@ -12,6 +12,7 @@ import "C"
 
 import (
 	"errors"
+	"gokogiri/help"
 	. "gokogiri/util"
 	"gokogiri/xml"
 	//"runtime"
@@ -97,7 +98,7 @@ func Parse(content, inEncoding, url []byte, options int, outEncoding []byte) (do
 }
 
 func CreateEmptyDocument(inEncoding, outEncoding []byte) (doc *HtmlDocument) {
-	C.xmlInitParser()
+	help.LibxmlInitParser()
 	docPtr := C.htmlNewDoc(nil, nil)
 	doc = NewDocument(unsafe.Pointer(docPtr), 0, inEncoding, outEncoding)
 	return

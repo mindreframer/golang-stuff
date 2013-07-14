@@ -112,6 +112,7 @@ type Node interface {
 
 	//
 	Duplicate(int) Node
+	DuplicateTo(Document, int) Node
 
 	Search(interface{}) ([]Node, error)
 	SearchByDeadline(interface{}, *time.Time) ([]Node, error)
@@ -140,6 +141,8 @@ type Node interface {
 	InnerHtml() string
 
 	RecursivelyRemoveNamespaces() error
+	SetNamespace(string, string)
+	RemoveDefaultNamespace()
 }
 
 //run out of memory
@@ -575,9 +578,13 @@ func (xmlNode *XmlNode) SetName(name string) {
 	}
 }
 
-func (xmlNode *XmlNode) Duplicate(level int) (dup Node) {
+func (xmlNode *XmlNode) Duplicate(level int) Node {
+	return xmlNode.DuplicateTo(xmlNode.Document, level)
+}
+
+func (xmlNode *XmlNode) DuplicateTo(doc Document, level int) (dup Node) {
 	if xmlNode.valid {
-		dupPtr := C.xmlDocCopyNode(xmlNode.Ptr, (*C.xmlDoc)(xmlNode.Document.DocPtr()), C.int(level))
+		dupPtr := C.xmlDocCopyNode(xmlNode.Ptr, (*C.xmlDoc)(doc.DocPtr()), C.int(level))
 		if dupPtr != nil {
 			dup = NewNode(unsafe.Pointer(dupPtr), xmlNode.Document)
 		}
@@ -873,4 +880,24 @@ func (xmlNode *XmlNode) RecursivelyRemoveNamespaces() (err error) {
 		}
 	}
 	return
+}
+
+func (xmlNode *XmlNode) RemoveDefaultNamespace() {
+	nodePtr := xmlNode.Ptr
+	C.xmlRemoveDefaultNamespace(nodePtr)
+}
+
+func (xmlNode *XmlNode) SetNamespace(prefix, href string) {
+	if xmlNode.NodeType() != XML_ELEMENT_NODE {
+		return
+	}
+
+	prefixBytes := GetCString([]byte(prefix))
+	prefixPtr := unsafe.Pointer(&prefixBytes[0])
+
+	hrefBytes := GetCString([]byte(href))
+	hrefPtr := unsafe.Pointer(&hrefBytes[0])
+
+	ns := C.xmlNewNs(xmlNode.Ptr, (*C.xmlChar)(hrefPtr), (*C.xmlChar)(prefixPtr))
+	C.xmlSetNs(xmlNode.Ptr, ns)
 }

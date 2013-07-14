@@ -233,3 +233,12 @@ func TestInnerWithAttributes(t *testing.T) {
 
 	RunTest(t, "node", "inner_with_attributes", testLogic)
 }
+
+func TestSetNamespace(t *testing.T) {
+	testLogic := func(t *testing.T, doc *XmlDocument) {
+		root := doc.Root()
+		root.SetNamespace("foo", "bar")
+	}
+
+	RunTest(t, "node", "set_namespace", testLogic)
+}

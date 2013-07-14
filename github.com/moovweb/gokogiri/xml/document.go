@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"errors"
+	"gokogiri/help"
 	. "gokogiri/util"
 	"gokogiri/xpath"
 	//"runtime"
@@ -43,8 +44,8 @@ type Document interface {
 //xml parse option
 const (
 	XML_PARSE_RECOVER   = 1 << 0  //relaxed parsing
-	XML_PARSE_NOERROR   = 1 << 5  //suppress error reports 
-	XML_PARSE_NOWARNING = 1 << 6  //suppress warning reports 
+	XML_PARSE_NOERROR   = 1 << 5  //suppress error reports
+	XML_PARSE_NOWARNING = 1 << 6  //suppress warning reports
 	XML_PARSE_NONET     = 1 << 11 //forbid network access
 )
 
@@ -130,6 +131,7 @@ func Parse(content, inEncoding, url []byte, options int, outEncoding []byte) (do
 }
 
 func CreateEmptyDocument(inEncoding, outEncoding []byte) (doc *XmlDocument) {
+	help.LibxmlInitParser()
 	docPtr := C.newEmptyXmlDoc()
 	doc = NewDocument(unsafe.Pointer(docPtr), 0, inEncoding, outEncoding)
 	return
