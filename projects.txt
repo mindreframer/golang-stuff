@@ -1,3 +1,4 @@
+https://github.com/abh/geodns.git
 https://github.com/alco/gostart.git
 https://github.com/ant0ine/go-json-rest.git
 https://github.com/ant0ine/go-urlrouter.git
@@ -47,6 +48,7 @@ https://github.com/PuerkitoBio/gocrawl.git
 https://github.com/PuerkitoBio/goquery.git
 https://github.com/rcrowley/go-metrics.git
 https://github.com/skydb/sky.git
+https://github.com/spf13/hugo.git
 https://github.com/stathat/bingo.git
 https://github.com/StefanSchroeder/Golang-Regex-Tutorial.git
 https://github.com/thomas11/csp.git
@@ -54,5 +56,3 @@ https://github.com/trevex/golem.git
 https://github.com/tumblr/gocircuit.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
 https://github.com/zond/god.git
-https://github.com/spf13/hugo.git
-https://github.com/abh/geodns.git
