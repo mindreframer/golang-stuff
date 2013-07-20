@@ -55,6 +55,10 @@ Basics:
 
 
 <!-- PROJECTS_LIST_START -->
+    abh/geodns:
+      GeoDNS server
+       221 commits, last change: 2013-07-15 20:00:53, 181 stars, 12 forks
+
     alco/gostart:
       A getting started guide for Go newcomers
        33 commits, last change: 2013-04-01 07:06:56, 96 stars, 6 forks
@@ -250,6 +254,10 @@ Basics:
     skydb/sky:
       Sky is an open source, behavioral analytics database.
        556 commits, last change: 2013-04-02 07:23:03, 131 stars, 17 forks
+
+    spf13/hugo:
+      A Fast and Flexible Static Site Generator built with love by spf13 in GoLang
+       39 commits, last change: 2013-07-19 00:38:24, 34 stars, 8 forks
 
     stathat/bingo:
       go http helper package. Includes contexts, logging, and some rendering helpers.
