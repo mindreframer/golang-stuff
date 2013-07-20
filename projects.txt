@@ -55,3 +55,4 @@ https://github.com/tumblr/gocircuit.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
 https://github.com/zond/god.git
 https://github.com/spf13/hugo.git
+https://github.com/abh/geodns.git
