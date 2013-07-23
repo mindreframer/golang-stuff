@@ -6,6 +6,7 @@ Libraries:
 Tools:
   - Go Version Manager: https://github.com/moovweb/gvm
   - Go cross compilation support: https://github.com/davecheney/golang-crosscompile
+  - [Go Remote Packages](https://docs.google.com/document/d/1_IJTRD6dDQvyCfyim4KJexq8ZrKUPvUd3GMSA8cw8A4/edit?pli=1#)
 
 
 Videos:
