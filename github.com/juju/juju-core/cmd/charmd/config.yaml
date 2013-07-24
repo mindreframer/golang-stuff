@@ -1,0 +1,2 @@
+mongo-url: localhost:27017
+api-addr: localhost:8080

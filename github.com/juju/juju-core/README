@@ -1,0 +1,141 @@
+juju-core
+=========
+
+juju is devops distilled.
+
+Getting started
+===============
+
+`juju-core` is written in Go (http://golang.org), a modern, compiled, statically
+typed, concurrent language. This document describes how to build `juju-core`
+from source. If you are looking for binary releases of `juju-core`, they are
+available from the Gophers PPA, `https://launchpad.net/~gophers/+archive/go`.
+
+Installing Go
+-------------
+
+If you are using Precise or later, the `golang-go` package is available in the
+main archive and can be installed with
+
+    sudo apt-get install golang-go
+
+Using Go compiled from source is also supported, but not covered in this document.
+
+Setting GOPATH
+--------------
+
+When working with the source of Go programs, you should define a path within
+your home directory (or other workspace) which will be your `GOPATH`. `GOPATH`
+is similar to Java's `CLASSPATH` or Python's `~/.local`. `GOPATH` is documented
+online at `http://golang.org/pkg/go/build/` and inside the `go` tool itself
+
+    go help gopath
+
+Various conventions exist for naming the location of your `GOPATH`, but it should
+exist, and be writable by you. For example
+
+    export GOPATH=${HOME}/work
+    mkdir $GOPATH
+
+will define and create `$HOME/work` as your local `GOPATH`. The `go` tool itself
+will create three subdirectories inside your `GOPATH` when required; `src`, `pkg`
+and `bin`, which hold the source of Go programs, compiled packages and compiled
+binaries, respectively.
+
+Setting `GOPATH` correctly is critical when developing Go programs. Set and
+export it as part of your login script.
+
+Add `$GOPATH/bin` to your `PATH`, so you can run the go programs you install:
+
+    PATH="$PATH:$GOPATH/bin"
+
+Other prerequisites
+-------------------
+
+A number of additional prerequisite packages are required to compile `juju-core`
+and run the tests.  Running "make install-dependencies" from the source tree
+will generally install these for you.
+
+If you do choose to install them manually, here's what you need:
+
+    sudo apt-get install build-essential bzr zip git-core mercurial \
+        distro-info-data
+
+Binaries for mongodb are also required, but a newer version than is present in
+either 12.04 or 12.10 Ubuntu releases. Instead, you can get what you need from
+the public bucket which juju uses when deploying itself:
+
+    http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-precise-amd64.tgz
+
+Change the Ubuntu series name and architecture to match your system.
+
+Note that the use of --upload-tools forces the instances to run with the same
+series and architecture of your development system.  Currently the only
+supported architecture that can be deployed is amd64, so you must develop on
+64-bit machines.
+
+Getting juju-core
+=================
+
+The easiest way to get the source for `juju-core` is to use the `go get` command.
+
+    go get -v launchpad.net/juju-core/...
+
+This command will checkout the source of `juju-core` and inspect it for any unmet
+Go package dependencies, downloading those as well. `go get` will also build and
+install `juju-core` and its dependencies. To checkout without installing, use the
+`-d` flag. More details on the `go get` flags are available using
+
+    go help get
+
+At this point you will have the bzr working copy of the `juju-core` source at
+`$GOPATH/launchpad.net/juju-core`. The source for any dependent packages will
+also be available inside `$GOPATH`. You can use `bzr pull`, or the less convenient
+`go get -u launchpad.net/juju-core/...` to update the source from time to time.
+If you want to know more about contributing to `juju-core`, please read the
+`CONTRIBUTING` companion to this file.
+
+Building juju-core
+==================
+
+    go install -v launchpad.net/juju-core/...
+
+Will build juju and install the binary commands into `$GOPATH/bin`. It is likely
+if you have just completed the previous step to get the `juju-core` source, the
+install process will produce no output, as the final executables are up-to-date.
+
+Using juju-core
+===============
+
+After following the steps above you will have the `juju` client installed in
+`GOPATH/bin/juju`. You should ensure that this version of `juju` appears earlier
+in your path than any packaged versions of `juju-core`, or older Python juju
+commands. You can verify this using
+
+    which juju
+
+--upload-tools
+--------------
+
+The `juju` client program, and the juju 'tools' are deployed in lockstep. When a
+release of `juju-core` is made, the compiled tools matching that version of juju
+are extracted and uploaded to a known location. This consumes a release version
+number, and implies that no tools are available for the next, development, version
+of juju. Therefore, when using the development version of juju you will need to
+pass an additional flag, `--upload-tools` to instruct the `juju` client to build
+a set of tools from source and upload them to the environment as part of the
+bootstrap process.
+
+    juju bootstrap -e your-environment --upload-tools {--debug}
+
+Known issues
+============
+
+* If you have used the Python version of Juju, you cannot re-use the
+  control-bucket on S3 for Go Juju.  Change the bucket name in your
+  environments.yaml.
+
+* juju-origin is not supported so it must be removed from the environment you
+  define in environments.yaml if it exists.  At the moment --upload-tools is
+  the work-around to use, though it does have the problems mentioned
+  previously.
