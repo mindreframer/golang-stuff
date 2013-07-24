@@ -284,6 +284,10 @@ Basics:
       This is an English version of 《Go Web编程》, which original version was written by AstaXie and translated by Unknown.
        132 commits, last change: 2013-06-22 06:18:13, 105 stars, 22 forks
 
+    VividCortex/ewma:
+      Exponentially Weighted Moving Average algorithms for Go.
+       6 commits, last change: 2013-07-23 10:53:34, 6 stars, 1 forks
+
     zond/god:
       A Go database
        813 commits, last change: 2013-06-16 08:21:58, 341 stars, 25 forks
