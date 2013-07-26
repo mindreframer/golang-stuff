@@ -60,3 +60,4 @@ https://github.com/tumblr/gocircuit.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
 https://github.com/VividCortex/ewma.git
 https://github.com/zond/god.git
+https://github.com/VividCortex/johnny-deps.git
