@@ -43,7 +43,7 @@ Companies using Go:
   - [Apcera.com](http://www.slideshare.net/derekcollison/go-conference-japan)
   - [Stathat.com](http://blog.golang.org/2011/12/building-stathat-with-go.html)
   - [Juju at Canonical/Ubuntu](https://groups.google.com/forum/#!topic/golang-nuts/jLnMsUbYwrQ/discussion), [presentation](http://www.youtube.com/watch?v=USr0Bvg1ZOo)
-
+  - [Beachfront.iO at Beachfront Media](http://beachfront.io)
 
 Intros:
   - https://speakerdeck.com/doitian/a-tour-of-go
