@@ -1,0 +1,5 @@
+\#*
+.\#*
+config.make
+.env
+Godeps
