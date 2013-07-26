@@ -115,7 +115,11 @@ Basics:
     cdarwin/go-koans:
       koans for go
        61 commits, last change: 2012-04-26 14:49:23, 17 stars, 24 forks
-
+       
+    ChimeraCoder/gojson:
+      command-line tool for manipulating JSON for use in developing Go code
+      35 commits, last change 2013-03-15 16:17:55, 71 stars, 3 forks
+    
     ciju/gotunnel:
       serve your local server/directory over the internet
        49 commits, last change: 2013-05-14 04:16:56, 29 stars, 5 forks
