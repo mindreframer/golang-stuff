@@ -302,6 +302,10 @@ Basics:
       Exponentially Weighted Moving Average algorithms for Go.
        9 commits, last change: 2013-07-24 07:12:58, 13 stars, 1 forks
 
+    VividCortex/johnny-deps:
+      Barebones package version manager for Go.
+       27 commits, last change: 2013-07-26 06:01:26, 46 stars, 5 forks
+
     zond/god:
       A Go database
        813 commits, last change: 2013-06-16 08:21:58, 345 stars, 25 forks
