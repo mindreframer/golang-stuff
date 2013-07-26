@@ -13,6 +13,7 @@ https://github.com/buger/gor.git
 https://github.com/BurntSushi/cmail.git
 https://github.com/BurntSushi/ty.git
 https://github.com/cdarwin/go-koans.git
+https://github.com/ChimeraCoder/gojson.git
 https://github.com/ciju/gotunnel.git
 https://github.com/cloudfoundry/gorouter.git
 https://github.com/crowdmob/goamz.git
@@ -59,4 +60,3 @@ https://github.com/tumblr/gocircuit.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
 https://github.com/VividCortex/ewma.git
 https://github.com/zond/god.git
-https://github.com/ChimeraCoder/gojson.git
