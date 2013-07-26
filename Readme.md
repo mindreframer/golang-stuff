@@ -204,6 +204,10 @@ Basics:
       Cuts logs in preparation for processing elsewhere.
        428 commits, last change: 2013-06-13 19:04:34, 160 stars, 30 forks
 
+    juju/juju-core:
+
+       10,000+ commits, last change: 2013-07-25 07:21:38, 10 stars, 3 forks
+
     mindreframer/go-thestdlib:
       a copy from darkhelmets repo
        1 commits, last change: , 0 stars, 0 forks
@@ -231,6 +235,10 @@ Basics:
     nathany/go-poodr:
       A Go translation of the example code from Practical Object-Oriented Design in Ruby by Sandi Metz.
        39 commits, last change: 2012-12-07 22:43:12, 21 stars, 3 forks
+
+    nsf/termbox-go:
+      Pure Go termbox implementation
+       66 commits, last change: 2013-07-10 03:38:53, 142 stars, 28 forks
 
     pebbe/zmq2:
       A Go interface to ZeroMQ version 2
