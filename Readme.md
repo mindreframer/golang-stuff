@@ -51,6 +51,7 @@ Companies using Go:
   - [Bit.ly](http://word.bitly.com/post/29550171827/go-go-gadget)
   - [Heroku](http://blog.golang.org/go-at-heroku)
   - [6Wunderkinder](http://www.youtube.com/watch?v=sVpMc0hwqps) - (root access Berlin #1: 6Wunderkinder on GO)
+  - [microco.sm](http://microco.sm)
 
 Intros:
   - https://speakerdeck.com/doitian/a-tour-of-go
