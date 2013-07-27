@@ -28,6 +28,7 @@ https://github.com/frrad/project-euler.git
 https://github.com/garyburd/go-websocket.git
 https://github.com/globocom/gandalf.git
 https://github.com/globocom/tsuru.git
+https://github.com/golang/groupcache.git
 https://github.com/handcraftsman/GeneticGo.git
 https://github.com/inconshreveable/ngrok.git
 https://github.com/insionng/toropress.git
@@ -61,4 +62,3 @@ https://github.com/Unknwon/build-web-application-with-golang_EN.git
 https://github.com/VividCortex/ewma.git
 https://github.com/VividCortex/johnny-deps.git
 https://github.com/zond/god.git
-https://github.com/golang/groupcache.git
