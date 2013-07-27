@@ -45,6 +45,11 @@ Companies using Go:
   - [Juju at Canonical/Ubuntu](https://groups.google.com/forum/#!topic/golang-nuts/jLnMsUbYwrQ/discussion), [presentation](http://www.youtube.com/watch?v=USr0Bvg1ZOo)
   - [Beachfront.iO at Beachfront Media](http://beachfront.io)
   - [CloudFlare](http://blog.cloudflare.com/go-at-cloudflare)
+  - [Soundcloud](http://backstage.soundcloud.com/2012/07/go-at-soundcloud/)
+  - [Mozilla](https://github.com/mozilla-services/heka)
+  - [Disqus](http://blog.disqus.com/post/51155103801/trying-out-this-go-thing)
+  - [Bit.ly](http://word.bitly.com/post/29550171827/go-go-gadget)
+  - [Heroku](http://blog.golang.org/go-at-heroku)
 
 Intros:
   - https://speakerdeck.com/doitian/a-tour-of-go
