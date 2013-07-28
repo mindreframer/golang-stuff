@@ -52,6 +52,7 @@ Companies using Go:
   - [Heroku](http://blog.golang.org/go-at-heroku)
   - [6Wunderkinder](http://www.youtube.com/watch?v=sVpMc0hwqps) - (root access Berlin #1: 6Wunderkinder on GO)
   - [microco.sm](http://microco.sm)
+  - [Repustate](http://blog.repustate.com/migrating-code-from-python-to-golang-what-you-need-to-know/)
 
 Intros:
   - https://speakerdeck.com/doitian/a-tour-of-go
