@@ -56,6 +56,10 @@ Companies using Go:
 
 Intros:
   - https://speakerdeck.com/doitian/a-tour-of-go
+  - http://tour.golang.org/
+
+Documentation:
+  - http://golang.org/doc/
 
 Basics:
   - http://research.swtch.com/godata
