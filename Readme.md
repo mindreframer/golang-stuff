@@ -213,7 +213,7 @@ Basics:
 
     JohnAmican/youski:
       Youtube Radio
-       7 commits, last change: 2013-07-07 12:22:33, 1 stars, 0 forks
+       7 commits, last change: 2013-07-07 11:56:46, 2 stars, 0 forks
 
     jondot/gosigar:
 
@@ -282,6 +282,10 @@ Basics:
     rcrowley/go-metrics:
       Go port of Coda Hale's Metrics library
        89 commits, last change: 2013-07-11 17:33:10, 98 stars, 21 forks
+
+    russross/blackfriday:
+      Blackfriday: a markdown processor for Go
+       133 commits, last change: 2013-07-08 23:03:42, 339 stars, 44 forks
 
     skydb/sky:
       Sky is an open source, behavioral analytics database.
