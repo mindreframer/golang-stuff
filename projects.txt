@@ -16,6 +16,7 @@ https://github.com/cdarwin/go-koans.git
 https://github.com/ChimeraCoder/gojson.git
 https://github.com/ciju/gotunnel.git
 https://github.com/cloudfoundry/gorouter.git
+https://github.com/coreos/etcd.git
 https://github.com/crowdmob/goamz.git
 https://github.com/d2fn/gopack.git
 https://github.com/davecheney/autobench.git
@@ -64,4 +65,3 @@ https://github.com/VividCortex/ewma.git
 https://github.com/VividCortex/go-database-sql-tutorial.git
 https://github.com/VividCortex/johnny-deps.git
 https://github.com/zond/god.git
-https://github.com/coreos/etcd.git
