@@ -1,0 +1,33 @@
+title="Hamster Config"
+
+[author]
+name="Adnaan Badr"
+organization="hamster"
+email="badr.adnaan@gmail.com"
+
+[servers]
+
+	[servers.local]
+	port = 8686
+	host = "http://localhost:8686"
+
+[databases]
+
+	[databases.mongo]
+	username =""
+	password=""
+	name=""
+	host="mongodb://adnaan:pass@localhost:27017/hamster"
+
+[clients]
+	
+	[clients.browser]
+	ip= "1.1.1.1"
+	secret="mysharedsecret"
+
+[logins]
+	
+	[logins.google]
+	id= ""
+	secret=""
+
