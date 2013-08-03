@@ -1,4 +1,5 @@
 https://github.com/abh/geodns.git
+https://github.com/adnaan/hamster.git
 https://github.com/alco/gostart.git
 https://github.com/ant0ine/go-json-rest.git
 https://github.com/ant0ine/go-urlrouter.git
@@ -65,4 +66,3 @@ https://github.com/VividCortex/ewma.git
 https://github.com/VividCortex/go-database-sql-tutorial.git
 https://github.com/VividCortex/johnny-deps.git
 https://github.com/zond/god.git
-https://github.com/adnaan/hamster.git
