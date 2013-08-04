@@ -62,8 +62,8 @@ https://github.com/thomas11/csp.git
 https://github.com/trevex/golem.git
 https://github.com/tumblr/gocircuit.git
 https://github.com/Unknwon/build-web-application-with-golang_EN.git
+https://github.com/vdobler/chart.git
 https://github.com/VividCortex/ewma.git
 https://github.com/VividCortex/go-database-sql-tutorial.git
 https://github.com/VividCortex/johnny-deps.git
 https://github.com/zond/god.git
-https://github.com/vdobler/chart.git
