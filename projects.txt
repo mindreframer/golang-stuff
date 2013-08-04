@@ -67,3 +67,4 @@ https://github.com/VividCortex/ewma.git
 https://github.com/VividCortex/go-database-sql-tutorial.git
 https://github.com/VividCortex/johnny-deps.git
 https://github.com/zond/god.git
+https://github.com/ajstarks/svgo.git
