@@ -85,6 +85,10 @@ Basics:
       A back end as a service based on MongoDB
        41 commits, last change: 2013-07-30 01:41:56, 40 stars, 1 forks
 
+    ajstarks/svgo:
+      Go Language Library for SVG generation
+       264 commits, last change: 2013-06-04 04:40:58, 153 stars, 15 forks
+
     alco/gostart:
       A getting started guide for Go newcomers
        33 commits, last change: 2013-04-01 07:06:56, 98 stars, 7 forks
@@ -229,6 +233,10 @@ Basics:
       Youtube Radio
        7 commits, last change: 2013-07-07 11:56:46, 2 stars, 0 forks
 
+    johnwesonga/wbdata:
+      World bank open data API for Go
+       30 commits, last change: 2013-08-12 12:20:00, 0 stars, 0 forks
+
     jondot/gosigar:
 
        13 commits, last change: , 1 stars, 13 forks
@@ -348,6 +356,10 @@ Basics:
     VividCortex/johnny-deps:
       Barebones package version manager for Go.
        27 commits, last change: 2013-07-26 06:01:26, 46 stars, 5 forks
+
+    youtube/vitess:
+      vitess provides servers and tools which facilitate scaling of MySQL databases for large scale web services.
+       1,164 commits, last change: 2013-08-16 09:51:33, 24 stars, 3 forks
 
     zond/god:
       A Go database
