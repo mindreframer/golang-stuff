@@ -1,5 +1,6 @@
 https://github.com/abh/geodns.git
 https://github.com/adnaan/hamster.git
+https://github.com/ajstarks/svgo.git
 https://github.com/alco/gostart.git
 https://github.com/ant0ine/go-json-rest.git
 https://github.com/ant0ine/go-urlrouter.git
@@ -36,6 +37,7 @@ https://github.com/inconshreveable/ngrok.git
 https://github.com/insionng/toropress.git
 https://github.com/jingweno/gh.git
 https://github.com/JohnAmican/youski.git
+https://github.com/johnwesonga/wbdata.git
 https://github.com/jondot/gosigar.git
 https://github.com/jondot/groundcontrol.git
 https://github.com/jordansissel/lumberjack.git
@@ -66,7 +68,5 @@ https://github.com/vdobler/chart.git
 https://github.com/VividCortex/ewma.git
 https://github.com/VividCortex/go-database-sql-tutorial.git
 https://github.com/VividCortex/johnny-deps.git
-https://github.com/zond/god.git
-https://github.com/ajstarks/svgo.git
 https://github.com/youtube/vitess.git
-https://github.com/johnwesonga/wbdata.git
+https://github.com/zond/god.git
