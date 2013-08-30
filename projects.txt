@@ -27,6 +27,7 @@ https://github.com/dotcloud/docker.git
 https://github.com/eaigner/hood.git
 https://github.com/eblume/proto.git
 https://github.com/emicklei/hopwatch.git
+https://github.com/emilsjolander/goson.git
 https://github.com/frrad/project-euler.git
 https://github.com/garyburd/go-websocket.git
 https://github.com/globocom/gandalf.git
@@ -70,4 +71,3 @@ https://github.com/VividCortex/go-database-sql-tutorial.git
 https://github.com/VividCortex/johnny-deps.git
 https://github.com/youtube/vitess.git
 https://github.com/zond/god.git
-https://github.com/emilsjolander/goson.git
