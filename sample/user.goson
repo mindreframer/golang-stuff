@@ -1,0 +1,6 @@
+user: {
+	name: User.Name
+	repos: Repo in User.Repos {
+		include(repo, Repo)
+	}
+}
