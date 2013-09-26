@@ -6,6 +6,7 @@ Libraries:
 Tools:
   - Go Reflection: http://jimmyfrasche.github.io/go-reflection-codex/
   - Go Version Manager:
+    - [Goem](https://github.com/adeven/goem) [Ext. Manager](http://big-elephants.com/2013-09/goem-the-missing-go-extension-manager/)
     - https://github.com/moovweb/gvm
     - https://github.com/mattn/gom
   - Go cross compilation support: https://github.com/davecheney/golang-crosscompile
