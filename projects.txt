@@ -43,6 +43,7 @@ https://github.com/jondot/gosigar.git
 https://github.com/jondot/groundcontrol.git
 https://github.com/jordansissel/lumberjack.git
 https://github.com/juju/juju-core.git
+https://github.com/michaeldv/mop.git
 https://github.com/mindreframer/go-thestdlib.git
 https://github.com/mindreframer/go-tour.git
 https://github.com/mitchellh/packer.git
@@ -71,4 +72,3 @@ https://github.com/VividCortex/go-database-sql-tutorial.git
 https://github.com/VividCortex/johnny-deps.git
 https://github.com/youtube/vitess.git
 https://github.com/zond/god.git
-https://github.com/michaeldv/mop.git
