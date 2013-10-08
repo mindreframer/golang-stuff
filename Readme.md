@@ -8,7 +8,7 @@ Tools:
   - Go Version Manager:
     - [Goem](https://github.com/adeven/goem) [Ext. Manager](http://big-elephants.com/2013-09/goem-the-missing-go-extension-manager/)
     - https://github.com/moovweb/gvm
-    - https://github.com/mattn/gom
+    - https://github.com/mattn/gom, [A journey in golang package manager, 2013.09](http://dev.af83.com/2013/09/14/a-journey-in-golang-package-manager.html)
   - Go cross compilation support: https://github.com/davecheney/golang-crosscompile
   - [Go Remote Packages](https://docs.google.com/document/d/1_IJTRD6dDQvyCfyim4KJexq8ZrKUPvUd3GMSA8cw8A4/edit?pli=1#)
 
