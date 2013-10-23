@@ -16,6 +16,7 @@ end
 def name(git_url)
   path = git_url.split("//").last
   path = path.gsub(/\.git$/, "")
+  "src/#{path}"
 end
 
 def add_remote(git_url)
