@@ -2,7 +2,7 @@
 
 
 ### Why Golang
-  - [Clodflare - What we've been doing with Go, 2013.11.11](http://blog.cloudflare.com/what-weve-been-doing-with-go)
+  - [Cloudflare - What we've been doing with Go, 2013.11.11](http://blog.cloudflare.com/what-weve-been-doing-with-go)
   - [Docker Inc - Docker and Go: why did we decide to write Docker in Go?, 2013.11](http://www.slideshare.net/jpetazzo/docker-and-go-why-did-we-decide-to-write-docker-in-go)
 
 Libraries:
