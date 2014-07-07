@@ -7,6 +7,7 @@
 
 Libraries:
   - https://github.com/languages/Go/created
+  - [A curated list of awesome Go frameworks, libraries and software. Inspired by awesome-python.](https://github.com/avelino/awesome-go)
 
 Tools:
   - Go Reflection: http://jimmyfrasche.github.io/go-reflection-codex/
