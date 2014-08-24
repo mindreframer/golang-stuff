@@ -167,10 +167,10 @@ cols, err := rows.Columns()				// Get the column names; remember to check err
 vals := make([]sql.RawBytes, len(cols)) // Allocate enough values
 ints := make([]interface{}, len(cols)) 	// Make a slice of []interface{}
 for i := range ints {
-	vals[i] = &ints[i] // Copy references into the slice
+	ints[i] = &vals[i] // Copy references into the slice
 }
 for rows.Next() {
-	err := rows.Scan(vals...)
+	err := rows.Scan(ints...)
 	// Now you can check each element of vals for nil-ness,
 	// and you can use type introspection and type assertions
 	// to fetch the column into a typed variable.
