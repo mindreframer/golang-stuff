@@ -71,6 +71,7 @@ Companies using Go:
   - [Google](http://matt-welsh.blogspot.com.au/2013/08/rewriting-large-production-system-in-go.html)
 
 Presentations:
+  - [Go When in Go, do as Gophers do, 2014.11](http://talks.golang.org/2014/readability.slide)
   - [Go for Pythonistas, 2013.12](http://talks.golang.org/2013/go4python.slide#1)
   - [Twelve Go Best Practices, 2013.07](http://talks.golang.org/2013/bestpractices.slide#1)
   - [0xa things I love about Go, 2013.07](http://proppy-about-go.appspot.com/#1)
