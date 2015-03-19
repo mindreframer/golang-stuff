@@ -79,6 +79,7 @@ Presentations:
 Intros:
   - https://speakerdeck.com/doitian/a-tour-of-go
   - http://tour.golang.org/
+  - http://www.golangbootcamp.com/book
   - http://www.golang-book.com/
 
 Documentation:
