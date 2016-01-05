@@ -50,7 +50,8 @@ Articles:
   - [Zero-downtime restarts in Go](https://github.com/rcrowley/goagain)
 
 
-http://www.reddit.com/r/golang
+Reddit: http://www.reddit.com/r/golang
+Github: https://github.com/trending?l=go&since=monthly
 
 Companies using Go:
   - [Links on gowiki - GoUsers](https://code.google.com/p/go-wiki/wiki/GoUsers)
