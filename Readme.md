@@ -6,7 +6,6 @@
   - [Docker Inc - Docker and Go: why did we decide to write Docker in Go?, 2013.11](http://www.slideshare.net/jpetazzo/docker-and-go-why-did-we-decide-to-write-docker-in-go)
 
 Libraries:
-  - https://github.com/languages/Go/created
   - [A curated list of awesome Go frameworks, libraries and software. Inspired by awesome-python.](https://github.com/avelino/awesome-go)
 
 Tools:
